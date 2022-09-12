@@ -1,2 +1,4 @@
+cache
+artifacts
 node_modules
 *.log
