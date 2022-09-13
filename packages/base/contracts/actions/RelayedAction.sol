@@ -32,10 +32,10 @@ abstract contract RelayedAction is BaseAction {
     uint256 internal _initialGas;
     uint256 public gasPriceLimit;
     uint256 public totalCostLimit;
-    address public totalCostToken;
+    address public payingGasToken;
     mapping (address => bool) public isRelayer;
 
-    event LimitsSet(uint256 gasPriceLimit, uint256 totalCostLimit, address totalCostToken);
+    event LimitsSet(uint256 gasPriceLimit, uint256 totalCostLimit, address payingGasToken);
     event RelayerSet(address indexed relayer, bool allowed);
 
     modifier redeemGas() {
@@ -49,30 +49,35 @@ abstract contract RelayedAction is BaseAction {
         emit RelayerSet(relayer, allowed);
     }
 
-    function setLimits(uint256 _gasPriceLimit, uint256 _totalCostLimit, address _totalCostToken) external auth {
+    function setLimits(uint256 _gasPriceLimit, uint256 _totalCostLimit, address _payingGasToken) external auth {
+        require(_payingGasToken != address(0), 'PAYING_GAS_TOKEN_ZERO');
         gasPriceLimit = _gasPriceLimit;
         totalCostLimit = _totalCostLimit;
-        totalCostToken = _totalCostToken;
-        emit LimitsSet(_gasPriceLimit, _totalCostLimit, _totalCostToken);
+        payingGasToken = _payingGasToken;
+        emit LimitsSet(_gasPriceLimit, _totalCostLimit, _payingGasToken);
     }
 
     function _beforeCall() internal {
         _initialGas = gasleft();
+        require(isRelayer[msg.sender], 'SENDER_NOT_RELAYER');
         uint256 limit = gasPriceLimit;
-        require(limit == 0 || limit <= tx.gasprice, 'GAS_PRICE_ABOVE_LIMIT');
+        require(limit == 0 || tx.gasprice <= limit, 'GAS_PRICE_ABOVE_LIMIT');
     }
 
     function _afterCall() internal {
-        address payingToken = totalCostToken;
         uint256 totalGas = _initialGas - gasleft();
         uint256 totalCostEth = (totalGas + RelayedAction(this).BASE_GAS()) * tx.gasprice;
-        uint256 totalCostAmount = totalCostEth.mulDown(_getTotalCostTokenPrice(payingToken));
-        require(totalCostAmount <= totalCostLimit, 'TX_COST_ABOVE_LIMIT');
+
+        uint256 limit = totalCostLimit;
+        address payingToken = payingGasToken;
+        uint256 totalCostAmount = totalCostEth.mulDown(_getPayingGasTokenPrice(payingToken));
+        require(limit == 0 || totalCostAmount <= limit, 'TX_COST_ABOVE_LIMIT');
+
         wallet.withdraw(payingToken, totalCostAmount, wallet.feeCollector(), REDEEM_GAS_NOTE);
         delete _initialGas;
     }
 
-    function _getTotalCostTokenPrice(address payingToken) private view returns (uint256) {
+    function _getPayingGasTokenPrice(address payingToken) private view returns (uint256) {
         address wrappedNativeToken = wallet.wrappedNativeToken();
         return
             payingToken == Denominations.NATIVE_TOKEN || payingToken == wrappedNativeToken

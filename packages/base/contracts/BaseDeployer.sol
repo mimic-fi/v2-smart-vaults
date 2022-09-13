@@ -15,6 +15,7 @@
 pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
+import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-price-oracle/contracts/PriceOracle.sol';
@@ -28,7 +29,14 @@ contract BaseDeployer {
 
     address internal constant NO_STRATEGY = address(0);
     address internal constant NO_PRICE_ORACLE = address(0);
+
     bytes32 private constant WALLET_NAMESPACE = keccak256('WALLET');
+    bytes32 private constant SMART_VAULT_NAMESPACE = keccak256('SMART_VAULT');
+
+    struct SmartVaultParams {
+        address impl;
+        address admin;
+    }
 
     struct WalletParams {
         address impl;
@@ -53,25 +61,44 @@ contract BaseDeployer {
         address[] relayers;
         uint256 gasPriceLimit;
         uint256 totalCostLimit;
-        address totalCostToken;
+        address payingGasToken;
     }
 
-    function _createWallet(IRegistry registry, WalletParams memory params) internal returns (Wallet wallet) {
-        return _createWallet(registry, params, NO_STRATEGY, NO_PRICE_ORACLE);
+    function _createSmartVault(
+        IRegistry registry,
+        SmartVaultParams memory params,
+        address wallet,
+        address[] memory actions,
+        bool transferPermissions
+    ) internal returns (SmartVault smartVault) {
+        // Clone requested smart vault implementation and initialize
+        require(registry.isRegistered(SMART_VAULT_NAMESPACE, params.impl), 'SMART_VAULT_IMPL_NOT_REGISTERED');
+        bytes memory initData = abi.encodeWithSelector(SmartVault.initialize.selector, address(this), wallet);
+        smartVault = SmartVault(registry.clone(params.impl, initData));
+
+        // Set actions
+        smartVault.authorize(address(this), smartVault.setAction.selector);
+        for (uint256 i = 0; i < actions.length; i = i.uncheckedAdd(1)) smartVault.setAction(actions[i], true);
+        smartVault.unauthorize(address(this), smartVault.setAction.selector);
+
+        // Authorize admin
+        smartVault.authorize(params.admin, smartVault.setAction.selector);
+        if (transferPermissions) _transferAdminPermissions(smartVault, params.admin);
     }
 
-    function _createWallet(IRegistry registry, WalletParams memory params, address strategy, address priceOracle)
-        internal
-        returns (Wallet wallet)
-    {
+    function _createWallet(
+        IRegistry registry,
+        WalletParams memory params,
+        address strategy,
+        address priceOracle,
+        bool transferPermissions
+    ) internal returns (Wallet wallet) {
         // Clone requested wallet implementation and initialize
         require(registry.isRegistered(WALLET_NAMESPACE, params.impl), 'WALLET_IMPL_NOT_REGISTERED');
         bytes memory initializeData = abi.encodeWithSelector(Wallet.initialize.selector, address(this));
         wallet = Wallet(payable(registry.clone(params.impl, initializeData)));
 
         // Authorize admin to perform any action except setting the fee collector, see below
-        wallet.authorize(params.admin, wallet.authorize.selector);
-        wallet.authorize(params.admin, wallet.unauthorize.selector);
         wallet.authorize(params.admin, wallet.collect.selector);
         wallet.authorize(params.admin, wallet.withdraw.selector);
         wallet.authorize(params.admin, wallet.wrap.selector);
@@ -80,6 +107,7 @@ contract BaseDeployer {
         wallet.authorize(params.admin, wallet.join.selector);
         wallet.authorize(params.admin, wallet.exit.selector);
         wallet.authorize(params.admin, wallet.swap.selector);
+        wallet.authorize(params.admin, wallet.setStrategy.selector);
         wallet.authorize(params.admin, wallet.setPriceOracle.selector);
         wallet.authorize(params.admin, wallet.setSwapConnector.selector);
         wallet.authorize(params.admin, wallet.setWithdrawFee.selector);
@@ -140,9 +168,11 @@ contract BaseDeployer {
             wallet.setPerformanceFee(params.performanceFee);
             wallet.unauthorize(address(this), wallet.setPerformanceFee.selector);
         }
+
+        if (transferPermissions) _transferAdminPermissions(wallet, params.admin);
     }
 
-    function _createPriceOracle(IRegistry registry, PriceOracleParams memory params)
+    function _createPriceOracle(IRegistry registry, PriceOracleParams memory params, bool transferPermissions)
         internal
         returns (PriceOracle priceOracle)
     {
@@ -150,20 +180,14 @@ contract BaseDeployer {
         bytes memory initializeData = abi.encodeWithSelector(PriceOracle.initialize.selector, address(this));
         priceOracle = PriceOracle(registry.clone(params.impl, initializeData));
 
-        // Authorize admin
-        priceOracle.authorize(params.admin, priceOracle.setFeeds.selector);
-        priceOracle.authorize(params.admin, priceOracle.authorize.selector);
-        priceOracle.authorize(params.admin, priceOracle.unauthorize.selector);
-
         // Set feeds – it does not fail if there are no feeds
         priceOracle.authorize(address(this), priceOracle.setFeeds.selector);
         priceOracle.setFeeds(params.bases, params.quotes, params.feeds);
         priceOracle.unauthorize(address(this), priceOracle.setFeeds.selector);
 
-        // Unauthorize deployer
-        priceOracle.unauthorize(address(this), priceOracle.setFeeds.selector);
-        priceOracle.unauthorize(address(this), priceOracle.authorize.selector);
-        priceOracle.unauthorize(address(this), priceOracle.unauthorize.selector);
+        // Authorize admin
+        priceOracle.authorize(params.admin, priceOracle.setFeeds.selector);
+        if (transferPermissions) _transferAdminPermissions(priceOracle, params.admin);
     }
 
     function _setupActionExecutors(RelayedAction action, address[] memory executors, bytes4 callSelector) internal {
@@ -186,7 +210,7 @@ contract BaseDeployer {
 
         // Set relayed transactions limits
         action.authorize(address(this), action.setLimits.selector);
-        action.setLimits(params.gasPriceLimit, params.totalCostLimit, params.totalCostToken);
+        action.setLimits(params.gasPriceLimit, params.totalCostLimit, params.payingGasToken);
         action.unauthorize(address(this), action.setLimits.selector);
     }
 
@@ -197,6 +221,11 @@ contract BaseDeployer {
         action.unauthorize(address(this), action.setRecipient.selector);
     }
 
+    function _transferAdminPermissions(Authorizer target, address to) internal {
+        _grantAdminPermissions(target, to);
+        _revokeAdminPermissions(target, address(this));
+    }
+
     function _grantAdminPermissions(Authorizer target, address to) internal {
         target.authorize(to, target.authorize.selector);
         target.authorize(to, target.unauthorize.selector);
@@ -205,5 +234,10 @@ contract BaseDeployer {
     function _revokeAdminPermissions(Authorizer target, address from) internal {
         target.unauthorize(from, target.authorize.selector);
         target.unauthorize(from, target.unauthorize.selector);
+    }
+
+    function _actions(IAction action) internal pure returns (address[] memory actions) {
+        actions = new address[](1);
+        actions[0] = address(action);
     }
 }

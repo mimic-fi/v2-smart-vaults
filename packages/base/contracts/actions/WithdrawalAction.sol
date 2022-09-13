@@ -24,6 +24,7 @@ abstract contract WithdrawalAction is BaseAction {
     event RecipientSet(address indexed recipient);
 
     function setRecipient(address newRecipient) external auth {
+        require(newRecipient != address(0), 'RECIPIENT_ZERO');
         recipient = newRecipient;
         emit RecipientSet(newRecipient);
     }

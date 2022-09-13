@@ -527,10 +527,23 @@
     decimal.js "^10.3.1"
     ethers "^5.0.8"
 
-"@mimic-fi/v2-helpers@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.3.tgz#fd0a953942d8bb096da19862fefd83046aee857f"
-  integrity sha512-bIg/YS0U2xnZXnH/z3ztyKrTzJzPgILe3DSWPmmINjF9jXr1Dbi4UZ1tF3+DiG3eD4eW5pqbSyUcKNguiG0ZHQ==
+"@mimic-fi/v2-helpers@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.4.tgz#2c4e97da2b32bbd7d51f6b4dabf9b2b44462aff6"
+  integrity sha512-XTdUANpp/Dw2irgNeaeCMEVZLCtqfFTdesedKgHdWRNsvWVWcc1bwSu3gFwKXar0xKcF9vO3sUydfcjOivrZlg==
+  dependencies:
+    "@nomiclabs/hardhat-ethers" "^2.0.2"
+    "@nomiclabs/hardhat-waffle" "^2.0.1"
+    "@types/chai" "^4.2.18"
+    "@types/mocha" "^8.2.2"
+    chai "^4.2.0"
+    decimal.js "^10.3.1"
+    ethers "^5.0.8"
+
+"@mimic-fi/v2-helpers@0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.5.tgz#8735340af4d359b7cad45558a886c1dd2c5c2e5d"
+  integrity sha512-OfUa0gM4bPtZDJ1+T0qBhxeIb3uAVgIJl/Yf+DAE0TTpmXHk2lfYshayc8xs+atTJfcajBOiQk5Z9i14XX6JjA==
   dependencies:
     "@nomiclabs/hardhat-ethers" "^2.0.2"
     "@nomiclabs/hardhat-waffle" "^2.0.1"
@@ -557,6 +570,20 @@
   dependencies:
     "@mimic-fi/v2-helpers" "0.0.1"
 
+"@mimic-fi/v2-registry@0.0.2":
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-registry/-/v2-registry-0.0.2.tgz#03e2f8324ef494385c606b1659f974d1f6a8b489"
+  integrity sha512-EV25lfoNEC+hmqmPSBjPNGtEeNE2q4tgF5utNHGedLcvYHxZZfj0gI0snPziGAZANA5GL1CCIMEU/6lTyyX8sA==
+  dependencies:
+    "@mimic-fi/v2-helpers" "0.0.2"
+
+"@mimic-fi/v2-smart-vault@0.0.1":
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-smart-vault/-/v2-smart-vault-0.0.1.tgz#4299d1b9c5c62d63f00d0ef590589c505fba4feb"
+  integrity sha512-m8Wsm+xMNnFnNJYHiYvHPAOI78QrtTYj/ggz0XuFK8voFLZgJb9Fy8F6eQaIXwjIWEIr7j4HxcAeJlux75xjbQ==
+  dependencies:
+    "@mimic-fi/v2-registry" "0.0.2"
+
 "@mimic-fi/v2-strategies@0.0.1":
   version "0.0.1"
   resolved "https://registry.yarnpkg.com/@mimic-fi/v2-strategies/-/v2-strategies-0.0.1.tgz#8dc93258df4daaca3d146712415494b2b9e23568"
@@ -577,12 +604,12 @@
     "@uniswap/v3-core" "^1.0.1"
     "@uniswap/v3-periphery" "^1.4.1"
 
-"@mimic-fi/v2-wallet@0.0.2":
-  version "0.0.2"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-wallet/-/v2-wallet-0.0.2.tgz#2f7c46a8fc4fc6f37bbbfd3a27d3bb79b5d11b7b"
-  integrity sha512-+IfJpKThEhxWp41wu+PX8/SjOwXSahvAF3Au2dNQGAH8U67wNaY2tLO0/Yi3W7T+grlOK1KYb/24UxF9Qqvvcg==
+"@mimic-fi/v2-wallet@0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-wallet/-/v2-wallet-0.0.3.tgz#f7838f83f672fad04ba875240cd3d5d7ec1ffee9"
+  integrity sha512-HD/E+O9bvjsCDvGm0K50C2mg7ymiMZu9zZaTLGulH4WJHiZGdqrHOt/LoRpKIhKM592eZokdK5qY4uB4T67FpQ==
   dependencies:
-    "@mimic-fi/v2-helpers" "0.0.2"
+    "@mimic-fi/v2-helpers" "0.0.4"
     "@mimic-fi/v2-strategies" "0.0.1"
     "@openzeppelin/contracts" "4.7.0"
 
