@@ -34,10 +34,8 @@ contract Wrapper is RelayedAction, WithdrawalAction {
         _withdraw(wallet.wrappedNativeToken());
     }
 
-    function _relayedCall() internal {
-        _beforeCall();
+    function _relayedCall() internal redeemGas {
         _call();
-        _afterCall();
     }
 
     function _call() internal {

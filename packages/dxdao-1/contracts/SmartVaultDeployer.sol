@@ -14,10 +14,12 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
+import '@mimic-fi/v2-wallet/contracts/IWallet.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/BaseDeployer.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 
 import './actions/Wrapper.sol';
 
@@ -31,29 +33,29 @@ contract SmartVaultDeployer is BaseDeployer {
         WalletParams walletParams;
         PriceOracleParams priceOracleParams;
         RelayedActionParams relayedActionParams;
+        SmartVaultParams smartVaultParams;
     }
 
     function deploy(Params memory params) external {
-        PriceOracle priceOracle = _createPriceOracle(params.registry, params.priceOracleParams);
-        Wallet wallet = _createWallet(params.registry, params.walletParams, NO_STRATEGY, address(priceOracle));
-        _setupAction(wallet, params);
-        _revokeAdminPermissions(wallet, address(this));
+        PriceOracle priceOracle = _createPriceOracle(params.registry, params.priceOracleParams, true);
+        Wallet wallet = _createWallet(params.registry, params.walletParams, NO_STRATEGY, address(priceOracle), false);
+        IAction action = _setupAction(wallet, params);
+        _transferAdminPermissions(wallet, params.walletParams.admin);
+        _createSmartVault(params.registry, params.smartVaultParams, address(wallet), _actions(action), true);
     }
 
-    function _setupAction(Wallet wallet, Params memory params) internal {
+    function _setupAction(Wallet wallet, Params memory params) internal returns (IAction) {
         // Create and setup action
         Wrapper wrapper = new Wrapper(address(this), wallet);
         address[] memory executors = Arrays.from(params.owner, params.managers, params.relayedActionParams.relayers);
         _setupActionExecutors(wrapper, executors, wrapper.call.selector);
         _setupRelayedAction(wrapper, params.owner, params.relayedActionParams);
         _setupWithdrawalAction(wrapper, params.owner, params.owner);
-
-        // Transfer admin permissions from deployer to requested owner
-        _grantAdminPermissions(wrapper, params.owner);
-        _revokeAdminPermissions(wrapper, address(this));
+        _transferAdminPermissions(wrapper, params.owner);
 
         // Authorize action to wrap and withdraw from wallet
         wallet.authorize(address(wrapper), wallet.wrap.selector);
         wallet.authorize(address(wrapper), wallet.withdraw.selector);
+        return wrapper;
     }
 }
