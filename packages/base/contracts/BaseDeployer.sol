@@ -73,8 +73,13 @@ contract BaseDeployer {
     ) internal returns (SmartVault smartVault) {
         // Clone requested smart vault implementation and initialize
         require(registry.isRegistered(SMART_VAULT_NAMESPACE, params.impl), 'SMART_VAULT_IMPL_NOT_REGISTERED');
-        bytes memory initData = abi.encodeWithSelector(SmartVault.initialize.selector, address(this), wallet);
-        smartVault = SmartVault(registry.clone(params.impl, initData));
+        bytes memory initializeData = abi.encodeWithSelector(SmartVault.initialize.selector, address(this));
+        smartVault = SmartVault(registry.clone(params.impl, initializeData));
+
+        // Set wallet
+        smartVault.authorize(address(this), smartVault.setWallet.selector);
+        smartVault.setWallet(wallet);
+        smartVault.unauthorize(address(this), smartVault.setWallet.selector);
 
         // Set actions
         smartVault.authorize(address(this), smartVault.setAction.selector);
@@ -82,6 +87,7 @@ contract BaseDeployer {
         smartVault.unauthorize(address(this), smartVault.setAction.selector);
 
         // Authorize admin
+        smartVault.authorize(params.admin, smartVault.setWallet.selector);
         smartVault.authorize(params.admin, smartVault.setAction.selector);
         if (transferPermissions) _transferAdminPermissions(smartVault, params.admin);
     }

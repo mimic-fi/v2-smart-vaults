@@ -83,7 +83,7 @@ describe('SmartVault', () => {
   describe('smart vault', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(smartVault, [
-        { name: 'owner', account: owner, roles: ['authorize', 'unauthorize', 'setAction'] },
+        { name: 'owner', account: owner, roles: ['authorize', 'unauthorize', 'setWallet', 'setAction'] },
         { name: 'action', account: action, roles: [] },
         { name: 'mimic', account: mimic, roles: [] },
         { name: 'other', account: other, roles: [] },
