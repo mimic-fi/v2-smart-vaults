@@ -5,14 +5,15 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('SmartVault', () => {
-  let smartVault: Contract, wallet: Contract, action: Contract
+  let smartVault: Contract, wallet: Contract, erc20Claimer: Contract, nativeClaimer: Contract
   let registry: Contract, wrappedNativeToken: Contract
   let priceOracleImpl: Contract, walletImpl: Contract, smartVaultImpl: Contract, swapConnector: Contract
   let other: SignerWithAddress,
     mimic: SignerWithAddress,
     owner: SignerWithAddress,
     managers: SignerWithAddress[],
-    relayers: SignerWithAddress[]
+    relayers: SignerWithAddress[],
+    feeClaimer: SignerWithAddress
 
   before('set up signers', async () => {
     other = await getSigner(0)
@@ -20,6 +21,7 @@ describe('SmartVault', () => {
     owner = await getSigner(2)
     managers = await getSigners(3, 3)
     relayers = await getSigners(2, 6)
+    feeClaimer = await getSigner(7)
   })
 
   before('deploy registry and dependencies', async () => {
@@ -51,7 +53,6 @@ describe('SmartVault', () => {
       owner: owner.address,
       managers: managers.map((m) => m.address),
       registry: registry.address,
-      maxSlippage: fp(0.01),
       walletParams: {
         impl: walletImpl.address,
         admin: owner.address,
@@ -68,6 +69,12 @@ describe('SmartVault', () => {
         bases: [],
         quotes: [],
         feeds: [],
+      },
+      feeClaimerParams: {
+        swapSigner: owner.address,
+        feeClaimer: feeClaimer.address,
+        thresholdToken: wrappedNativeToken.address,
+        thresholdAmount: fp(1.5),
       },
       relayedActionParams: {
         relayers: relayers.map((m) => m.address),
@@ -86,15 +93,17 @@ describe('SmartVault', () => {
     wallet = await instanceAt('Wallet', await smartVault.wallet())
 
     const actions = await getActions(tx, smartVault)
-    expect(actions.length).to.be.equal(1)
-    action = await instanceAt('Swapper', actions[0])
+    expect(actions.length).to.be.equal(2)
+    erc20Claimer = await instanceAt('ERC20Claimer', actions[0])
+    nativeClaimer = await instanceAt('NativeClaimer', actions[1])
   })
 
   describe('smart vault', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(smartVault, [
         { name: 'owner', account: owner, roles: ['authorize', 'unauthorize', 'setWallet', 'setAction'] },
-        { name: 'action', account: action, roles: [] },
+        { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
+        { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
         { name: 'mimic', account: mimic, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
@@ -102,8 +111,9 @@ describe('SmartVault', () => {
       ])
     })
 
-    it('whitelists the action', async () => {
-      expect(await smartVault.isActionWhitelisted(action.address)).to.be.true
+    it('whitelists the actions', async () => {
+      expect(await smartVault.isActionWhitelisted(erc20Claimer.address)).to.be.true
+      expect(await smartVault.isActionWhitelisted(nativeClaimer.address)).to.be.true
     })
   })
 
@@ -133,7 +143,8 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic, roles: ['setFeeCollector'] },
-        { name: 'action', account: action, roles: ['collect', 'swap', 'unwrap', 'withdraw'] },
+        { name: 'erc20Claimer', account: erc20Claimer, roles: ['call', 'swap', 'withdraw'] },
+        { name: 'nativeClaimer', account: nativeClaimer, roles: ['call', 'wrap', 'withdraw'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },
@@ -167,7 +178,8 @@ describe('SmartVault', () => {
       await assertPermissions(priceOracle, [
         { name: 'owner', account: owner, roles: ['authorize', 'unauthorize', 'setFeeds'] },
         { name: 'mimic', account: mimic, roles: [] },
-        { name: 'action', account: action, roles: [] },
+        { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
+        { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },
@@ -175,41 +187,96 @@ describe('SmartVault', () => {
     })
   })
 
-  describe('action', () => {
+  describe('erc20 claimer', () => {
     it('has set its permissions correctly', async () => {
-      await assertPermissions(action, [
+      await assertPermissions(erc20Claimer, [
         {
           name: 'owner',
           account: owner,
-          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setRecipient', 'setMaxSlippage', 'call'],
+          roles: [
+            'authorize',
+            'unauthorize',
+            'setLimits',
+            'setRelayer',
+            'setSwapSigner',
+            'setFeeClaimer',
+            'setThreshold',
+            'call',
+          ],
         },
         { name: 'mimic', account: mimic, roles: [] },
-        { name: 'action', account: action, roles: [] },
+        { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
+        { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
       ])
     })
 
-    it('sets the owner as the recipient', async () => {
-      expect(await action.recipient()).to.be.equal(owner.address)
+    it('sets the expected fee claimer params', async () => {
+      expect(await erc20Claimer.swapSigner()).to.be.equal(owner.address)
+      expect(await erc20Claimer.feeClaimer()).to.be.equal(feeClaimer.address)
+      expect(await erc20Claimer.thresholdToken()).to.be.equal(wrappedNativeToken.address)
+      expect(await erc20Claimer.thresholdAmount()).to.be.equal(fp(1.5))
     })
 
     it('sets the expected gas limits', async () => {
-      expect(await action.gasPriceLimit()).to.be.equal(0)
-      expect(await action.totalCostLimit()).to.be.equal(fp(100))
-      expect(await action.payingGasToken()).to.be.equal(wrappedNativeToken.address)
+      expect(await erc20Claimer.gasPriceLimit()).to.be.equal(0)
+      expect(await erc20Claimer.totalCostLimit()).to.be.equal(fp(100))
+      expect(await erc20Claimer.payingGasToken()).to.be.equal(wrappedNativeToken.address)
     })
 
     it('whitelists the requested relayers', async () => {
       for (const relayer of relayers) {
-        expect(await action.isRelayer(relayer.address)).to.be.true
+        expect(await erc20Claimer.isRelayer(relayer.address)).to.be.true
       }
     })
 
     it('does not whitelist managers as relayers', async () => {
       for (const manager of managers) {
-        expect(await action.isRelayer(manager.address)).to.be.false
+        expect(await erc20Claimer.isRelayer(manager.address)).to.be.false
+      }
+    })
+  })
+
+  describe('native claimer', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(nativeClaimer, [
+        {
+          name: 'owner',
+          account: owner,
+          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setFeeClaimer', 'setThreshold', 'call'],
+        },
+        { name: 'mimic', account: mimic, roles: [] },
+        { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
+        { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
+        { name: 'other', account: other, roles: [] },
+        { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
+      ])
+    })
+
+    it('sets the expected gas limits', async () => {
+      expect(await nativeClaimer.gasPriceLimit()).to.be.equal(0)
+      expect(await nativeClaimer.totalCostLimit()).to.be.equal(fp(100))
+      expect(await nativeClaimer.payingGasToken()).to.be.equal(wrappedNativeToken.address)
+    })
+
+    it('sets the expected fee claimer params', async () => {
+      expect(await nativeClaimer.feeClaimer()).to.be.equal(feeClaimer.address)
+      expect(await nativeClaimer.thresholdToken()).to.be.equal(wrappedNativeToken.address)
+      expect(await nativeClaimer.thresholdAmount()).to.be.equal(fp(1.5))
+    })
+
+    it('whitelists the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await nativeClaimer.isRelayer(relayer.address)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await nativeClaimer.isRelayer(manager.address)).to.be.false
       }
     })
   })

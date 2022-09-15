@@ -246,4 +246,10 @@ contract BaseDeployer {
         actions = new address[](1);
         actions[0] = address(action);
     }
+
+    function _actions(IAction action1, IAction action2) internal pure returns (address[] memory actions) {
+        actions = new address[](2);
+        actions[0] = address(action1);
+        actions[1] = address(action2);
+    }
 }
