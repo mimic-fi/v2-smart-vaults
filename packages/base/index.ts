@@ -1,2 +1,3 @@
-export * from './src/assertions'
+export * from './src/actions'
+export * from './src/permissions'
 export * from './src/types'

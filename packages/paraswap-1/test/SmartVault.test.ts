@@ -1,5 +1,5 @@
 import { assertIndirectEvent, deploy, fp, getSigner, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
-import { assertPermissions } from '@mimic-fi/v2-smart-vaults-base'
+import { assertPermissions, getActions } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -83,8 +83,9 @@ describe('SmartVault', () => {
     smartVault = await instanceAt('SmartVault', args.instance)
     wallet = await instanceAt('Wallet', await smartVault.wallet())
 
-    const event = await assertIndirectEvent(tx, smartVault.interface, 'ActionSet')
-    action = await instanceAt('Swapper', event.args.action)
+    const actions = await getActions(tx, smartVault)
+    expect(actions.length).to.be.equal(1)
+    action = await instanceAt('Swapper', actions[0])
   })
 
   describe('smart vault', () => {
@@ -186,6 +187,16 @@ describe('SmartVault', () => {
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
       ])
+    })
+
+    it('sets the owner as the recipient', async () => {
+      expect(await action.recipient()).to.be.equal(owner.address)
+    })
+
+    it('sets the expected gas limits', async () => {
+      expect(await action.gasPriceLimit()).to.be.equal(0)
+      expect(await action.totalCostLimit()).to.be.equal(fp(100))
+      expect(await action.payingGasToken()).to.be.equal(wrappedNativeToken.address)
     })
 
     it('whitelists the requested relayers', async () => {
