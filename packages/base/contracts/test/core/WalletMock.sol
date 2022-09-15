@@ -2,11 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-registry/contracts/implementations/IImplementation.sol';
-
-contract WalletMock is IImplementation {
-    bytes32 public constant override NAMESPACE = keccak256('PRICE_ORACLE');
-
+contract WalletMock {
     address public priceOracle;
     address public feeCollector;
     address public wrappedNativeToken;

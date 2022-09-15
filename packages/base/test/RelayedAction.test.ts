@@ -22,7 +22,7 @@ describe('RelayedAction', () => {
   })
 
   beforeEach('deploy action', async () => {
-    priceOracle = await deploy('PriceOracleMock')
+    priceOracle = await deploy('PriceOracleMock', [])
     wrappedNativeToken = await deploy('WrappedNativeTokenMock')
     wallet = await deploy('WalletMock', [priceOracle.address, feeCollector.address, wrappedNativeToken.address])
     action = await deploy('RelayedActionMock', [admin.address, wallet.address])
