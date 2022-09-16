@@ -21,6 +21,7 @@ import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/BaseDeployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 
+import './actions/Withdrawer.sol';
 import './actions/ERC20Claimer.sol';
 import './actions/NativeClaimer.sol';
 
@@ -48,11 +49,26 @@ contract SmartVaultDeployer is BaseDeployer {
     function deploy(Params memory params) external {
         PriceOracle priceOracle = _createPriceOracle(params.registry, params.priceOracleParams, true);
         Wallet wallet = _createWallet(params.registry, params.walletParams, NO_STRATEGY, address(priceOracle), false);
+        IAction withdrawer = _setupWithdrawerAction(wallet, params);
         IAction erc20Claimer = _setupERC20ClaimerAction(wallet, params);
         IAction nativeClaimer = _setupNativeClaimerAction(wallet, params);
-        address[] memory actions = _actions(erc20Claimer, nativeClaimer);
+        address[] memory actions = _actions(withdrawer, erc20Claimer, nativeClaimer);
         _transferAdminPermissions(wallet, params.walletParams.admin);
         _createSmartVault(params.registry, params.smartVaultParams, address(wallet), actions, true);
+    }
+
+    function _setupWithdrawerAction(Wallet wallet, Params memory params) internal returns (IAction) {
+        // Create and setup action
+        Withdrawer withdrawer = new Withdrawer(address(this), wallet);
+        address[] memory executors = Arrays.from(params.owner, params.managers, params.relayedActionParams.relayers);
+        _setupActionExecutors(withdrawer, executors, withdrawer.call.selector);
+        _setupRelayedAction(withdrawer, params.owner, params.relayedActionParams);
+        _setupWithdrawalAction(withdrawer, params.owner, params.owner);
+        _transferAdminPermissions(withdrawer, params.owner);
+
+        // Authorize action to collect, unwrap, and withdraw from wallet
+        wallet.authorize(address(withdrawer), wallet.withdraw.selector);
+        return withdrawer;
     }
 
     function _setupNativeClaimerAction(Wallet wallet, Params memory params) internal returns (IAction) {

@@ -5,7 +5,7 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('SmartVault', () => {
-  let smartVault: Contract, wallet: Contract, erc20Claimer: Contract, nativeClaimer: Contract
+  let smartVault: Contract, wallet: Contract, withdrawer: Contract, erc20Claimer: Contract, nativeClaimer: Contract
   let registry: Contract, wrappedNativeToken: Contract
   let priceOracleImpl: Contract, walletImpl: Contract, smartVaultImpl: Contract, swapConnector: Contract
   let other: SignerWithAddress,
@@ -93,15 +93,17 @@ describe('SmartVault', () => {
     wallet = await instanceAt('Wallet', await smartVault.wallet())
 
     const actions = await getActions(tx, smartVault)
-    expect(actions.length).to.be.equal(2)
-    erc20Claimer = await instanceAt('ERC20Claimer', actions[0])
-    nativeClaimer = await instanceAt('NativeClaimer', actions[1])
+    expect(actions.length).to.be.equal(3)
+    withdrawer = await instanceAt('Withdrawer', actions[0])
+    erc20Claimer = await instanceAt('ERC20Claimer', actions[1])
+    nativeClaimer = await instanceAt('NativeClaimer', actions[2])
   })
 
   describe('smart vault', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(smartVault, [
         { name: 'owner', account: owner, roles: ['authorize', 'unauthorize', 'setWallet', 'setAction'] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
         { name: 'mimic', account: mimic, roles: [] },
@@ -143,6 +145,7 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic, roles: ['setFeeCollector'] },
+        { name: 'withdrawer', account: withdrawer, roles: ['withdraw'] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: ['call', 'swap', 'withdraw'] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: ['call', 'wrap', 'withdraw'] },
         { name: 'other', account: other, roles: [] },
@@ -178,12 +181,54 @@ describe('SmartVault', () => {
       await assertPermissions(priceOracle, [
         { name: 'owner', account: owner, roles: ['authorize', 'unauthorize', 'setFeeds'] },
         { name: 'mimic', account: mimic, roles: [] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },
       ])
+    })
+  })
+
+  describe('withdrawer', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(withdrawer, [
+        {
+          name: 'owner',
+          account: owner,
+          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setRecipient', 'call'],
+        },
+        { name: 'mimic', account: mimic, roles: [] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
+        { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
+        { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
+        { name: 'other', account: other, roles: [] },
+        { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
+      ])
+    })
+
+    it('sets the owner as the recipient', async () => {
+      expect(await withdrawer.recipient()).to.be.equal(owner.address)
+    })
+
+    it('sets the expected gas limits', async () => {
+      expect(await withdrawer.gasPriceLimit()).to.be.equal(0)
+      expect(await withdrawer.totalCostLimit()).to.be.equal(fp(100))
+      expect(await withdrawer.payingGasToken()).to.be.equal(wrappedNativeToken.address)
+    })
+
+    it('whitelists the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await withdrawer.isRelayer(relayer.address)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await withdrawer.isRelayer(manager.address)).to.be.false
+      }
     })
   })
 
@@ -205,6 +250,7 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic, roles: [] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
         { name: 'other', account: other, roles: [] },
@@ -248,6 +294,7 @@ describe('SmartVault', () => {
           roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setFeeClaimer', 'setThreshold', 'call'],
         },
         { name: 'mimic', account: mimic, roles: [] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
         { name: 'other', account: other, roles: [] },

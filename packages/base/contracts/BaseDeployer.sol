@@ -242,14 +242,21 @@ contract BaseDeployer {
         target.unauthorize(from, target.unauthorize.selector);
     }
 
-    function _actions(IAction action) internal pure returns (address[] memory actions) {
-        actions = new address[](1);
-        actions[0] = address(action);
+    function _actions(IAction action) internal pure returns (address[] memory arr) {
+        arr = new address[](1);
+        arr[0] = address(action);
     }
 
-    function _actions(IAction action1, IAction action2) internal pure returns (address[] memory actions) {
-        actions = new address[](2);
-        actions[0] = address(action1);
-        actions[1] = address(action2);
+    function _actions(IAction action1, IAction action2) internal pure returns (address[] memory arr) {
+        arr = new address[](2);
+        arr[0] = address(action1);
+        arr[1] = address(action2);
+    }
+
+    function _actions(IAction action1, IAction action2, IAction action3) internal pure returns (address[] memory arr) {
+        arr = new address[](3);
+        arr[0] = address(action1);
+        arr[1] = address(action2);
+        arr[2] = address(action3);
     }
 }
