@@ -56,6 +56,7 @@ abstract contract BaseClaimer is BaseAction, RelayedAction {
 
     function _validateThreshold(address wrappedNativeToken, uint256 nativeTokenBalance) internal view {
         uint256 price = IPriceOracle(wallet.priceOracle()).getPrice(wrappedNativeToken, thresholdToken);
+        // Current balance is rounded down to make sure we always match at least the threshold
         require(nativeTokenBalance.mulDown(price) >= thresholdAmount, 'MIN_THRESHOLD_NOT_MET');
     }
 }

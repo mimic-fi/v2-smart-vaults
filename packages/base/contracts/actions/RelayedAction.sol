@@ -112,6 +112,7 @@ abstract contract RelayedAction is BaseAction {
 
         uint256 limit = totalCostLimit;
         address payingToken = payingGasToken;
+        // Total cost is rounded down to make sure we always match at least the threshold
         uint256 totalCostAmount = totalCostEth.mulDown(_getPayingGasTokenPrice(payingToken));
         require(limit == 0 || totalCostAmount <= limit, 'TX_COST_ABOVE_LIMIT');
 
