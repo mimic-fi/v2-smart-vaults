@@ -18,22 +18,44 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 import './BaseAction.sol';
 
+/**
+ * @title Withdrawal action
+ * @dev Action that offers a recipient address where funds can be withdrawn. This type of action at least require
+ * having withdraw permissions from the Mimic Wallet tied to it.
+ */
 abstract contract WithdrawalAction is BaseAction {
+    // Address where tokens will be transferred to
     address public recipient;
 
+    /**
+     * @dev Emitted every time the recipient is set
+     */
     event RecipientSet(address indexed recipient);
 
+    /**
+     * @dev Sets the recipient address. Sender must be authorized.
+     * @param newRecipient Address of the new recipient to be set
+     */
     function setRecipient(address newRecipient) external auth {
         require(newRecipient != address(0), 'RECIPIENT_ZERO');
         recipient = newRecipient;
         emit RecipientSet(newRecipient);
     }
 
+    /**
+     * @dev Internal function to withdraw all the available balance of a token from the wallet to the recipient
+     * @param token Address of the token to be withdrawn
+     */
     function _withdraw(address token) internal {
         uint256 balance = IERC20(token).balanceOf(address(wallet));
         _withdraw(token, balance);
     }
 
+    /**
+     * @dev Internal function to withdraw a specific amount of a token from the wallet to the recipient
+     * @param token Address of the token to be withdrawn
+     * @param amount Amount of tokens to be withdrawn
+     */
     function _withdraw(address token, uint256 amount) internal {
         wallet.withdraw(token, amount, recipient, new bytes(0));
     }

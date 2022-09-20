@@ -19,9 +19,19 @@ import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 
 import './IAction.sol';
 
+/**
+ * @title BaseAction
+ * @dev Action holding a wallet reference and using the Authorizer mixin
+ */
 contract BaseAction is IAction, Authorizer {
+    // Mimic Wallet reference
     IWallet public immutable override wallet;
 
+    /**
+     * @dev Creates a new Base Action
+     * @param _admin Address of the account that will be granted with admin rights
+     * @param _wallet Address of the wallet to be set
+     */
     constructor(address _admin, IWallet _wallet) {
         wallet = _wallet;
         _authorize(_admin, Authorizer.authorize.selector);

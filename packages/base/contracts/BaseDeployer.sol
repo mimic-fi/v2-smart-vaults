@@ -24,20 +24,52 @@ import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import './actions/RelayedAction.sol';
 import './actions/WithdrawalAction.sol';
 
+/**
+ * @title BaseDeployer
+ * @dev Base Deployer contract offering a bunch of set-up methods to deploy and customize smart vaults
+ */
 contract BaseDeployer {
     using UncheckedMath for uint256;
 
+    // Internal constant meaning no strategy attached for a wallet
     address internal constant NO_STRATEGY = address(0);
+
+    // Internal constant meaning no price oracle attached for a wallet
     address internal constant NO_PRICE_ORACLE = address(0);
 
+    // Namespace to use by this deployer to fetch IWallet implementations from the Mimic Registry
     bytes32 private constant WALLET_NAMESPACE = keccak256('WALLET');
+
+    // Namespace to use by this deployer to fetch ISmartVault implementations from the Mimic Registry
     bytes32 private constant SMART_VAULT_NAMESPACE = keccak256('SMART_VAULT');
 
+    // Namespace to use by this deployer to fetch IPriceOracle implementations from the Mimic Registry
+    bytes32 private constant PRICE_ORACLE_NAMESPACE = keccak256('PRICE_ORACLE');
+
+    // Namespace to use by this deployer to fetch ISwapConnector implementations from the Mimic Registry
+    bytes32 private constant SWAP_CONNECTOR_NAMESPACE = keccak256('SWAP_CONNECTOR');
+
+    /**
+     * @dev Smart vault params
+     * @param impl Address of the Smart Vault implementation to be used
+     * @param admin Address that will be granted with admin rights for the deployed Smart Vault
+     */
     struct SmartVaultParams {
         address impl;
         address admin;
     }
 
+    /**
+     * @dev Wallet params
+     * @param impl Address of the Wallet implementation to be used
+     * @param admin Address that will be granted with admin rights for the deployed Wallet
+     * @param feeCollector Address to be set as the fee collector
+     * @param strategy Optional strategy to set for the Mimic Wallet
+     * @param swapConnector Optional Swap Connector to set for the Mimic Wallet
+     * @param swapFee Swap fee percentage, can be zero
+     * @param withdrawFee Withdraw fee percentage, can be zero
+     * @param performanceFee Performance fee percentage, can be zero
+     */
     struct WalletParams {
         address impl;
         address admin;
@@ -49,6 +81,14 @@ contract BaseDeployer {
         uint256 performanceFee;
     }
 
+    /**
+     * @dev Price Oracle params
+     * @param impl Address of the Price Oracle implementation to be used
+     * @param admin Address that will be granted with admin rights for the deployed Price Oracle
+     * @param bases List of base tokens to be set
+     * @param quotes List of quote tokens to be set
+     * @param feeds List of feeds to be set
+     */
     struct PriceOracleParams {
         address impl;
         address admin;
@@ -57,6 +97,13 @@ contract BaseDeployer {
         address[] feeds;
     }
 
+    /**
+     * @dev Relayed action params
+     * @param relayers List of addresses to be marked as allowed executors and in particular as authorized relayers
+     * @param gasPriceLimit Gas price limit to be used for the relayed action
+     * @param totalCostLimit Total cost limit to be used for the relayed action
+     * @param payingGasToken Paying gas token to be used for the relayed action
+     */
     struct RelayedActionParams {
         address[] relayers;
         uint256 gasPriceLimit;
@@ -64,6 +111,15 @@ contract BaseDeployer {
         address payingGasToken;
     }
 
+    /**
+     * @dev Internal function to create a new Smart Vault instance
+     * @param registry Address of the registry to validate the Smart Vault implementation against
+     * @param params Params to customize the Smart Vault to be deployed
+     * @param wallet Address of the wallet to be set in the Smart Vault to be deployed
+     * @param actions List of actions to be set in the Smart Vault to be deployed
+     * @param transferPermissions Whether or not admin permissions on the Smart Vault should be transfer to the admin
+     * right after creating the Smart Vault. Sometimes this is not desired if further customization might take in place.
+     */
     function _createSmartVault(
         IRegistry registry,
         SmartVaultParams memory params,
@@ -92,6 +148,15 @@ contract BaseDeployer {
         if (transferPermissions) _transferAdminPermissions(smartVault, params.admin);
     }
 
+    /**
+     * @dev Internal function to create a new Wallet instance
+     * @param registry Address of the registry to validate the Wallet implementation against
+     * @param params Params to customize the Wallet to be deployed
+     * @param strategy Address of the strategy to be set in the Wallet to be deployed
+     * @param priceOracle Address of the price oracle to be set in the Wallet to be deployed
+     * @param transferPermissions Whether or not admin permissions on the Wallet should be transfer to the admin right
+     * after creating the Wallet. Sometimes this is not desired if further customization might take in place.
+     */
     function _createWallet(
         IRegistry registry,
         WalletParams memory params,
@@ -136,6 +201,8 @@ contract BaseDeployer {
 
         // Set swap connector if given
         if (params.swapConnector != address(0)) {
+            bool isRegistered = registry.isRegistered(SWAP_CONNECTOR_NAMESPACE, params.swapConnector);
+            require(isRegistered, 'SWAP_CONNECTOR_NOT_REGISTERED');
             wallet.authorize(address(this), wallet.setSwapConnector.selector);
             wallet.setSwapConnector(params.swapConnector);
             wallet.unauthorize(address(this), wallet.setSwapConnector.selector);
@@ -178,11 +245,19 @@ contract BaseDeployer {
         if (transferPermissions) _transferAdminPermissions(wallet, params.admin);
     }
 
+    /**
+     * @dev Internal function to create a new Price Oracle instance
+     * @param registry Address of the registry to validate the Price Oracle implementation against
+     * @param params Params to customize the Price Oracle to be deployed
+     * @param transferPermissions Whether or not admin permissions on the Price Oracle should be transfer to the admin
+     * right after creating the Price Oracle. Sometimes this is not desired if further customization might take in place.
+     */
     function _createPriceOracle(IRegistry registry, PriceOracleParams memory params, bool transferPermissions)
         internal
         returns (PriceOracle priceOracle)
     {
         // Clone requested price oracle implementation and initialize
+        require(registry.isRegistered(PRICE_ORACLE_NAMESPACE, params.impl), 'PRICE_ORACLE_IMPL_NOT_REGISTERED');
         bytes memory initializeData = abi.encodeWithSelector(PriceOracle.initialize.selector, address(this));
         priceOracle = PriceOracle(registry.clone(params.impl, initializeData));
 
@@ -196,12 +271,24 @@ contract BaseDeployer {
         if (transferPermissions) _transferAdminPermissions(priceOracle, params.admin);
     }
 
+    /**
+     * @dev Internal function to set up a list of executors for a given action
+     * @param action Action whose executors are being allowed
+     * @param executors List of addresses to be allowed to call the given action
+     * @param callSelector Selector of the function to allow the list of executors
+     */
     function _setupActionExecutors(RelayedAction action, address[] memory executors, bytes4 callSelector) internal {
         for (uint256 i = 0; i < executors.length; i = i.uncheckedAdd(1)) {
             action.authorize(executors[i], callSelector);
         }
     }
 
+    /**
+     * @dev Internal function to set up a Relayed action
+     * @param action Relayed action to be configured
+     * @param admin Address that will be granted with admin rights for the deployed Relayed action
+     * @param params Params to customize the Relayed action
+     */
     function _setupRelayedAction(RelayedAction action, address admin, RelayedActionParams memory params) internal {
         // Authorize admin to set relayers and txs limits
         action.authorize(admin, action.setLimits.selector);
@@ -220,6 +307,12 @@ contract BaseDeployer {
         action.unauthorize(address(this), action.setLimits.selector);
     }
 
+    /**
+     * @dev Internal function to set up a Withdrawal action
+     * @param action Relayed action to be configured
+     * @param admin Address that will be granted with admin rights for the deployed Withdrawal action
+     * @param recipient Address of the recipient to be set in the Withdrawal action
+     */
     function _setupWithdrawalAction(WithdrawalAction action, address admin, address recipient) internal {
         action.authorize(admin, action.setRecipient.selector);
         action.authorize(address(this), action.setRecipient.selector);
@@ -227,32 +320,56 @@ contract BaseDeployer {
         action.unauthorize(address(this), action.setRecipient.selector);
     }
 
+    /**
+     * @dev Internal function to transfer admin rights from the deployer to another account
+     * @param target Contract whose permissions are being transferred
+     * @param to Address that will receive the admin rights
+     */
     function _transferAdminPermissions(Authorizer target, address to) internal {
         _grantAdminPermissions(target, to);
         _revokeAdminPermissions(target, address(this));
     }
 
+    /**
+     * @dev Internal function to grant admin permissions to an account
+     * @param target Contract whose permissions are being granted
+     * @param to Address that will receive the admin rights
+     */
     function _grantAdminPermissions(Authorizer target, address to) internal {
         target.authorize(to, target.authorize.selector);
         target.authorize(to, target.unauthorize.selector);
     }
 
+    /**
+     * @dev Internal function to revoke admin permissions from an account
+     * @param target Contract whose permissions are being revoked
+     * @param from Address that will be revoked
+     */
     function _revokeAdminPermissions(Authorizer target, address from) internal {
         target.unauthorize(from, target.authorize.selector);
         target.unauthorize(from, target.unauthorize.selector);
     }
 
+    /**
+     * @dev Syntax sugar internal method to build an array of actions
+     */
     function _actions(IAction action) internal pure returns (address[] memory arr) {
         arr = new address[](1);
         arr[0] = address(action);
     }
 
+    /**
+     * @dev Syntax sugar internal method to build an array of actions
+     */
     function _actions(IAction action1, IAction action2) internal pure returns (address[] memory arr) {
         arr = new address[](2);
         arr[0] = address(action1);
         arr[1] = address(action2);
     }
 
+    /**
+     * @dev Syntax sugar internal method to build an array of actions
+     */
     function _actions(IAction action1, IAction action2, IAction action3) internal pure returns (address[] memory arr) {
         arr = new address[](3);
         arr[0] = address(action1);

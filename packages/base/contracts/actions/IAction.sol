@@ -15,7 +15,15 @@
 pragma solidity >=0.8.0;
 
 import '@mimic-fi/v2-wallet/contracts/IWallet.sol';
+import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
-interface IAction {
+/**
+ * @title IAction
+ * @dev Action interface it must follow the IAuthorizer interface
+ */
+interface IAction is IAuthorizer {
+    /**
+     * @dev Tells the address of the Mimic Wallet tied to it, it cannot be changed
+     */
     function wallet() external view returns (IWallet);
 }
