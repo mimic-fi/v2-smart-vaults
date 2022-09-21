@@ -128,6 +128,6 @@ abstract contract RelayedAction is BaseAction {
         return
             payingToken == Denominations.NATIVE_TOKEN || payingToken == wrappedNativeToken
                 ? FixedPoint.ONE
-                : IPriceOracle(wallet.priceOracle()).getPrice(payingToken, wrappedNativeToken);
+                : IPriceOracle(wallet.priceOracle()).getPrice(wrappedNativeToken, payingToken);
     }
 }
