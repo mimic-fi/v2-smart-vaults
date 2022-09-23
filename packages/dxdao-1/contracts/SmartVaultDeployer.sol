@@ -71,8 +71,9 @@ contract SmartVaultDeployer is BaseDeployer {
         _setupTokenThresholdAction(wrapper, params.admin, params.tokenThresholdActionParams);
         _transferAdminPermissions(wrapper, params.admin);
 
-        // Authorize action to wrap from wallet
+        // Authorize action to wrap and withdraw from wallet
         wallet.authorize(address(wrapper), wallet.wrap.selector);
+        wallet.authorize(address(wrapper), wallet.withdraw.selector);
         return wrapper;
     }
 

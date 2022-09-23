@@ -163,7 +163,7 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic, roles: ['setFeeCollector'] },
-        { name: 'wrapper', account: wrapper, roles: ['wrap'] },
+        { name: 'wrapper', account: wrapper, roles: ['wrap', 'withdraw'] },
         { name: 'withdrawer', account: withdrawer, roles: ['withdraw'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
