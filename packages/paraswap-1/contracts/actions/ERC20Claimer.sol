@@ -83,6 +83,7 @@ contract ERC20Claimer is BaseClaimer {
             minAmountOut,
             data
         );
+        emit Executed();
     }
 
     function _validateSwapSignature(

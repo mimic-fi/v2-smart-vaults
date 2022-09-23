@@ -171,6 +171,12 @@ describe('ERC20Claimer', () => {
 
           await assertIndirectEvent(tx, wallet.interface, 'Call', { target: feeClaimer, data: calldata, value: 0 })
         })
+
+        it('emits an Executed event', async () => {
+          const tx = await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
+
+          await assertEvent(tx, 'Executed')
+        })
       }
 
       const itRefundsGasCorrectly = () => {

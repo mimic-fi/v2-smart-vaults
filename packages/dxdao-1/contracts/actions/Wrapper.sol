@@ -43,5 +43,6 @@ contract Wrapper is BaseAction, TokenThresholdAction, RelayedAction {
         uint256 balance = address(wallet).balance;
         _validateThreshold(Denominations.NATIVE_TOKEN, balance);
         wallet.wrap(balance, new bytes(0));
+        emit Executed();
     }
 }

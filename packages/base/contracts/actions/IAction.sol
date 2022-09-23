@@ -23,6 +23,11 @@ import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
  */
 interface IAction is IAuthorizer {
     /**
+     * @dev Emitted every time an action is executed
+     */
+    event Executed();
+
+    /**
      * @dev Tells the address of the Mimic Wallet tied to it, it cannot be changed
      */
     function wallet() external view returns (IWallet);

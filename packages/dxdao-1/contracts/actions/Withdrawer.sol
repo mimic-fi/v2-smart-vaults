@@ -38,5 +38,6 @@ contract Withdrawer is BaseAction, RelayedAction, TimeLockedAction, WithdrawalAc
 
     function _call() internal {
         _validateTimeLock();
+        emit Executed();
     }
 }

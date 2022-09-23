@@ -27,11 +27,15 @@ contract Withdrawer is BaseAction, RelayedAction, WithdrawalAction {
     }
 
     function call() external auth {
-        if (isRelayer[msg.sender]) _relayedCall();
+        isRelayer[msg.sender] ? _relayedCall() : _call();
         _withdraw(wallet.wrappedNativeToken());
     }
 
     function _relayedCall() internal redeemGas {
-        // solhint-disable-previous-line no-empty-blocks
+        _call();
+    }
+
+    function _call() internal {
+        emit Executed();
     }
 }

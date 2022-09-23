@@ -40,7 +40,7 @@ contract NativeClaimer is BaseClaimer {
 
         bytes memory claimData = abi.encodeWithSelector(IFeeClaimer.withdrawAllERC20.selector, token, wallet);
         _claim(claimData);
-        if (token == wrappedNativeToken) return;
-        wallet.wrap(balance, new bytes(0));
+        if (token != wrappedNativeToken) wallet.wrap(balance, new bytes(0));
+        emit Executed();
     }
 }

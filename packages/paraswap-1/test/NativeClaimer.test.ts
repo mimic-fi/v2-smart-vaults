@@ -107,6 +107,12 @@ describe('NativeClaimer', () => {
           const data = feeClaimer.interface.encodeFunctionData('withdrawAllERC20', [token, wallet.address])
           await assertIndirectEvent(tx, wallet.interface, 'Call', { target: feeClaimer, data, value: 0 })
         })
+
+        it('emits an Executed event', async () => {
+          const tx = await action.call(token)
+
+          await assertEvent(tx, 'Executed')
+        })
       }
 
       const itRefundsGasCorrectly = () => {
