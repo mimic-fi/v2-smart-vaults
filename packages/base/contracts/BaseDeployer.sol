@@ -23,6 +23,7 @@ import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 
 import './actions/RelayedAction.sol';
 import './actions/WithdrawalAction.sol';
+import './actions/TimeLockedAction.sol';
 import './actions/TokenThresholdAction.sol';
 
 /**
@@ -120,6 +121,22 @@ contract BaseDeployer {
     struct TokenThresholdActionParams {
         address token;
         uint256 amount;
+    }
+
+    /**
+     * @dev Time-locked action params
+     * @param period Period in seconds to be set for the time lock
+     */
+    struct TimeLockedActionParams {
+        uint256 period;
+    }
+
+    /**
+     * @dev Withdrawal action params
+     * @param recipient Address that will receive the funds from the withdraw action
+     */
+    struct WithdrawalActionParams {
+        address recipient;
     }
 
     /**
@@ -336,15 +353,32 @@ contract BaseDeployer {
     }
 
     /**
+     * @dev Internal function to set up a Time-locked action
+     * @param action Time-locked action to be configured
+     * @param admin Address that will be granted with admin rights for the deployed Time-locked action
+     * @param params Params to customize the Time-locked action
+     */
+    function _setupTimeLockedAction(TimeLockedAction action, address admin, TimeLockedActionParams memory params)
+        internal
+    {
+        action.authorize(admin, action.setTimeLock.selector);
+        action.authorize(address(this), action.setTimeLock.selector);
+        action.setTimeLock(params.period);
+        action.unauthorize(address(this), action.setTimeLock.selector);
+    }
+
+    /**
      * @dev Internal function to set up a Withdrawal action
      * @param action Relayed action to be configured
      * @param admin Address that will be granted with admin rights for the deployed Withdrawal action
-     * @param recipient Address of the recipient to be set in the Withdrawal action
+     * @param params Params to customize the Withdrawal action
      */
-    function _setupWithdrawalAction(WithdrawalAction action, address admin, address recipient) internal {
+    function _setupWithdrawalAction(WithdrawalAction action, address admin, WithdrawalActionParams memory params)
+        internal
+    {
         action.authorize(admin, action.setRecipient.selector);
         action.authorize(address(this), action.setRecipient.selector);
-        action.setRecipient(recipient);
+        action.setRecipient(params.recipient);
         action.unauthorize(address(this), action.setRecipient.selector);
     }
 

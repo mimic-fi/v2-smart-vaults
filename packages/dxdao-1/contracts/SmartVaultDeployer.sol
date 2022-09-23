@@ -22,42 +22,75 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/BaseDeployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 
 import './actions/Wrapper.sol';
+import './actions/Withdrawer.sol';
 
 // solhint-disable avoid-low-level-calls
 
 contract SmartVaultDeployer is BaseDeployer {
     struct Params {
-        address owner;
-        address[] managers;
         IRegistry registry;
         WalletParams walletParams;
         PriceOracleParams priceOracleParams;
-        RelayedActionParams relayedActionParams;
-        TokenThresholdActionParams tokenThresholdActionParams;
+        WrapperActionParams wrapperActionParams;
+        WithdrawerActionParams withdrawerActionParams;
         SmartVaultParams smartVaultParams;
+    }
+
+    struct WrapperActionParams {
+        address admin;
+        address[] managers;
+        RelayedActionParams relayedActionParams;
+        WithdrawalActionParams withdrawalActionParams;
+        TokenThresholdActionParams tokenThresholdActionParams;
+    }
+
+    struct WithdrawerActionParams {
+        address admin;
+        address[] managers;
+        RelayedActionParams relayedActionParams;
+        WithdrawalActionParams withdrawalActionParams;
+        TimeLockedActionParams timeLockedActionParams;
+        TokenThresholdActionParams tokenThresholdActionParams;
     }
 
     function deploy(Params memory params) external {
         PriceOracle priceOracle = _createPriceOracle(params.registry, params.priceOracleParams, true);
         Wallet wallet = _createWallet(params.registry, params.walletParams, NO_STRATEGY, address(priceOracle), false);
-        IAction action = _setupAction(wallet, params);
+        IAction wrapper = _setupWrapperAction(wallet, params.wrapperActionParams);
+        IAction withdrawer = _setupWithdrawerAction(wallet, params.withdrawerActionParams);
+        address[] memory actions = _actions(wrapper, withdrawer);
         _transferAdminPermissions(wallet, params.walletParams.admin);
-        _createSmartVault(params.registry, params.smartVaultParams, address(wallet), _actions(action), true);
+        _createSmartVault(params.registry, params.smartVaultParams, address(wallet), actions, true);
     }
 
-    function _setupAction(Wallet wallet, Params memory params) internal returns (IAction) {
+    function _setupWrapperAction(Wallet wallet, WrapperActionParams memory params) internal returns (IAction) {
         // Create and setup action
         Wrapper wrapper = new Wrapper(address(this), wallet);
-        address[] memory executors = Arrays.from(params.owner, params.managers, params.relayedActionParams.relayers);
+        address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         _setupActionExecutors(wrapper, executors, wrapper.call.selector);
-        _setupRelayedAction(wrapper, params.owner, params.relayedActionParams);
-        _setupTokenThresholdAction(wrapper, params.owner, params.tokenThresholdActionParams);
-        _setupWithdrawalAction(wrapper, params.owner, params.owner);
-        _transferAdminPermissions(wrapper, params.owner);
+        _setupRelayedAction(wrapper, params.admin, params.relayedActionParams);
+        _setupTokenThresholdAction(wrapper, params.admin, params.tokenThresholdActionParams);
+        _setupWithdrawalAction(wrapper, params.admin, params.withdrawalActionParams);
+        _transferAdminPermissions(wrapper, params.admin);
 
         // Authorize action to wrap and withdraw from wallet
         wallet.authorize(address(wrapper), wallet.wrap.selector);
         wallet.authorize(address(wrapper), wallet.withdraw.selector);
         return wrapper;
+    }
+
+    function _setupWithdrawerAction(Wallet wallet, WithdrawerActionParams memory params) internal returns (IAction) {
+        // Create and setup action
+        Withdrawer withdrawer = new Withdrawer(address(this), wallet);
+        address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
+        _setupActionExecutors(withdrawer, executors, withdrawer.call.selector);
+        _setupRelayedAction(withdrawer, params.admin, params.relayedActionParams);
+        _setupTimeLockedAction(withdrawer, params.admin, params.timeLockedActionParams);
+        _setupWithdrawalAction(withdrawer, params.admin, params.withdrawalActionParams);
+        _transferAdminPermissions(withdrawer, params.admin);
+
+        // Authorize action to wrap and withdraw from wallet
+        wallet.authorize(address(withdrawer), wallet.withdraw.selector);
+        return withdrawer;
     }
 }

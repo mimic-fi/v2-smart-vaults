@@ -62,7 +62,7 @@ contract SmartVaultDeployer is BaseDeployer {
         address[] memory executors = Arrays.from(params.owner, params.managers, params.relayedActionParams.relayers);
         _setupActionExecutors(withdrawer, executors, withdrawer.call.selector);
         _setupRelayedAction(withdrawer, params.owner, params.relayedActionParams);
-        _setupWithdrawalAction(withdrawer, params.owner, params.owner);
+        _setupWithdrawalAction(withdrawer, params.owner, WithdrawalActionParams(params.owner));
         _transferAdminPermissions(withdrawer, params.owner);
 
         // Authorize action to collect, unwrap, and withdraw from wallet

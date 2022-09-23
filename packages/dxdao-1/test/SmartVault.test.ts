@@ -1,11 +1,20 @@
-import { assertIndirectEvent, deploy, fp, getSigner, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import {
+  assertIndirectEvent,
+  deploy,
+  fp,
+  getSigner,
+  getSigners,
+  instanceAt,
+  MONTH,
+  ZERO_ADDRESS,
+} from '@mimic-fi/v2-helpers'
 import { assertPermissions, getActions } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('SmartVault', () => {
-  let smartVault: Contract, wallet: Contract, action: Contract
+  let smartVault: Contract, wallet: Contract, wrapper: Contract, withdrawer: Contract
   let registry: Contract, wrappedNativeToken: Contract
   let priceOracleImpl: Contract, walletImpl: Contract, smartVaultImpl: Contract
   let other: SignerWithAddress,
@@ -59,15 +68,42 @@ describe('SmartVault', () => {
         quotes: [],
         feeds: [],
       },
-      relayedActionParams: {
-        relayers: relayers.map((m) => m.address),
-        gasPriceLimit: 0,
-        totalCostLimit: fp(100),
-        payingGasToken: wrappedNativeToken.address,
+      wrapperActionParams: {
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        relayedActionParams: {
+          relayers: relayers.map((m) => m.address),
+          gasPriceLimit: 0,
+          totalCostLimit: fp(100),
+          payingGasToken: wrappedNativeToken.address,
+        },
+        tokenThresholdActionParams: {
+          amount: fp(10),
+          token: wrappedNativeToken.address,
+        },
+        withdrawalActionParams: {
+          recipient: owner.address,
+        },
       },
-      tokenThresholdActionParams: {
-        amount: fp(10),
-        token: wrappedNativeToken.address,
+      withdrawerActionParams: {
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        relayedActionParams: {
+          relayers: relayers.map((m) => m.address),
+          gasPriceLimit: 0,
+          totalCostLimit: fp(100),
+          payingGasToken: wrappedNativeToken.address,
+        },
+        tokenThresholdActionParams: {
+          amount: fp(10),
+          token: wrappedNativeToken.address,
+        },
+        timeLockedActionParams: {
+          period: MONTH,
+        },
+        withdrawalActionParams: {
+          recipient: owner.address,
+        },
       },
       smartVaultParams: {
         impl: smartVaultImpl.address,
@@ -80,15 +116,17 @@ describe('SmartVault', () => {
     wallet = await instanceAt('Wallet', await smartVault.wallet())
 
     const actions = await getActions(tx, smartVault)
-    expect(actions.length).to.be.equal(1)
-    action = await instanceAt('Wrapper', actions[0])
+    expect(actions.length).to.be.equal(2)
+    wrapper = await instanceAt('Wrapper', actions[0])
+    withdrawer = await instanceAt('Withdrawer', actions[1])
   })
 
   describe('smart vault', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(smartVault, [
         { name: 'owner', account: owner, roles: ['authorize', 'unauthorize', 'setWallet', 'setAction'] },
-        { name: 'action', account: action, roles: [] },
+        { name: 'wrapper', account: wrapper, roles: [] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'mimic', account: mimic, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
@@ -96,8 +134,9 @@ describe('SmartVault', () => {
       ])
     })
 
-    it('whitelists the action', async () => {
-      expect(await smartVault.isActionWhitelisted(action.address)).to.be.true
+    it('whitelists the actions', async () => {
+      expect(await smartVault.isActionWhitelisted(wrapper.address)).to.be.true
+      expect(await smartVault.isActionWhitelisted(withdrawer.address)).to.be.true
     })
   })
 
@@ -127,7 +166,8 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic, roles: ['setFeeCollector'] },
-        { name: 'action', account: action, roles: ['wrap', 'withdraw'] },
+        { name: 'wrapper', account: wrapper, roles: ['wrap', 'withdraw'] },
+        { name: 'withdrawer', account: withdrawer, roles: ['withdraw'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },
@@ -161,7 +201,8 @@ describe('SmartVault', () => {
       await assertPermissions(priceOracle, [
         { name: 'owner', account: owner, roles: ['authorize', 'unauthorize', 'setFeeds'] },
         { name: 'mimic', account: mimic, roles: [] },
-        { name: 'action', account: action, roles: [] },
+        { name: 'wrapper', account: wrapper, roles: [] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },
@@ -169,16 +210,17 @@ describe('SmartVault', () => {
     })
   })
 
-  describe('action', () => {
+  describe('wrapper', () => {
     it('has set its permissions correctly', async () => {
-      await assertPermissions(action, [
+      await assertPermissions(wrapper, [
         {
           name: 'owner',
           account: owner,
           roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setThreshold', 'setRecipient', 'call'],
         },
         { name: 'mimic', account: mimic, roles: [] },
-        { name: 'action', account: action, roles: [] },
+        { name: 'wrapper', account: wrapper, roles: [] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
@@ -186,29 +228,74 @@ describe('SmartVault', () => {
     })
 
     it('sets the owner as the recipient', async () => {
-      expect(await action.recipient()).to.be.equal(owner.address)
+      expect(await wrapper.recipient()).to.be.equal(owner.address)
     })
 
     it('sets the expected token threshold params', async () => {
-      expect(await action.thresholdToken()).to.be.equal(wrappedNativeToken.address)
-      expect(await action.thresholdAmount()).to.be.equal(fp(10))
+      expect(await wrapper.thresholdToken()).to.be.equal(wrappedNativeToken.address)
+      expect(await wrapper.thresholdAmount()).to.be.equal(fp(10))
     })
 
     it('sets the expected gas limits', async () => {
-      expect(await action.gasPriceLimit()).to.be.equal(0)
-      expect(await action.totalCostLimit()).to.be.equal(fp(100))
-      expect(await action.payingGasToken()).to.be.equal(wrappedNativeToken.address)
+      expect(await wrapper.gasPriceLimit()).to.be.equal(0)
+      expect(await wrapper.totalCostLimit()).to.be.equal(fp(100))
+      expect(await wrapper.payingGasToken()).to.be.equal(wrappedNativeToken.address)
     })
 
     it('whitelists the requested relayers', async () => {
       for (const relayer of relayers) {
-        expect(await action.isRelayer(relayer.address)).to.be.true
+        expect(await wrapper.isRelayer(relayer.address)).to.be.true
       }
     })
 
     it('does not whitelist managers as relayers', async () => {
       for (const manager of managers) {
-        expect(await action.isRelayer(manager.address)).to.be.false
+        expect(await wrapper.isRelayer(manager.address)).to.be.false
+      }
+    })
+  })
+
+  describe('withdrawer', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(withdrawer, [
+        {
+          name: 'owner',
+          account: owner,
+          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setTimeLock', 'setRecipient', 'call'],
+        },
+        { name: 'mimic', account: mimic, roles: [] },
+        { name: 'wrapper', account: wrapper, roles: [] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
+        { name: 'other', account: other, roles: [] },
+        { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
+      ])
+    })
+
+    it('sets the owner as the recipient', async () => {
+      expect(await withdrawer.recipient()).to.be.equal(owner.address)
+    })
+
+    it('sets the expected time-lock params', async () => {
+      expect(await withdrawer.period()).to.be.equal(MONTH)
+      expect(await withdrawer.nextResetTime()).not.to.be.equal(0)
+    })
+
+    it('sets the expected gas limits', async () => {
+      expect(await withdrawer.gasPriceLimit()).to.be.equal(0)
+      expect(await withdrawer.totalCostLimit()).to.be.equal(fp(100))
+      expect(await withdrawer.payingGasToken()).to.be.equal(wrappedNativeToken.address)
+    })
+
+    it('whitelists the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await withdrawer.isRelayer(relayer.address)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await withdrawer.isRelayer(manager.address)).to.be.false
       }
     })
   })
