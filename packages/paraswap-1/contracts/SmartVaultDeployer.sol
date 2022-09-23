@@ -42,8 +42,7 @@ contract SmartVaultDeployer is BaseDeployer {
     struct FeeClaimerParams {
         address swapSigner;
         address feeClaimer;
-        address thresholdToken;
-        uint256 thresholdAmount;
+        TokenThresholdActionParams tokenThresholdActionParams;
     }
 
     function deploy(Params memory params) external {
@@ -105,15 +104,12 @@ contract SmartVaultDeployer is BaseDeployer {
     }
 
     function _setupBaseClaimerAction(BaseClaimer claimer, address admin, FeeClaimerParams memory params) internal {
+        _setupTokenThresholdAction(claimer, admin, params.tokenThresholdActionParams);
+
         claimer.authorize(admin, claimer.setFeeClaimer.selector);
         claimer.authorize(address(this), claimer.setFeeClaimer.selector);
         claimer.setFeeClaimer(params.feeClaimer);
         claimer.unauthorize(address(this), claimer.setFeeClaimer.selector);
-
-        claimer.authorize(admin, claimer.setThreshold.selector);
-        claimer.authorize(address(this), claimer.setThreshold.selector);
-        claimer.setThreshold(params.thresholdToken, params.thresholdAmount);
-        claimer.unauthorize(address(this), claimer.setThreshold.selector);
     }
 
     function _setupSwapSignerAction(ERC20Claimer claimer, address admin, address signer) internal {

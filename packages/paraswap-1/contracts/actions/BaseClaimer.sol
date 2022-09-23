@@ -18,21 +18,19 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
 import '../interfaces/IFeeClaimer.sol';
 
 // solhint-disable avoid-low-level-calls
 
-abstract contract BaseClaimer is BaseAction, RelayedAction {
+abstract contract BaseClaimer is BaseAction, TokenThresholdAction, RelayedAction {
     using FixedPoint for uint256;
 
     address public feeClaimer;
-    address public thresholdToken;
-    uint256 public thresholdAmount;
 
     event FeeClaimerSet(address feeClaimer);
-    event ThresholdSet(address token, uint256 amount);
 
     constructor(address _admin, IWallet _wallet) BaseAction(_admin, _wallet) {
         // solhint-disable-previous-line no-empty-blocks
@@ -43,20 +41,8 @@ abstract contract BaseClaimer is BaseAction, RelayedAction {
         emit FeeClaimerSet(newFeeClaimer);
     }
 
-    function setThreshold(address token, uint256 amount) external auth {
-        thresholdToken = token;
-        thresholdAmount = amount;
-        emit ThresholdSet(token, amount);
-    }
-
     function _claim(bytes memory withdrawData) internal {
         bytes memory withdrawResponse = wallet.call(feeClaimer, withdrawData, 0);
         require(abi.decode(withdrawResponse, (bool)), 'FEE_CLAIMER_WITHDRAW_FAILED');
-    }
-
-    function _validateThreshold(address wrappedNativeToken, uint256 nativeTokenBalance) internal view {
-        uint256 price = IPriceOracle(wallet.priceOracle()).getPrice(wrappedNativeToken, thresholdToken);
-        // Current balance is rounded down to make sure we always match at least the threshold
-        require(nativeTokenBalance.mulDown(price) >= thresholdAmount, 'MIN_THRESHOLD_NOT_MET');
     }
 }

@@ -17,11 +17,13 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 import '@mimic-fi/v2-wallet/contracts/IWallet.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/WithdrawalAction.sol';
 
-contract Wrapper is RelayedAction, WithdrawalAction {
+contract Wrapper is BaseAction, TokenThresholdAction, RelayedAction, WithdrawalAction {
     // Base gas amount charged to cover gas payment
     uint256 public constant override BASE_GAS = 0;
 
@@ -39,8 +41,8 @@ contract Wrapper is RelayedAction, WithdrawalAction {
     }
 
     function _call() internal {
-        address wrappedNativeToken = wallet.wrappedNativeToken();
-        uint256 balance = IERC20(wrappedNativeToken).balanceOf(address(wallet));
+        uint256 balance = address(wallet).balance;
+        _validateThreshold(Denominations.NATIVE_TOKEN, balance);
         wallet.wrap(balance, new bytes(0));
     }
 }

@@ -23,6 +23,7 @@ import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 
 import './actions/RelayedAction.sol';
 import './actions/WithdrawalAction.sol';
+import './actions/TokenThresholdAction.sol';
 
 /**
  * @title BaseDeployer
@@ -109,6 +110,16 @@ contract BaseDeployer {
         uint256 gasPriceLimit;
         uint256 totalCostLimit;
         address payingGasToken;
+    }
+
+    /**
+     * @dev Token threshold action params
+     * @param token Address of the token of the threshold
+     * @param amount Amount of tokens of the threshold
+     */
+    struct TokenThresholdActionParams {
+        address token;
+        uint256 amount;
     }
 
     /**
@@ -305,6 +316,23 @@ contract BaseDeployer {
         action.authorize(address(this), action.setLimits.selector);
         action.setLimits(params.gasPriceLimit, params.totalCostLimit, params.payingGasToken);
         action.unauthorize(address(this), action.setLimits.selector);
+    }
+
+    /**
+     * @dev Internal function to set up a Token Threshold action
+     * @param action Token threshold action to be configured
+     * @param admin Address that will be granted with admin rights for the deployed Token Threshold action
+     * @param params Params to customize the Token Threshold action
+     */
+    function _setupTokenThresholdAction(
+        TokenThresholdAction action,
+        address admin,
+        TokenThresholdActionParams memory params
+    ) internal {
+        action.authorize(admin, action.setThreshold.selector);
+        action.authorize(address(this), action.setThreshold.selector);
+        action.setThreshold(params.token, params.amount);
+        action.unauthorize(address(this), action.setThreshold.selector);
     }
 
     /**

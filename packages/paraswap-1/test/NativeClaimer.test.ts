@@ -89,42 +89,6 @@ describe('NativeClaimer', () => {
     })
   })
 
-  describe('setThreshold', () => {
-    const amount = fp(1)
-    const token = ZERO_ADDRESS
-
-    context('when the sender is authorized', () => {
-      beforeEach('set sender', async () => {
-        const setThresholdRole = action.interface.getSighash('setThreshold')
-        await action.connect(admin).authorize(admin.address, setThresholdRole)
-        action = action.connect(admin)
-      })
-
-      it('sets the swap signer', async () => {
-        await action.setThreshold(token, amount)
-
-        expect(await action.thresholdToken()).to.be.equal(token)
-        expect(await action.thresholdAmount()).to.be.equal(amount)
-      })
-
-      it('emits an event', async () => {
-        const tx = await action.setThreshold(token, amount)
-
-        await assertEvent(tx, 'ThresholdSet', { token, amount })
-      })
-    })
-
-    context('when the sender is not authorized', () => {
-      beforeEach('set sender', () => {
-        action = action.connect(other)
-      })
-
-      it('reverts', async () => {
-        await expect(action.setThreshold(token, amount)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
-      })
-    })
-  })
-
   describe('call', () => {
     let feeClaimer: Contract, token: string
 

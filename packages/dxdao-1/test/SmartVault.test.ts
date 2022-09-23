@@ -65,6 +65,10 @@ describe('SmartVault', () => {
         totalCostLimit: fp(100),
         payingGasToken: wrappedNativeToken.address,
       },
+      tokenThresholdActionParams: {
+        amount: fp(10),
+        token: wrappedNativeToken.address,
+      },
       smartVaultParams: {
         impl: smartVaultImpl.address,
         admin: owner.address,
@@ -171,7 +175,7 @@ describe('SmartVault', () => {
         {
           name: 'owner',
           account: owner,
-          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setRecipient', 'call'],
+          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setThreshold', 'setRecipient', 'call'],
         },
         { name: 'mimic', account: mimic, roles: [] },
         { name: 'action', account: action, roles: [] },
@@ -183,6 +187,11 @@ describe('SmartVault', () => {
 
     it('sets the owner as the recipient', async () => {
       expect(await action.recipient()).to.be.equal(owner.address)
+    })
+
+    it('sets the expected token threshold params', async () => {
+      expect(await action.thresholdToken()).to.be.equal(wrappedNativeToken.address)
+      expect(await action.thresholdAmount()).to.be.equal(fp(10))
     })
 
     it('sets the expected gas limits', async () => {

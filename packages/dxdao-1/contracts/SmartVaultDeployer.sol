@@ -33,6 +33,7 @@ contract SmartVaultDeployer is BaseDeployer {
         WalletParams walletParams;
         PriceOracleParams priceOracleParams;
         RelayedActionParams relayedActionParams;
+        TokenThresholdActionParams tokenThresholdActionParams;
         SmartVaultParams smartVaultParams;
     }
 
@@ -50,6 +51,7 @@ contract SmartVaultDeployer is BaseDeployer {
         address[] memory executors = Arrays.from(params.owner, params.managers, params.relayedActionParams.relayers);
         _setupActionExecutors(wrapper, executors, wrapper.call.selector);
         _setupRelayedAction(wrapper, params.owner, params.relayedActionParams);
+        _setupTokenThresholdAction(wrapper, params.owner, params.tokenThresholdActionParams);
         _setupWithdrawalAction(wrapper, params.owner, params.owner);
         _transferAdminPermissions(wrapper, params.owner);
 

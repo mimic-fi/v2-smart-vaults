@@ -73,8 +73,10 @@ describe('SmartVault', () => {
       feeClaimerParams: {
         swapSigner: owner.address,
         feeClaimer: feeClaimer.address,
-        thresholdToken: wrappedNativeToken.address,
-        thresholdAmount: fp(1.5),
+        tokenThresholdActionParams: {
+          token: wrappedNativeToken.address,
+          amount: fp(1.5),
+        },
       },
       relayedActionParams: {
         relayers: relayers.map((m) => m.address),
@@ -262,6 +264,9 @@ describe('SmartVault', () => {
     it('sets the expected fee claimer params', async () => {
       expect(await erc20Claimer.swapSigner()).to.be.equal(owner.address)
       expect(await erc20Claimer.feeClaimer()).to.be.equal(feeClaimer.address)
+    })
+
+    it('sets the expected token threshold params', async () => {
       expect(await erc20Claimer.thresholdToken()).to.be.equal(wrappedNativeToken.address)
       expect(await erc20Claimer.thresholdAmount()).to.be.equal(fp(1.5))
     })
@@ -311,6 +316,9 @@ describe('SmartVault', () => {
 
     it('sets the expected fee claimer params', async () => {
       expect(await nativeClaimer.feeClaimer()).to.be.equal(feeClaimer.address)
+    })
+
+    it('sets the expected token threshold params', async () => {
       expect(await nativeClaimer.thresholdToken()).to.be.equal(wrappedNativeToken.address)
       expect(await nativeClaimer.thresholdAmount()).to.be.equal(fp(1.5))
     })
