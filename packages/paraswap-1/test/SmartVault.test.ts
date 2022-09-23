@@ -50,8 +50,6 @@ describe('SmartVault', () => {
   before('deploy smart vault', async () => {
     const deployer = await deploy('SmartVaultDeployer')
     const tx = await deployer.deploy({
-      owner: owner.address,
-      managers: managers.map((m) => m.address),
       registry: registry.address,
       walletParams: {
         impl: walletImpl.address,
@@ -70,19 +68,53 @@ describe('SmartVault', () => {
         quotes: [],
         feeds: [],
       },
-      feeClaimerParams: {
-        swapSigner: owner.address,
-        feeClaimer: feeClaimer.address,
-        tokenThresholdActionParams: {
-          token: wrappedNativeToken.address,
-          amount: fp(1.5),
+      withdrawerActionParams: {
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        withdrawalActionParams: {
+          recipient: owner.address,
+        },
+        relayedActionParams: {
+          relayers: relayers.map((m) => m.address),
+          gasPriceLimit: 0,
+          totalCostLimit: fp(100),
+          payingGasToken: wrappedNativeToken.address,
         },
       },
-      relayedActionParams: {
-        relayers: relayers.map((m) => m.address),
-        gasPriceLimit: 0,
-        totalCostLimit: fp(100),
-        payingGasToken: wrappedNativeToken.address,
+      erc20ClaimerActionParams: {
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        swapSigner: owner.address,
+        feeClaimerParams: {
+          feeClaimer: feeClaimer.address,
+          tokenThresholdActionParams: {
+            token: wrappedNativeToken.address,
+            amount: fp(1.5),
+          },
+          relayedActionParams: {
+            relayers: relayers.map((m) => m.address),
+            gasPriceLimit: 0,
+            totalCostLimit: fp(100),
+            payingGasToken: wrappedNativeToken.address,
+          },
+        },
+      },
+      nativeClaimerActionParams: {
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        feeClaimerParams: {
+          feeClaimer: feeClaimer.address,
+          tokenThresholdActionParams: {
+            token: wrappedNativeToken.address,
+            amount: fp(1.5),
+          },
+          relayedActionParams: {
+            relayers: relayers.map((m) => m.address),
+            gasPriceLimit: 0,
+            totalCostLimit: fp(100),
+            payingGasToken: wrappedNativeToken.address,
+          },
+        },
       },
       smartVaultParams: {
         impl: smartVaultImpl.address,

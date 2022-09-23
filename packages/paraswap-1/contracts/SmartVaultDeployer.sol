@@ -29,55 +29,82 @@ import './actions/NativeClaimer.sol';
 
 contract SmartVaultDeployer is BaseDeployer {
     struct Params {
-        address owner;
-        address[] managers;
         IRegistry registry;
         WalletParams walletParams;
         PriceOracleParams priceOracleParams;
-        FeeClaimerParams feeClaimerParams;
-        RelayedActionParams relayedActionParams;
+        WithdrawerActionParams withdrawerActionParams;
+        ERC20ClaimerActionParams erc20ClaimerActionParams;
+        NativeClaimerActionParams nativeClaimerActionParams;
         SmartVaultParams smartVaultParams;
     }
 
-    struct FeeClaimerParams {
+    struct WithdrawerActionParams {
+        address admin;
+        address[] managers;
+        RelayedActionParams relayedActionParams;
+        WithdrawalActionParams withdrawalActionParams;
+    }
+
+    struct NativeClaimerActionParams {
+        address admin;
+        address[] managers;
+        FeeClaimerParams feeClaimerParams;
+    }
+
+    struct ERC20ClaimerActionParams {
+        address admin;
+        address[] managers;
         address swapSigner;
+        FeeClaimerParams feeClaimerParams;
+    }
+
+    struct FeeClaimerParams {
         address feeClaimer;
+        RelayedActionParams relayedActionParams;
         TokenThresholdActionParams tokenThresholdActionParams;
     }
 
     function deploy(Params memory params) external {
         PriceOracle priceOracle = _createPriceOracle(params.registry, params.priceOracleParams, true);
         Wallet wallet = _createWallet(params.registry, params.walletParams, NO_STRATEGY, address(priceOracle), false);
-        IAction withdrawer = _setupWithdrawerAction(wallet, params);
-        IAction erc20Claimer = _setupERC20ClaimerAction(wallet, params);
-        IAction nativeClaimer = _setupNativeClaimerAction(wallet, params);
+        IAction withdrawer = _setupWithdrawerAction(wallet, params.withdrawerActionParams);
+        IAction erc20Claimer = _setupERC20ClaimerAction(wallet, params.erc20ClaimerActionParams);
+        IAction nativeClaimer = _setupNativeClaimerAction(wallet, params.nativeClaimerActionParams);
         address[] memory actions = _actions(withdrawer, erc20Claimer, nativeClaimer);
         _transferAdminPermissions(wallet, params.walletParams.admin);
         _createSmartVault(params.registry, params.smartVaultParams, address(wallet), actions, true);
     }
 
-    function _setupWithdrawerAction(Wallet wallet, Params memory params) internal returns (IAction) {
+    function _setupWithdrawerAction(Wallet wallet, WithdrawerActionParams memory params) internal returns (IAction) {
         // Create and setup action
         Withdrawer withdrawer = new Withdrawer(address(this), wallet);
-        address[] memory executors = Arrays.from(params.owner, params.managers, params.relayedActionParams.relayers);
+        address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         _setupActionExecutors(withdrawer, executors, withdrawer.call.selector);
-        _setupRelayedAction(withdrawer, params.owner, params.relayedActionParams);
-        _setupWithdrawalAction(withdrawer, params.owner, WithdrawalActionParams(params.owner));
-        _transferAdminPermissions(withdrawer, params.owner);
+        _setupRelayedAction(withdrawer, params.admin, params.relayedActionParams);
+        _setupWithdrawalAction(withdrawer, params.admin, params.withdrawalActionParams);
+        _transferAdminPermissions(withdrawer, params.admin);
 
         // Authorize action to collect, unwrap, and withdraw from wallet
         wallet.authorize(address(withdrawer), wallet.withdraw.selector);
         return withdrawer;
     }
 
-    function _setupNativeClaimerAction(Wallet wallet, Params memory params) internal returns (IAction) {
+    function _setupNativeClaimerAction(Wallet wallet, NativeClaimerActionParams memory params)
+        internal
+        returns (IAction)
+    {
         // Create and setup action
         NativeClaimer claimer = new NativeClaimer(address(this), wallet);
-        address[] memory executors = Arrays.from(params.owner, params.managers, params.relayedActionParams.relayers);
+        address[] memory executors = Arrays.from(
+            params.admin,
+            params.managers,
+            params.feeClaimerParams.relayedActionParams.relayers
+        );
+
         _setupActionExecutors(claimer, executors, claimer.call.selector);
-        _setupRelayedAction(claimer, params.owner, params.relayedActionParams);
-        _setupBaseClaimerAction(claimer, params.owner, params.feeClaimerParams);
-        _transferAdminPermissions(claimer, params.owner);
+        _setupRelayedAction(claimer, params.admin, params.feeClaimerParams.relayedActionParams);
+        _setupBaseClaimerAction(claimer, params.admin, params.feeClaimerParams);
+        _transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and wrap
         wallet.authorize(address(claimer), wallet.call.selector);
@@ -86,15 +113,23 @@ contract SmartVaultDeployer is BaseDeployer {
         return claimer;
     }
 
-    function _setupERC20ClaimerAction(Wallet wallet, Params memory params) internal returns (IAction) {
+    function _setupERC20ClaimerAction(Wallet wallet, ERC20ClaimerActionParams memory params)
+        internal
+        returns (IAction)
+    {
         // Create and setup action
         ERC20Claimer claimer = new ERC20Claimer(address(this), wallet);
-        address[] memory executors = Arrays.from(params.owner, params.managers, params.relayedActionParams.relayers);
+        address[] memory executors = Arrays.from(
+            params.admin,
+            params.managers,
+            params.feeClaimerParams.relayedActionParams.relayers
+        );
+
         _setupActionExecutors(claimer, executors, claimer.call.selector);
-        _setupRelayedAction(claimer, params.owner, params.relayedActionParams);
-        _setupBaseClaimerAction(claimer, params.owner, params.feeClaimerParams);
-        _setupSwapSignerAction(claimer, params.owner, params.feeClaimerParams.swapSigner);
-        _transferAdminPermissions(claimer, params.owner);
+        _setupRelayedAction(claimer, params.admin, params.feeClaimerParams.relayedActionParams);
+        _setupBaseClaimerAction(claimer, params.admin, params.feeClaimerParams);
+        _setupSwapSignerAction(claimer, params.admin, params.swapSigner);
+        _transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and swap
         wallet.authorize(address(claimer), wallet.call.selector);
