@@ -81,9 +81,6 @@ describe('SmartVault', () => {
           amount: fp(10),
           token: wrappedNativeToken.address,
         },
-        withdrawalActionParams: {
-          recipient: owner.address,
-        },
       },
       withdrawerActionParams: {
         admin: owner.address,
@@ -166,7 +163,7 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic, roles: ['setFeeCollector'] },
-        { name: 'wrapper', account: wrapper, roles: ['wrap', 'withdraw'] },
+        { name: 'wrapper', account: wrapper, roles: ['wrap'] },
         { name: 'withdrawer', account: withdrawer, roles: ['withdraw'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
@@ -216,7 +213,7 @@ describe('SmartVault', () => {
         {
           name: 'owner',
           account: owner,
-          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setThreshold', 'setRecipient', 'call'],
+          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setThreshold', 'call'],
         },
         { name: 'mimic', account: mimic, roles: [] },
         { name: 'wrapper', account: wrapper, roles: [] },
@@ -225,10 +222,6 @@ describe('SmartVault', () => {
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
       ])
-    })
-
-    it('sets the owner as the recipient', async () => {
-      expect(await wrapper.recipient()).to.be.equal(owner.address)
     })
 
     it('sets the expected token threshold params', async () => {

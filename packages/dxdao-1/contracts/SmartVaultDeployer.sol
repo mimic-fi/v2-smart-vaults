@@ -40,7 +40,6 @@ contract SmartVaultDeployer is BaseDeployer {
         address admin;
         address[] managers;
         RelayedActionParams relayedActionParams;
-        WithdrawalActionParams withdrawalActionParams;
         TokenThresholdActionParams tokenThresholdActionParams;
     }
 
@@ -70,12 +69,10 @@ contract SmartVaultDeployer is BaseDeployer {
         _setupActionExecutors(wrapper, executors, wrapper.call.selector);
         _setupRelayedAction(wrapper, params.admin, params.relayedActionParams);
         _setupTokenThresholdAction(wrapper, params.admin, params.tokenThresholdActionParams);
-        _setupWithdrawalAction(wrapper, params.admin, params.withdrawalActionParams);
         _transferAdminPermissions(wrapper, params.admin);
 
-        // Authorize action to wrap and withdraw from wallet
+        // Authorize action to wrap from wallet
         wallet.authorize(address(wrapper), wallet.wrap.selector);
-        wallet.authorize(address(wrapper), wallet.withdraw.selector);
         return wrapper;
     }
 
@@ -89,7 +86,7 @@ contract SmartVaultDeployer is BaseDeployer {
         _setupWithdrawalAction(withdrawer, params.admin, params.withdrawalActionParams);
         _transferAdminPermissions(withdrawer, params.admin);
 
-        // Authorize action to wrap and withdraw from wallet
+        // Authorize action to withdraw from wallet
         wallet.authorize(address(withdrawer), wallet.withdraw.selector);
         return withdrawer;
     }

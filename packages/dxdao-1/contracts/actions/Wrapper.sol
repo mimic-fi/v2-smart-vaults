@@ -23,7 +23,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.so
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/WithdrawalAction.sol';
 
-contract Wrapper is BaseAction, TokenThresholdAction, RelayedAction, WithdrawalAction {
+contract Wrapper is BaseAction, TokenThresholdAction, RelayedAction {
     // Base gas amount charged to cover gas payment
     uint256 public constant override BASE_GAS = 0;
 
@@ -33,7 +33,6 @@ contract Wrapper is BaseAction, TokenThresholdAction, RelayedAction, WithdrawalA
 
     function call() external auth {
         isRelayer[msg.sender] ? _relayedCall() : _call();
-        _withdraw(wallet.wrappedNativeToken());
     }
 
     function _relayedCall() internal redeemGas {
