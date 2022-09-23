@@ -92,7 +92,7 @@ describe('NativeClaimer', () => {
   describe('call', () => {
     let feeClaimer: Contract, token: string
 
-    beforeEach('deploy token', async () => {
+    beforeEach('deploy fee claimer', async () => {
       feeClaimer = await deploy('FeeClaimerMock')
       const setFeeClaimerRole = action.interface.getSighash('setFeeClaimer')
       await action.connect(admin).authorize(admin.address, setFeeClaimerRole)

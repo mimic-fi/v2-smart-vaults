@@ -112,7 +112,7 @@ describe('ERC20Claimer', () => {
     const amountIn = fp(1)
     const minAmountOut = amountIn.mul(swapRate)
 
-    beforeEach('set price oracle', async () => {
+    beforeEach('deploy fee claimer', async () => {
       priceOracle = await createClone(registry, admin, 'PriceOracleMock', [])
       const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
       await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
