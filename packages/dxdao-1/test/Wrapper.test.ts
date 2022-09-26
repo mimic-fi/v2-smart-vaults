@@ -6,11 +6,11 @@ import { Contract } from 'ethers'
 
 describe('Wrapper', () => {
   let action: Contract, wallet: Contract, registry: Contract, priceOracle: Contract, wrappedNativeToken: Contract
-  let admin: SignerWithAddress, feeCollector: SignerWithAddress
+  let admin: SignerWithAddress, recipient: SignerWithAddress, feeCollector: SignerWithAddress
 
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
-    [, admin, feeCollector] = await getSigners()
+    [, admin, recipient, feeCollector] = await getSigners()
   })
 
   beforeEach('deploy wallet', async () => {
@@ -53,60 +53,11 @@ describe('Wrapper', () => {
       await admin.sendTransaction({ to: wallet.address, value: balance })
     })
 
-    const itPerformsTheExpectedCall = (refunds: boolean) => {
-      const itCallsTheWrapPrimitive = () => {
-        it('calls the wrap primitive', async () => {
-          const tx = await action.call()
-
-          await assertIndirectEvent(tx, wallet.interface, 'Wrap', { amount: balance, data: '0x' })
-        })
-
-        it('emits an Executed event', async () => {
-          const tx = await action.call()
-
-          await assertEvent(tx, 'Executed')
-        })
-      }
-
-      const itRefundsGasCorrectly = () => {
-        it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-          const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-
-          await action.call()
-
-          const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-          expect(currentBalance).to.be[refunds ? 'gt' : 'eq'](previousBalance)
-        })
-      }
-
-      context('when the min amount passes the threshold', () => {
-        beforeEach('set threshold', async () => {
-          const usdc = await deploy('TokenMock', ['TKN'])
-          await priceOracle.mockRate(fp(2))
-          const setThresholdRole = action.interface.getSighash('setThreshold')
-          await action.connect(admin).authorize(admin.address, setThresholdRole)
-          await action.connect(admin).setThreshold(usdc.address, balance)
-        })
-
-        itCallsTheWrapPrimitive()
-
-        itRefundsGasCorrectly()
-      })
-
-      context('when the min amount does not pass the threshold', () => {
-        beforeEach('set threshold', async () => {
-          const usdc = await deploy('TokenMock', ['TKN'])
-          await priceOracle.mockRate(fp(2))
-          const setThresholdRole = action.interface.getSighash('setThreshold')
-          await action.connect(admin).authorize(admin.address, setThresholdRole)
-          await action.connect(admin).setThreshold(usdc.address, balance.mul(3))
-        })
-
-        it('reverts', async () => {
-          await expect(action.call()).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
-        })
-      })
-    }
+    beforeEach('set recipient', async () => {
+      const setRecipientRole = action.interface.getSighash('setRecipient')
+      await action.connect(admin).authorize(admin.address, setRecipientRole)
+      await action.connect(admin).setRecipient(recipient.address)
+    })
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
@@ -114,6 +65,70 @@ describe('Wrapper', () => {
         await action.connect(admin).authorize(admin.address, callRole)
         action = action.connect(admin)
       })
+
+      const itPerformsTheExpectedCall = (refunds: boolean) => {
+        context('when the min amount passes the threshold', () => {
+          beforeEach('set threshold', async () => {
+            const usdc = await deploy('TokenMock', ['TKN'])
+            await priceOracle.mockRate(fp(2))
+            const setThresholdRole = action.interface.getSighash('setThreshold')
+            await action.connect(admin).authorize(admin.address, setThresholdRole)
+            await action.connect(admin).setThreshold(usdc.address, balance)
+          })
+
+          it('calls the wrap primitive', async () => {
+            const tx = await action.call()
+
+            await assertIndirectEvent(tx, wallet.interface, 'Wrap', { amount: balance, data: '0x' })
+          })
+
+          it('calls the withdraw primitive', async () => {
+            const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+
+            const tx = await action.call()
+
+            const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+            const refund = currentBalance.sub(previousBalance)
+
+            await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+              token: wrappedNativeToken,
+              recipient,
+              amount: balance.sub(refund),
+              fee: 0,
+              data: '0x',
+            })
+          })
+
+          it('emits an Executed event', async () => {
+            const tx = await action.call()
+
+            await assertEvent(tx, 'Executed')
+          })
+
+          it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
+            const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+
+            await action.call()
+
+            const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+            expect(currentBalance).to.be[refunds ? 'gt' : 'eq'](previousBalance)
+          })
+        })
+
+        context('when the min amount does not pass the threshold', () => {
+          beforeEach('set threshold', async () => {
+            const usdc = await deploy('TokenMock', ['TKN'])
+            await priceOracle.mockRate(fp(2))
+            const setThresholdRole = action.interface.getSighash('setThreshold')
+            await action.connect(admin).authorize(admin.address, setThresholdRole)
+            await action.connect(admin).setThreshold(usdc.address, balance.mul(3))
+          })
+
+          it('reverts', async () => {
+            await expect(action.call()).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+          })
+        })
+      }
 
       context('when the sender is a relayer', () => {
         beforeEach('mark sender as relayer', async () => {
