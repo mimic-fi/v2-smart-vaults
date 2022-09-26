@@ -99,169 +99,169 @@ describe('NativeClaimer', () => {
       await action.connect(admin).setFeeClaimer(feeClaimer.address)
     })
 
-    const itPerformsTheExpectedCall = (refunds: boolean) => {
-      const itCallsTheCallPrimitive = () => {
-        it('calls the call primitive', async () => {
-          const tx = await action.call(token)
-
-          const data = feeClaimer.interface.encodeFunctionData('withdrawAllERC20', [token, wallet.address])
-          await assertIndirectEvent(tx, wallet.interface, 'Call', { target: feeClaimer, data, value: 0 })
-        })
-
-        it('emits an Executed event', async () => {
-          const tx = await action.call(token)
-
-          await assertEvent(tx, 'Executed')
-        })
-      }
-
-      const itRefundsGasCorrectly = () => {
-        it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-          const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-
-          await action.call(token)
-
-          const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-          expect(currentBalance).to.be[refunds ? 'gt' : 'eq'](previousBalance)
-        })
-      }
-
-      context('when the token to collect is the native token', () => {
-        const balance = fp(0.5)
-
-        beforeEach('set token', async () => {
-          token = NATIVE_TOKEN_ADDRESS
-          await admin.sendTransaction({ to: feeClaimer.address, value: balance })
-        })
-
-        context('when the min amount passes the threshold', () => {
-          beforeEach('set threshold', async () => {
-            const usdc = await deploy('TokenMock', ['TKN'])
-            await priceOracle.mockRate(fp(2))
-            const setThresholdRole = action.interface.getSighash('setThreshold')
-            await action.connect(admin).authorize(admin.address, setThresholdRole)
-            await action.connect(admin).setThreshold(usdc.address, balance)
-          })
-
-          context('when the fee claim succeeds', () => {
-            beforeEach('mock succeeds', async () => {
-              await feeClaimer.mockFail(false)
-            })
-
-            itCallsTheCallPrimitive()
-
-            itRefundsGasCorrectly()
-
-            it('calls the wrap primitive', async () => {
-              const tx = await action.call(token)
-
-              await assertIndirectEvent(tx, wallet.interface, 'Wrap', { amount: balance, data: '0x' })
-            })
-          })
-
-          context('when the fee claim fails', () => {
-            beforeEach('mock fail', async () => {
-              await feeClaimer.mockFail(true)
-            })
-
-            it('reverts', async () => {
-              await expect(action.call(token)).to.be.revertedWith('FEE_CLAIMER_WITHDRAW_FAILED')
-            })
-          })
-        })
-
-        context('when the min amount does not pass the threshold', () => {
-          beforeEach('set threshold', async () => {
-            const usdc = await deploy('TokenMock', ['TKN'])
-            await priceOracle.mockRate(fp(2))
-            const setThresholdRole = action.interface.getSighash('setThreshold')
-            await action.connect(admin).authorize(admin.address, setThresholdRole)
-            await action.connect(admin).setThreshold(usdc.address, balance.mul(3))
-          })
-
-          it('reverts', async () => {
-            await expect(action.call(token)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
-          })
-        })
-      })
-
-      context('when the token to collect is the wrapped native token', () => {
-        const balance = fp(2)
-
-        beforeEach('set token', async () => {
-          token = wrappedNativeToken.address
-          await wrappedNativeToken.connect(admin).deposit({ value: balance })
-          await wrappedNativeToken.connect(admin).transfer(feeClaimer.address, balance)
-        })
-
-        context('when the min amount passes the threshold', () => {
-          beforeEach('set threshold', async () => {
-            const usdc = await deploy('TokenMock', ['TKN'])
-            await priceOracle.mockRate(fp(2))
-            const setThresholdRole = action.interface.getSighash('setThreshold')
-            await action.connect(admin).authorize(admin.address, setThresholdRole)
-            await action.connect(admin).setThreshold(usdc.address, balance)
-          })
-
-          context('when the fee claim succeeds', () => {
-            beforeEach('mock succeeds', async () => {
-              await feeClaimer.mockFail(false)
-            })
-
-            itCallsTheCallPrimitive()
-
-            itRefundsGasCorrectly()
-
-            it('does not call the wrap primitive', async () => {
-              const tx = await action.call(token)
-
-              await assertNoIndirectEvent(tx, wallet.interface, 'Wrap')
-            })
-          })
-
-          context('when the fee claim fails', () => {
-            beforeEach('mock fail', async () => {
-              await feeClaimer.mockFail(true)
-            })
-
-            it('reverts', async () => {
-              await expect(action.call(token)).to.be.revertedWith('FEE_CLAIMER_WITHDRAW_FAILED')
-            })
-          })
-        })
-
-        context('when the min amount does not pass the threshold', () => {
-          beforeEach('set threshold', async () => {
-            const usdc = await deploy('TokenMock', ['TKN'])
-            await priceOracle.mockRate(fp(2))
-            const setThresholdRole = action.interface.getSighash('setThreshold')
-            await action.connect(admin).authorize(admin.address, setThresholdRole)
-            await action.connect(admin).setThreshold(usdc.address, balance.mul(3))
-          })
-
-          it('reverts', async () => {
-            await expect(action.call(token)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
-          })
-        })
-      })
-
-      context('when the token to collect is an ERC20', () => {
-        beforeEach('set token', async () => {
-          token = (await deploy('TokenMock', ['TKN'])).address
-        })
-
-        it('reverts', async () => {
-          await expect(action.call(token)).to.be.revertedWith('NATIVE_CLAIMER_INVALID_TOKEN')
-        })
-      })
-    }
-
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         const callRole = action.interface.getSighash('call')
         await action.connect(admin).authorize(admin.address, callRole)
         action = action.connect(admin)
       })
+
+      const itPerformsTheExpectedCall = (refunds: boolean) => {
+        const itCallsTheCallPrimitive = () => {
+          it('calls the call primitive', async () => {
+            const tx = await action.call(token)
+
+            const data = feeClaimer.interface.encodeFunctionData('withdrawAllERC20', [token, wallet.address])
+            await assertIndirectEvent(tx, wallet.interface, 'Call', { target: feeClaimer, data, value: 0 })
+          })
+
+          it('emits an Executed event', async () => {
+            const tx = await action.call(token)
+
+            await assertEvent(tx, 'Executed')
+          })
+        }
+
+        const itRefundsGasCorrectly = () => {
+          it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
+            const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+
+            await action.call(token)
+
+            const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+            expect(currentBalance).to.be[refunds ? 'gt' : 'eq'](previousBalance)
+          })
+        }
+
+        context('when the token to collect is the native token', () => {
+          const balance = fp(0.5)
+
+          beforeEach('set token', async () => {
+            token = NATIVE_TOKEN_ADDRESS
+            await admin.sendTransaction({ to: feeClaimer.address, value: balance })
+          })
+
+          context('when the min amount passes the threshold', () => {
+            beforeEach('set threshold', async () => {
+              const usdc = await deploy('TokenMock', ['TKN'])
+              await priceOracle.mockRate(fp(2))
+              const setThresholdRole = action.interface.getSighash('setThreshold')
+              await action.connect(admin).authorize(admin.address, setThresholdRole)
+              await action.connect(admin).setThreshold(usdc.address, balance)
+            })
+
+            context('when the fee claim succeeds', () => {
+              beforeEach('mock succeeds', async () => {
+                await feeClaimer.mockFail(false)
+              })
+
+              itCallsTheCallPrimitive()
+
+              itRefundsGasCorrectly()
+
+              it('calls the wrap primitive', async () => {
+                const tx = await action.call(token)
+
+                await assertIndirectEvent(tx, wallet.interface, 'Wrap', { amount: balance, data: '0x' })
+              })
+            })
+
+            context('when the fee claim fails', () => {
+              beforeEach('mock fail', async () => {
+                await feeClaimer.mockFail(true)
+              })
+
+              it('reverts', async () => {
+                await expect(action.call(token)).to.be.revertedWith('FEE_CLAIMER_WITHDRAW_FAILED')
+              })
+            })
+          })
+
+          context('when the min amount does not pass the threshold', () => {
+            beforeEach('set threshold', async () => {
+              const usdc = await deploy('TokenMock', ['TKN'])
+              await priceOracle.mockRate(fp(2))
+              const setThresholdRole = action.interface.getSighash('setThreshold')
+              await action.connect(admin).authorize(admin.address, setThresholdRole)
+              await action.connect(admin).setThreshold(usdc.address, balance.mul(3))
+            })
+
+            it('reverts', async () => {
+              await expect(action.call(token)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+            })
+          })
+        })
+
+        context('when the token to collect is the wrapped native token', () => {
+          const balance = fp(2)
+
+          beforeEach('set token', async () => {
+            token = wrappedNativeToken.address
+            await wrappedNativeToken.connect(admin).deposit({ value: balance })
+            await wrappedNativeToken.connect(admin).transfer(feeClaimer.address, balance)
+          })
+
+          context('when the min amount passes the threshold', () => {
+            beforeEach('set threshold', async () => {
+              const usdc = await deploy('TokenMock', ['TKN'])
+              await priceOracle.mockRate(fp(2))
+              const setThresholdRole = action.interface.getSighash('setThreshold')
+              await action.connect(admin).authorize(admin.address, setThresholdRole)
+              await action.connect(admin).setThreshold(usdc.address, balance)
+            })
+
+            context('when the fee claim succeeds', () => {
+              beforeEach('mock succeeds', async () => {
+                await feeClaimer.mockFail(false)
+              })
+
+              itCallsTheCallPrimitive()
+
+              itRefundsGasCorrectly()
+
+              it('does not call the wrap primitive', async () => {
+                const tx = await action.call(token)
+
+                await assertNoIndirectEvent(tx, wallet.interface, 'Wrap')
+              })
+            })
+
+            context('when the fee claim fails', () => {
+              beforeEach('mock fail', async () => {
+                await feeClaimer.mockFail(true)
+              })
+
+              it('reverts', async () => {
+                await expect(action.call(token)).to.be.revertedWith('FEE_CLAIMER_WITHDRAW_FAILED')
+              })
+            })
+          })
+
+          context('when the min amount does not pass the threshold', () => {
+            beforeEach('set threshold', async () => {
+              const usdc = await deploy('TokenMock', ['TKN'])
+              await priceOracle.mockRate(fp(2))
+              const setThresholdRole = action.interface.getSighash('setThreshold')
+              await action.connect(admin).authorize(admin.address, setThresholdRole)
+              await action.connect(admin).setThreshold(usdc.address, balance.mul(3))
+            })
+
+            it('reverts', async () => {
+              await expect(action.call(token)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+            })
+          })
+        })
+
+        context('when the token to collect is an ERC20', () => {
+          beforeEach('set token', async () => {
+            token = (await deploy('TokenMock', ['TKN'])).address
+          })
+
+          it('reverts', async () => {
+            await expect(action.call(token)).to.be.revertedWith('NATIVE_CLAIMER_INVALID_TOKEN')
+          })
+        })
+      }
 
       context('when the sender is a relayer', () => {
         beforeEach('mark sender as relayer', async () => {

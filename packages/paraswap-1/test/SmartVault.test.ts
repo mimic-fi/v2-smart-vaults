@@ -1,4 +1,13 @@
-import { assertIndirectEvent, deploy, fp, getSigner, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import {
+  assertIndirectEvent,
+  deploy,
+  fp,
+  getSigner,
+  getSigners,
+  instanceAt,
+  MONTH,
+  ZERO_ADDRESS,
+} from '@mimic-fi/v2-helpers'
 import { assertPermissions, getActions } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -79,6 +88,9 @@ describe('SmartVault', () => {
           gasPriceLimit: 0,
           totalCostLimit: fp(100),
           payingGasToken: wrappedNativeToken.address,
+        },
+        timeLockedActionParams: {
+          period: MONTH,
         },
       },
       erc20ClaimerActionParams: {
@@ -231,7 +243,7 @@ describe('SmartVault', () => {
         {
           name: 'owner',
           account: owner,
-          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setRecipient', 'call'],
+          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setTimeLock', 'setRecipient', 'call'],
         },
         { name: 'mimic', account: mimic, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
@@ -245,6 +257,11 @@ describe('SmartVault', () => {
 
     it('sets the owner as the recipient', async () => {
       expect(await withdrawer.recipient()).to.be.equal(owner.address)
+    })
+
+    it('sets the expected time-lock', async () => {
+      expect(await withdrawer.period()).to.be.equal(MONTH)
+      expect(await withdrawer.nextResetTime()).not.to.be.eq(0)
     })
 
     it('sets the expected gas limits', async () => {

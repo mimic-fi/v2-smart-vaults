@@ -16,9 +16,10 @@ pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TimeLockedAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/WithdrawalAction.sol';
 
-contract Withdrawer is BaseAction, RelayedAction, WithdrawalAction {
+contract Withdrawer is BaseAction, RelayedAction, TimeLockedAction, WithdrawalAction {
     // Base gas amount charged to cover gas payment
     uint256 public constant override BASE_GAS = 0;
 
@@ -36,6 +37,7 @@ contract Withdrawer is BaseAction, RelayedAction, WithdrawalAction {
     }
 
     function _call() internal {
+        _validateTimeLock();
         emit Executed();
     }
 }

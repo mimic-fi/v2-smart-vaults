@@ -42,6 +42,7 @@ contract SmartVaultDeployer is BaseDeployer {
         address admin;
         address[] managers;
         RelayedActionParams relayedActionParams;
+        TimeLockedActionParams timeLockedActionParams;
         WithdrawalActionParams withdrawalActionParams;
     }
 
@@ -81,6 +82,7 @@ contract SmartVaultDeployer is BaseDeployer {
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         _setupActionExecutors(withdrawer, executors, withdrawer.call.selector);
         _setupRelayedAction(withdrawer, params.admin, params.relayedActionParams);
+        _setupTimeLockedAction(withdrawer, params.admin, params.timeLockedActionParams);
         _setupWithdrawalAction(withdrawer, params.admin, params.withdrawalActionParams);
         _transferAdminPermissions(withdrawer, params.admin);
 

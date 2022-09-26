@@ -58,39 +58,11 @@ describe('Withdrawer', () => {
       await action.connect(admin).setRecipient(recipient.address)
     })
 
-    const itPerformsTheExpectedCall = (refunds: boolean) => {
-      it('calls the withdraw primitive', async () => {
-        const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-
-        const tx = await action.call()
-
-        const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-        const refund = currentBalance.sub(previousBalance)
-
-        await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
-          token: wrappedNativeToken,
-          recipient,
-          amount: balance.sub(refund),
-          fee: 0,
-          data: '0x',
-        })
-      })
-
-      it('emits an Executed event', async () => {
-        const tx = await action.call()
-
-        await assertEvent(tx, 'Executed')
-      })
-
-      it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-        const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-
-        await action.call()
-
-        const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-        expect(currentBalance).to.be[refunds ? 'gt' : 'eq'](previousBalance)
-      })
-    }
+    beforeEach('set time-lock', async () => {
+      const setTimeLockRole = action.interface.getSighash('setTimeLock')
+      await action.connect(admin).authorize(admin.address, setTimeLockRole)
+      await action.connect(admin).setTimeLock(60)
+    })
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
@@ -98,6 +70,52 @@ describe('Withdrawer', () => {
         await action.connect(admin).authorize(admin.address, callRole)
         action = action.connect(admin)
       })
+
+      const itPerformsTheExpectedCall = (refunds: boolean) => {
+        context('when the time-lock has expired', () => {
+          it('calls the withdraw primitive', async () => {
+            const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+
+            const tx = await action.call()
+
+            const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+            const refund = currentBalance.sub(previousBalance)
+
+            await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+              token: wrappedNativeToken,
+              recipient,
+              amount: balance.sub(refund),
+              fee: 0,
+              data: '0x',
+            })
+          })
+
+          it('emits an Executed event', async () => {
+            const tx = await action.call()
+
+            await assertEvent(tx, 'Executed')
+          })
+
+          it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
+            const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+
+            await action.call()
+
+            const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+            expect(currentBalance).to.be[refunds ? 'gt' : 'eq'](previousBalance)
+          })
+        })
+
+        context('when the time-lock has not expired', () => {
+          beforeEach('execute', async () => {
+            await action.call()
+          })
+
+          it('reverts', async () => {
+            await expect(action.call()).to.be.revertedWith('TIME_LOCK_NOT_EXPIRED')
+          })
+        })
+      }
 
       context('when the sender is a relayer', () => {
         beforeEach('mark sender as relayer', async () => {
