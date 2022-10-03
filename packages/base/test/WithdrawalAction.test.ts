@@ -3,27 +3,34 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
+import { createTokenMock, createWallet, Mimic, setupMimic } from '..'
+
 describe('WithdrawalAction', () => {
-  let action: Contract, wallet: Contract, token: Contract
-  let admin: SignerWithAddress, other: SignerWithAddress
+  let action: Contract, wallet: Contract, mimic: Mimic
+  let owner: SignerWithAddress, other: SignerWithAddress
 
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
-    [, admin, other] = await getSigners()
+    [, owner, other] = await getSigners()
   })
 
   beforeEach('deploy action', async () => {
-    token = await deploy('TokenMock', ['TKN'])
-    wallet = await deploy('WalletMock', [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS])
-    action = await deploy('WithdrawalActionMock', [admin.address, wallet.address])
+    mimic = await setupMimic(true)
+    wallet = await createWallet(mimic, owner)
+    action = await deploy('WithdrawalActionMock', [owner.address, wallet.address])
+  })
+
+  beforeEach('authorize action', async () => {
+    const withdrawRole = wallet.interface.getSighash('withdraw')
+    await wallet.connect(owner).authorize(action.address, withdrawRole)
   })
 
   describe('setRecipient', () => {
     context('when the sender is authorized', async () => {
       beforeEach('set sender', async () => {
         const setRecipientRole = action.interface.getSighash('setRecipient')
-        await action.connect(admin).authorize(admin.address, setRecipientRole)
-        action = action.connect(admin)
+        await action.connect(owner).authorize(owner.address, setRecipientRole)
+        action = action.connect(owner)
       })
 
       context('when the new address is not zero', async () => {
@@ -67,14 +74,21 @@ describe('WithdrawalAction', () => {
   })
 
   describe('withdraw', () => {
-    let recipient
     const amount = fp(10)
+
+    let token: Contract
+    let recipient: SignerWithAddress
+
+    beforeEach('deploy token and fund wallet', async () => {
+      token = await createTokenMock()
+      await token.mint(wallet.address, amount)
+    })
 
     beforeEach('set recipient', async () => {
       recipient = other
       const setRecipientRole = action.interface.getSighash('setRecipient')
-      await action.connect(admin).authorize(admin.address, setRecipientRole)
-      await action.connect(admin).setRecipient(recipient.address)
+      await action.connect(owner).authorize(owner.address, setRecipientRole)
+      await action.connect(owner).setRecipient(recipient.address)
     })
 
     it('can request to withdraw all funds of a token from the wallet', async () => {
@@ -82,13 +96,18 @@ describe('WithdrawalAction', () => {
 
       const tx = await action.withdrawAll(token.address)
 
-      await assertIndirectEvent(tx, wallet.interface, 'Withdraw', { token, amount, recipient, data: '0x' })
+      await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+        token,
+        withdrawn: amount.mul(2),
+        recipient,
+        data: '0x',
+      })
     })
 
     it('can request to withdraw the requested amount of a token from the wallet', async () => {
       const tx = await action.withdraw(token.address, amount)
 
-      await assertIndirectEvent(tx, wallet.interface, 'Withdraw', { token, amount, recipient, data: '0x' })
+      await assertIndirectEvent(tx, wallet.interface, 'Withdraw', { token, withdrawn: amount, recipient, data: '0x' })
     })
   })
 })

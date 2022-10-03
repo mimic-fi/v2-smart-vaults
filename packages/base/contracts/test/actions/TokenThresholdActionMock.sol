@@ -9,7 +9,7 @@ contract TokenThresholdActionMock is TokenThresholdAction {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function validateThreshold(address token, uint256 amount) external {
+    function validateThreshold(address token, uint256 amount) external view {
         _validateThreshold(token, amount);
     }
 }

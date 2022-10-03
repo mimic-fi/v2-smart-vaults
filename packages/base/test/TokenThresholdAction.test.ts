@@ -1,38 +1,23 @@
 import { assertEvent, deploy, fp, getSigners, NATIVE_TOKEN_ADDRESS, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
-import { createClone } from '@mimic-fi/v2-registry'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
+import { createWallet, Mimic, setupMimic } from '..'
+
 describe('TokenThresholdAction', () => {
-  let action: Contract, wallet: Contract, registry: Contract, priceOracle: Contract
-  let admin: SignerWithAddress, other: SignerWithAddress
+  let action: Contract, wallet: Contract, mimic: Mimic
+  let owner: SignerWithAddress, other: SignerWithAddress
 
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
-    [, admin, other] = await getSigners()
-  })
-
-  beforeEach('deploy wallet', async () => {
-    registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    wallet = await createClone(
-      registry,
-      admin,
-      '@mimic-fi/v2-wallet/artifacts/contracts/Wallet.sol/Wallet',
-      [ZERO_ADDRESS, registry.address],
-      [admin.address]
-    )
-  })
-
-  beforeEach('set price oracle', async () => {
-    priceOracle = await createClone(registry, admin, 'PriceOracleMock', [])
-    const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
-    await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
-    await wallet.connect(admin).setPriceOracle(priceOracle.address)
+    [, owner, other] = await getSigners()
   })
 
   beforeEach('deploy action', async () => {
-    action = await deploy('TokenThresholdActionMock', [admin.address, wallet.address])
+    mimic = await setupMimic(true)
+    wallet = await createWallet(mimic, owner)
+    action = await deploy('TokenThresholdActionMock', [owner.address, wallet.address])
   })
 
   describe('setThreshold', () => {
@@ -42,8 +27,8 @@ describe('TokenThresholdAction', () => {
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         const setThresholdRole = action.interface.getSighash('setThreshold')
-        await action.connect(admin).authorize(admin.address, setThresholdRole)
-        action = action.connect(admin)
+        await action.connect(owner).authorize(owner.address, setThresholdRole)
+        action = action.connect(owner)
       })
 
       it('sets the swap signer', async () => {
@@ -73,24 +58,25 @@ describe('TokenThresholdAction', () => {
 
   describe('validate', () => {
     const rate = 2
+    const token = ZERO_ADDRESS
     const thresholdAmount = fp(2)
     const thresholdToken = NATIVE_TOKEN_ADDRESS
 
     beforeEach('set threshold', async () => {
       const setThresholdRole = action.interface.getSighash('setThreshold')
-      await action.connect(admin).authorize(admin.address, setThresholdRole)
-      await action.connect(admin).setThreshold(thresholdToken, thresholdAmount)
+      await action.connect(owner).authorize(owner.address, setThresholdRole)
+      await action.connect(owner).setThreshold(thresholdToken, thresholdAmount)
     })
 
     beforeEach('mock rate', async () => {
-      await priceOracle.mockRate(fp(rate))
+      await mimic.priceOracle.mockRate(token, thresholdToken, fp(rate))
     })
 
     context('when the given amount is lower than the set limit', () => {
       const amount = thresholdAmount.div(rate).sub(1)
 
       it('reverts', async () => {
-        await expect(action.validateThreshold(ZERO_ADDRESS, amount)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+        await expect(action.validateThreshold(token, amount)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
       })
     })
 
@@ -98,7 +84,7 @@ describe('TokenThresholdAction', () => {
       const amount = thresholdAmount.div(rate).add(1)
 
       it('does not revert', async () => {
-        await expect(action.validateThreshold(ZERO_ADDRESS, amount)).not.to.be.reverted
+        await expect(action.validateThreshold(token, amount)).not.to.be.reverted
       })
     })
   })

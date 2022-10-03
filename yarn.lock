@@ -501,19 +501,6 @@
     tweetnacl "^1.0.3"
     tweetnacl-util "^0.15.1"
 
-"@mimic-fi/v2-helpers@0.0.1":
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.1.tgz#a0893370ad57fbe73bffff01eb36fb0d393353ff"
-  integrity sha512-BBGgo6AdKhqi8U/yGzGZElUPIkGbq4AfEySX+V6N4PQGkYNxFuUDdF7wO8tBRT9PcIjk58bwRtEjO1IbCARmRQ==
-  dependencies:
-    "@nomiclabs/hardhat-ethers" "^2.0.2"
-    "@nomiclabs/hardhat-waffle" "^2.0.1"
-    "@types/chai" "^4.2.18"
-    "@types/mocha" "^8.2.2"
-    chai "^4.2.0"
-    decimal.js "^10.3.1"
-    ethers "^5.0.8"
-
 "@mimic-fi/v2-helpers@0.0.6":
   version "0.0.6"
   resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.6.tgz#ef65e34b347eb9f0d8da63f533f5a3fec8c446b2"
@@ -527,62 +514,76 @@
     decimal.js "^10.3.1"
     ethers "^5.0.8"
 
-"@mimic-fi/v2-price-oracle@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-price-oracle/-/v2-price-oracle-0.0.3.tgz#f42b4712b73185ad6aa695d64dc698a684ca37a5"
-  integrity sha512-04B5oLql5+XjpqrQC8YOsRkX9PrbkrS77l/XPvmDv2UJv43KE1RACzlKL+pq+VT86Rd75Gl7hlvkfpR6pzsosA==
+"@mimic-fi/v2-helpers@0.0.7":
+  version "0.0.7"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.7.tgz#0bcee47848eb0f9afdb8b7438971d7f16f536c0b"
+  integrity sha512-eigteZwu/hG5GVZXIXuXFEU70LVObY9dLJBjl4iFSU/S4m7tLPuZn86eMxjzc23LOeG9WzA5D9cH0aUyTUjE5Q==
+  dependencies:
+    "@nomiclabs/hardhat-ethers" "^2.0.2"
+    "@nomiclabs/hardhat-waffle" "^2.0.1"
+    "@types/chai" "^4.2.18"
+    "@types/mocha" "^8.2.2"
+    chai "^4.2.0"
+    decimal.js "^10.3.1"
+    ethers "^5.0.8"
+
+"@mimic-fi/v2-price-oracle@0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-price-oracle/-/v2-price-oracle-0.0.5.tgz#d459acacb1e2b6914a98cd800bd2d6b706ad35a5"
+  integrity sha512-UH6duOQl7o2xZ9JKIlBkUG0NWMNOmw9BySudrz1Spoe3oJTjadRemUKPG7b5vDfFMociAjqCCJQLaNgPMYI9kg==
   dependencies:
     "@chainlink/contracts" "^0.2.1"
-    "@mimic-fi/v2-helpers" "0.0.6"
-    "@mimic-fi/v2-registry" "0.0.3"
+    "@mimic-fi/v2-helpers" "0.0.7"
+    "@mimic-fi/v2-registry" "0.0.5"
     "@openzeppelin/contracts" "4.7.0"
 
-"@mimic-fi/v2-registry@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-registry/-/v2-registry-0.0.3.tgz#54e099fa0c2c953ce53e7653288bac7a6f47820e"
-  integrity sha512-MEiBvQG4MhdFeVWwRWliG4+vhA2gXPM7pVEXIOYDsvY+XG2PDR/vThHeYoskaZrqgakdlPXgzqZci0uOIm4Sig==
+"@mimic-fi/v2-registry@0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-registry/-/v2-registry-0.0.5.tgz#9f47acf377e1b6427df2586da2b22f2ce424c660"
+  integrity sha512-qYS7sWjjfVql+sYN6P8/UtFxuUOCZUVZSiUpuHxpwCSF1YUNnchbKOy8y2lympddxJ9VJ80jlMTJ6UYt/CzoHA==
   dependencies:
-    "@mimic-fi/v2-helpers" "0.0.6"
+    "@mimic-fi/v2-helpers" "0.0.7"
 
-"@mimic-fi/v2-smart-vault@0.0.2":
-  version "0.0.2"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-smart-vault/-/v2-smart-vault-0.0.2.tgz#1270970c532fa2075ff5172b8fa136d8611979a8"
-  integrity sha512-PcjL5/RRfYQjpCMTHcJDnQE7jkDZqKkqJb7VQNEhtad+iol+RS1i+iPULGl5yjfiFQx+B/c4dMctKgFZLdEgWw==
+"@mimic-fi/v2-smart-vault@0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-smart-vault/-/v2-smart-vault-0.0.5.tgz#47a377c47a34910a505795b196999699d7827c4b"
+  integrity sha512-r6zfHbG5mGO//rpwOi8ZP3XIWqasgKE0MnTyexHCHwPFwc30ifUmv8JBMphiQ3Lm8johaUIK+7blLgti1ibYTg==
   dependencies:
-    "@mimic-fi/v2-helpers" "0.0.6"
-    "@mimic-fi/v2-registry" "0.0.3"
+    "@mimic-fi/v2-helpers" "0.0.7"
+    "@mimic-fi/v2-registry" "0.0.5"
 
-"@mimic-fi/v2-strategies@0.0.1":
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-strategies/-/v2-strategies-0.0.1.tgz#8dc93258df4daaca3d146712415494b2b9e23568"
-  integrity sha512-zKsnDPNZDF1twzWnT6aUaSQF1vXAKVnRkwAJ7UXuBauLRJB9GL2unQo6xPaBqne7JR+8RP1o5o92BvagvYhafw==
+"@mimic-fi/v2-strategies@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-strategies/-/v2-strategies-0.0.4.tgz#b30bd5d2fc66000ab2722006c32c15ffc1a1669b"
+  integrity sha512-SVucbXgfnuckuyMIRnmW0Z0SGVCW6pf9hX/uKAe84l1bbToaxt8qbC1Wm8sFYtZ7P5nUkvjGymP1OXUTCHmJTw==
   dependencies:
-    "@mimic-fi/v2-helpers" "0.0.1"
+    "@mimic-fi/v2-helpers" "0.0.7"
+    "@mimic-fi/v2-registry" "0.0.5"
     "@openzeppelin/contracts" "4.7.0"
 
-"@mimic-fi/v2-swap-connector@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-swap-connector/-/v2-swap-connector-0.0.3.tgz#704f810afd6613651fcbbcc05b4f0e2e1667e64b"
-  integrity sha512-CdDY5zAJ25LE315ASJENTo7hch+8x14JqKFgPWHQHWpdbUAbZZSpL8auN2gcw3TWaYK9UwkEheVk4lV/j6LCag==
+"@mimic-fi/v2-swap-connector@0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-swap-connector/-/v2-swap-connector-0.0.5.tgz#34204fcb385c1310247c2518a9254bb3419cd088"
+  integrity sha512-HkJZul8IYt45mlenQzBTyNuiUh6f3u7anSpJNxzJykNEFm21MINew2H//Y1XvN/cklcqdxv8jb4jawDyO5zn2Q==
   dependencies:
-    "@mimic-fi/v2-helpers" "0.0.6"
-    "@mimic-fi/v2-registry" "0.0.3"
+    "@mimic-fi/v2-helpers" "0.0.7"
+    "@mimic-fi/v2-registry" "0.0.5"
     "@openzeppelin/contracts" "4.7.0"
     "@uniswap/v2-core" "^1.0.1"
     "@uniswap/v2-periphery" "^1.1.0-beta.0"
     "@uniswap/v3-core" "^1.0.1"
     "@uniswap/v3-periphery" "^1.4.1"
 
-"@mimic-fi/v2-wallet@0.0.4":
-  version "0.0.4"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-wallet/-/v2-wallet-0.0.4.tgz#4388d2d6c881463ba97404f30c24de333d8c25f6"
-  integrity sha512-SLrB54GUQHh2v5AT7PY6pnOa6C5JUViVxiZTM8zd08Wcc3z0gWQjdvzv8nP375M2ALlUW9uwCJ6BJH6DmTSI6A==
+"@mimic-fi/v2-wallet@0.0.7":
+  version "0.0.7"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-wallet/-/v2-wallet-0.0.7.tgz#31cd70c68c5e34375a3f8954bbcb3f79e216a640"
+  integrity sha512-3k+2gm74PLiOBpajMP4qatPBTiXado2OXVCkAziEVC/KrdC9zrgh6S9uEdvvqiUrmRogJ3bWWgBB9W3WCOqOqQ==
   dependencies:
-    "@mimic-fi/v2-helpers" "0.0.6"
-    "@mimic-fi/v2-price-oracle" "0.0.3"
-    "@mimic-fi/v2-registry" "0.0.3"
-    "@mimic-fi/v2-strategies" "0.0.1"
-    "@mimic-fi/v2-swap-connector" "0.0.3"
+    "@mimic-fi/v2-helpers" "0.0.7"
+    "@mimic-fi/v2-price-oracle" "0.0.5"
+    "@mimic-fi/v2-registry" "0.0.5"
+    "@mimic-fi/v2-strategies" "0.0.4"
+    "@mimic-fi/v2-swap-connector" "0.0.5"
     "@openzeppelin/contracts" "4.7.0"
 
 "@noble/hashes@1.1.2", "@noble/hashes@~1.1.1":

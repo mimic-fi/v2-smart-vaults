@@ -14,9 +14,8 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-wallet/contracts/IWallet.sol';
+import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
-import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/BaseDeployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
@@ -29,7 +28,6 @@ contract SmartVaultDeployer is BaseDeployer {
     struct Params {
         IRegistry registry;
         WalletParams walletParams;
-        PriceOracleParams priceOracleParams;
         WrapperActionParams wrapperActionParams;
         SmartVaultParams smartVaultParams;
     }
@@ -43,8 +41,7 @@ contract SmartVaultDeployer is BaseDeployer {
     }
 
     function deploy(Params memory params) external {
-        PriceOracle priceOracle = _createPriceOracle(params.registry, params.priceOracleParams, true);
-        Wallet wallet = _createWallet(params.registry, params.walletParams, NO_STRATEGY, address(priceOracle), false);
+        Wallet wallet = _createWallet(params.registry, params.walletParams, false);
         IAction wrapper = _setupWrapperAction(wallet, params.wrapperActionParams);
         _transferAdminPermissions(wallet, params.walletParams.admin);
         _createSmartVault(params.registry, params.smartVaultParams, address(wallet), _actions(wrapper), true);

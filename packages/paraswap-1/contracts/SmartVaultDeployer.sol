@@ -14,9 +14,8 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-wallet/contracts/IWallet.sol';
+import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
-import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/BaseDeployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
@@ -31,7 +30,6 @@ contract SmartVaultDeployer is BaseDeployer {
     struct Params {
         IRegistry registry;
         WalletParams walletParams;
-        PriceOracleParams priceOracleParams;
         WithdrawerActionParams withdrawerActionParams;
         ERC20ClaimerActionParams erc20ClaimerActionParams;
         NativeClaimerActionParams nativeClaimerActionParams;
@@ -66,8 +64,7 @@ contract SmartVaultDeployer is BaseDeployer {
     }
 
     function deploy(Params memory params) external {
-        PriceOracle priceOracle = _createPriceOracle(params.registry, params.priceOracleParams, true);
-        Wallet wallet = _createWallet(params.registry, params.walletParams, NO_STRATEGY, address(priceOracle), false);
+        Wallet wallet = _createWallet(params.registry, params.walletParams, false);
         IAction withdrawer = _setupWithdrawerAction(wallet, params.withdrawerActionParams);
         IAction erc20Claimer = _setupERC20ClaimerAction(wallet, params.erc20ClaimerActionParams);
         IAction nativeClaimer = _setupNativeClaimerAction(wallet, params.nativeClaimerActionParams);

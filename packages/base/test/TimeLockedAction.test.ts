@@ -1,20 +1,23 @@
-import { advanceTime, assertEvent, deploy, getSigners, MONTH, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { advanceTime, assertEvent, deploy, getSigners, MONTH } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
+import { createWallet, Mimic, setupMimic } from '..'
+
 describe('TimeLockedAction', () => {
-  let action: Contract, wallet: Contract
-  let admin: SignerWithAddress, other: SignerWithAddress
+  let action: Contract, wallet: Contract, mimic: Mimic
+  let owner: SignerWithAddress, other: SignerWithAddress
 
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
-    [, admin, other] = await getSigners()
+    [, owner, other] = await getSigners()
   })
 
   beforeEach('deploy action', async () => {
-    wallet = await deploy('WalletMock', [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS])
-    action = await deploy('TimeLockedActionMock', [admin.address, wallet.address])
+    mimic = await setupMimic(true)
+    wallet = await createWallet(mimic, owner)
+    action = await deploy('TimeLockedActionMock', [owner.address, wallet.address])
   })
 
   describe('setTimeLock', () => {
@@ -23,8 +26,8 @@ describe('TimeLockedAction', () => {
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         const setTimeLockRole = action.interface.getSighash('setTimeLock')
-        await action.connect(admin).authorize(admin.address, setTimeLockRole)
-        action = action.connect(admin)
+        await action.connect(owner).authorize(owner.address, setTimeLockRole)
+        action = action.connect(owner)
       })
 
       it('sets the time lock', async () => {
@@ -59,8 +62,8 @@ describe('TimeLockedAction', () => {
 
     beforeEach('set time lock', async () => {
       const setTimeLockRole = action.interface.getSighash('setTimeLock')
-      await action.connect(admin).authorize(admin.address, setTimeLockRole)
-      await action.connect(admin).setTimeLock(period)
+      await action.connect(owner).authorize(owner.address, setTimeLockRole)
+      await action.connect(owner).setTimeLock(period)
     })
 
     beforeEach('execute once', async () => {

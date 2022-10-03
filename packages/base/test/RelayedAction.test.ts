@@ -12,20 +12,32 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
+import { createTokenMock, createWallet, Mimic, setupMimic } from '..'
+
 describe('RelayedAction', () => {
-  let action: Contract, wallet: Contract, priceOracle: Contract, wrappedNativeToken: Contract
-  let admin: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
+  let action: Contract, wallet: Contract, mimic: Mimic
+  let owner: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
 
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
-    [, admin, other, feeCollector] = await getSigners()
+    [, owner, other, feeCollector] = await getSigners()
   })
 
   beforeEach('deploy action', async () => {
-    priceOracle = await deploy('PriceOracleMock', [])
-    wrappedNativeToken = await deploy('WrappedNativeTokenMock')
-    wallet = await deploy('WalletMock', [priceOracle.address, feeCollector.address, wrappedNativeToken.address])
-    action = await deploy('RelayedActionMock', [admin.address, wallet.address])
+    mimic = await setupMimic(true)
+    wallet = await createWallet(mimic, owner)
+    action = await deploy('RelayedActionMock', [owner.address, wallet.address])
+  })
+
+  beforeEach('authorize action', async () => {
+    const withdrawRole = wallet.interface.getSighash('withdraw')
+    await wallet.connect(owner).authorize(action.address, withdrawRole)
+  })
+
+  beforeEach('set fee collector', async () => {
+    const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
+    await wallet.connect(owner).authorize(owner.address, setFeeCollectorRole)
+    await wallet.connect(owner).setFeeCollector(feeCollector.address)
   })
 
   describe('setRelayer', () => {
@@ -38,8 +50,8 @@ describe('RelayedAction', () => {
     context('when the sender is authorized', async () => {
       beforeEach('set sender', async () => {
         const setRelayerRole = action.interface.getSighash('setRelayer')
-        await action.connect(admin).authorize(admin.address, setRelayerRole)
-        action = action.connect(admin)
+        await action.connect(owner).authorize(owner.address, setRelayerRole)
+        action = action.connect(owner)
       })
 
       context('when the relayer was not allowed', async () => {
@@ -94,8 +106,8 @@ describe('RelayedAction', () => {
     context('when the sender is authorized', async () => {
       beforeEach('set sender', async () => {
         const setLimitsRole = action.interface.getSighash('setLimits')
-        await action.connect(admin).authorize(admin.address, setLimitsRole)
-        action = action.connect(admin)
+        await action.connect(owner).authorize(owner.address, setLimitsRole)
+        action = action.connect(owner)
       })
 
       context('when the paying gas token is not zero', async () => {
@@ -162,16 +174,16 @@ describe('RelayedAction', () => {
   describe('redeemGas', () => {
     const REDEEM_GAS_NOTE = `0x${Buffer.from('RELAYER', 'utf-8').toString('hex')}`
 
-    beforeEach('authorize admin', async () => {
+    beforeEach('authorize owner', async () => {
       const setLimitsRole = action.interface.getSighash('setLimits')
-      await action.connect(admin).authorize(admin.address, setLimitsRole)
+      await action.connect(owner).authorize(owner.address, setLimitsRole)
     })
 
     context('when the sender is a relayer', () => {
       beforeEach('authorize relayer', async () => {
         const setRelayerRole = action.interface.getSighash('setRelayer')
-        await action.connect(admin).authorize(admin.address, setRelayerRole)
-        await action.connect(admin).setRelayer(other.address, true)
+        await action.connect(owner).authorize(owner.address, setRelayerRole)
+        await action.connect(owner).setRelayer(other.address, true)
         action = action.connect(other)
       })
 
@@ -181,11 +193,15 @@ describe('RelayedAction', () => {
         const payingGasToken = NATIVE_TOKEN_ADDRESS
 
         beforeEach('setLimits', async () => {
-          await action.connect(admin).setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
+          await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
         })
 
         context('when the tx gas price is under the limit', () => {
           const gasPrice = gasPriceLimit - 1
+
+          beforeEach('fund wallet', async () => {
+            await owner.sendTransaction({ to: wallet.address, value: fp(1) })
+          })
 
           it('redeems the expected cost to the wallet fee collector', async () => {
             const tx = await action.call({ gasPrice })
@@ -198,7 +214,7 @@ describe('RelayedAction', () => {
 
             const { gasUsed, effectiveGasPrice } = await tx.wait()
             const expectedCost = gasUsed.mul(effectiveGasPrice)
-            assertAlmostEqual(args.amount, expectedCost, 0.15)
+            assertAlmostEqual(args.withdrawn, expectedCost, 0.1)
           })
         })
 
@@ -213,13 +229,14 @@ describe('RelayedAction', () => {
 
       context('with total cost limit', () => {
         let realGasCostEth
-        const gasCostError = 1e12
+        const gasCostError = 1e13
         const gasPriceLimit = 0
 
         beforeEach('measure real gas cost', async () => {
-          await action.connect(admin).setLimits(gasPriceLimit, fp(100), NATIVE_TOKEN_ADDRESS)
+          await action.connect(owner).setLimits(gasPriceLimit, fp(100), NATIVE_TOKEN_ADDRESS)
+          await owner.sendTransaction({ to: wallet.address, value: fp(1) })
           const { args } = await assertIndirectEvent(await action.call(), wallet.interface, 'Withdraw')
-          realGasCostEth = args.amount
+          realGasCostEth = args.withdrawn
         })
 
         context('paying in the native token', () => {
@@ -228,7 +245,7 @@ describe('RelayedAction', () => {
           context('when total gas cost limit is above the actual cost', () => {
             beforeEach('setLimits', async () => {
               const totalCostLimit = realGasCostEth.add(gasCostError)
-              await action.connect(admin).setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
+              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
             })
 
             it('redeems the expected cost to the wallet fee collector', async () => {
@@ -240,15 +257,15 @@ describe('RelayedAction', () => {
                 data: REDEEM_GAS_NOTE,
               })
 
-              expect(args.amount).to.be.at.least(realGasCostEth.sub(gasCostError))
-              expect(args.amount).to.be.at.most(realGasCostEth.add(gasCostError))
+              expect(args.withdrawn).to.be.at.least(realGasCostEth.sub(gasCostError))
+              expect(args.withdrawn).to.be.at.most(realGasCostEth.add(gasCostError))
             })
           })
 
           context('when total gas cost limit is below the actual cost', () => {
             beforeEach('setLimits', async () => {
               const totalCostLimit = realGasCostEth.sub(gasCostError)
-              await action.connect(admin).setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
+              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
             })
 
             it('reverts', async () => {
@@ -261,13 +278,18 @@ describe('RelayedAction', () => {
           let payingGasToken: Contract
 
           beforeEach('set paying token', async () => {
-            payingGasToken = wrappedNativeToken
+            payingGasToken = mimic.wrappedNativeToken
           })
 
           context('when total gas cost limit is above the actual cost', () => {
             beforeEach('setLimits', async () => {
               const totalCostLimit = realGasCostEth.add(gasCostError)
-              await action.connect(admin).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
+              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
+            })
+
+            beforeEach('fund wallet', async () => {
+              await mimic.wrappedNativeToken.connect(owner).deposit({ value: fp(1) })
+              await mimic.wrappedNativeToken.connect(owner).transfer(wallet.address, fp(1))
             })
 
             it('redeems the expected cost to the wallet fee collector', async () => {
@@ -279,15 +301,15 @@ describe('RelayedAction', () => {
                 data: REDEEM_GAS_NOTE,
               })
 
-              expect(args.amount).to.be.at.least(realGasCostEth.sub(gasCostError))
-              expect(args.amount).to.be.at.most(realGasCostEth.add(gasCostError))
+              expect(args.withdrawn).to.be.at.least(realGasCostEth.sub(gasCostError))
+              expect(args.withdrawn).to.be.at.most(realGasCostEth.add(gasCostError))
             })
           })
 
           context('when total gas cost limit is below the actual cost', () => {
             beforeEach('setLimits', async () => {
               const totalCostLimit = realGasCostEth.sub(gasCostError)
-              await action.connect(admin).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
+              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
             })
 
             it('reverts', async () => {
@@ -301,14 +323,18 @@ describe('RelayedAction', () => {
           let payingGasToken: Contract
 
           beforeEach('set paying token and mock oracle rate', async () => {
-            payingGasToken = await deploy('TokenMock', ['TKN'])
-            await priceOracle.mockRate(rate)
+            payingGasToken = await createTokenMock()
+            await mimic.priceOracle.mockRate(mimic.wrappedNativeToken.address, payingGasToken.address, rate)
           })
 
           context('when total gas cost limit is above the actual cost', () => {
             beforeEach('setLimits', async () => {
               const totalCostLimit = realGasCostEth.add(gasCostError).mul(rate).div(fp(1))
-              await action.connect(admin).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
+              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
+            })
+
+            beforeEach('fund wallet', async () => {
+              await payingGasToken.mint(wallet.address, fp(2))
             })
 
             it('redeems the expected cost to the wallet fee collector', async () => {
@@ -320,15 +346,15 @@ describe('RelayedAction', () => {
                 data: REDEEM_GAS_NOTE,
               })
 
-              expect(args.amount).to.be.at.least(realGasCostEth.sub(gasCostError).mul(rate).div(fp(1)))
-              expect(args.amount).to.be.at.most(realGasCostEth.add(gasCostError).mul(rate).div(fp(1)))
+              expect(args.withdrawn).to.be.at.least(realGasCostEth.sub(gasCostError).mul(rate).div(fp(1)))
+              expect(args.withdrawn).to.be.at.most(realGasCostEth.add(gasCostError).mul(rate).div(fp(1)))
             })
           })
 
           context('when total gas cost limit is below the actual cost', () => {
             beforeEach('setLimits', async () => {
               const totalCostLimit = realGasCostEth.sub(gasCostError).mul(rate).div(fp(1))
-              await action.connect(admin).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
+              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
             })
 
             it('reverts', async () => {

@@ -10,41 +10,33 @@ import {
   NATIVE_TOKEN_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
-import { createClone } from '@mimic-fi/v2-registry'
+import { createTokenMock, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
 describe('ERC20Claimer', () => {
-  let action: Contract, wallet: Contract, registry: Contract, wrappedNativeToken: Contract
-  let admin: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress, swapSigner: SignerWithAddress
+  let action: Contract, wallet: Contract, mimic: Mimic
+  let owner: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress, swapSigner: SignerWithAddress
 
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
-    [, admin, other, feeCollector, swapSigner] = await getSigners()
+    [, owner, other, feeCollector, swapSigner] = await getSigners()
   })
 
   beforeEach('deploy action', async () => {
-    wrappedNativeToken = await deploy('WrappedNativeTokenMock')
-    registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    wallet = await createClone(
-      registry,
-      admin,
-      '@mimic-fi/v2-wallet/artifacts/contracts/Wallet.sol/Wallet',
-      [wrappedNativeToken.address, registry.address],
-      [admin.address]
-    )
-
-    action = await deploy('ERC20Claimer', [admin.address, wallet.address])
+    mimic = await setupMimic(true)
+    wallet = await createWallet(mimic, owner)
+    action = await deploy('ERC20Claimer', [owner.address, wallet.address])
   })
 
   describe('setFeeClaimer', () => {
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         const setFeeClaimerRole = action.interface.getSighash('setFeeClaimer')
-        await action.connect(admin).authorize(admin.address, setFeeClaimerRole)
-        action = action.connect(admin)
+        await action.connect(owner).authorize(owner.address, setFeeClaimerRole)
+        action = action.connect(owner)
       })
 
       it('sets the swap signer', async () => {
@@ -75,8 +67,8 @@ describe('ERC20Claimer', () => {
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         const setSwapSignerRole = action.interface.getSighash('setSwapSigner')
-        await action.connect(admin).authorize(admin.address, setSwapSignerRole)
-        action = action.connect(admin)
+        await action.connect(owner).authorize(owner.address, setSwapSignerRole)
+        action = action.connect(owner)
       })
 
       it('sets the swap signer', async () => {
@@ -105,75 +97,68 @@ describe('ERC20Claimer', () => {
 
   describe('call', () => {
     let deadline: BigNumber, signature: string
-    let swapConnector: Contract, priceOracle: Contract, feeClaimer: Contract, token: Contract
+    let feeClaimer: Contract, token: Contract, thresholdToken: Contract
 
     const swapRate = 2
     const data = '0xaaaabbbb'
     const amountIn = fp(1)
     const minAmountOut = amountIn.mul(swapRate)
+    const thresholdRate = 2
 
-    beforeEach('deploy fee claimer', async () => {
-      priceOracle = await createClone(registry, admin, 'PriceOracleMock', [])
-      const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
-      await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
-      await wallet.connect(admin).setPriceOracle(priceOracle.address)
-    })
-
-    beforeEach('set swap connector', async () => {
-      swapConnector = await createClone(registry, admin, 'SwapConnectorMock', [registry.address])
-      const setSwapConnectorRole = wallet.interface.getSighash('setSwapConnector')
-      await wallet.connect(admin).authorize(admin.address, setSwapConnectorRole)
-      await wallet.connect(admin).setSwapConnector(swapConnector.address)
-      await swapConnector.mockRate(fp(swapRate))
-      await wrappedNativeToken.connect(admin).deposit({ value: minAmountOut })
-      await wrappedNativeToken.connect(admin).transfer(swapConnector.address, minAmountOut)
+    beforeEach('authorize action', async () => {
+      const callRole = wallet.interface.getSighash('call')
+      await wallet.connect(owner).authorize(action.address, callRole)
+      const swapRole = wallet.interface.getSighash('swap')
+      await wallet.connect(owner).authorize(action.address, swapRole)
+      const withdrawRole = wallet.interface.getSighash('withdraw')
+      await wallet.connect(owner).authorize(action.address, withdrawRole)
     })
 
     beforeEach('set fee collector', async () => {
       const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
-      await wallet.connect(admin).authorize(admin.address, setFeeCollectorRole)
-      await wallet.connect(admin).setFeeCollector(feeCollector.address)
-    })
-
-    beforeEach('authorize action', async () => {
-      const callRole = wallet.interface.getSighash('call')
-      await wallet.connect(admin).authorize(action.address, callRole)
-
-      const swapRole = wallet.interface.getSighash('swap')
-      await wallet.connect(admin).authorize(action.address, swapRole)
-
-      const withdrawRole = wallet.interface.getSighash('withdraw')
-      await wallet.connect(admin).authorize(action.address, withdrawRole)
+      await wallet.connect(owner).authorize(owner.address, setFeeCollectorRole)
+      await wallet.connect(owner).setFeeCollector(feeCollector.address)
     })
 
     beforeEach('deploy fee claimer', async () => {
       feeClaimer = await deploy('FeeClaimerMock')
       const setFeeClaimerRole = action.interface.getSighash('setFeeClaimer')
-      await action.connect(admin).authorize(admin.address, setFeeClaimerRole)
-      await action.connect(admin).setFeeClaimer(feeClaimer.address)
+      await action.connect(owner).authorize(owner.address, setFeeClaimerRole)
+      await action.connect(owner).setFeeClaimer(feeClaimer.address)
     })
 
-    beforeEach('deploy token in', async () => {
-      token = await deploy('TokenMock', ['TKN'])
+    beforeEach('fund swap connector', async () => {
+      await mimic.swapConnector.mockRate(fp(swapRate))
+      await mimic.wrappedNativeToken.connect(owner).deposit({ value: minAmountOut })
+      await mimic.wrappedNativeToken.connect(owner).transfer(await mimic.swapConnector.dex(), minAmountOut)
+    })
+
+    beforeEach('deploy threshold token', async () => {
+      thresholdToken = await createTokenMock()
+      const setThresholdRole = action.interface.getSighash('setThreshold')
+      await action.connect(owner).authorize(owner.address, setThresholdRole)
+      await mimic.priceOracle.mockRate(mimic.wrappedNativeToken.address, thresholdToken.address, fp(thresholdRate))
+    })
+
+    beforeEach('fund fee claimer', async () => {
+      token = await createTokenMock()
       await token.mint(feeClaimer.address, amountIn)
     })
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         const callRole = action.interface.getSighash('call')
-        await action.connect(admin).authorize(admin.address, callRole)
-        action = action.connect(admin)
+        await action.connect(owner).authorize(owner.address, callRole)
+        action = action.connect(owner)
       })
 
       const itPerformsTheExpectedCall = (refunds: boolean) => {
         context('when the token to collect is an ERC20', () => {
-          context('when the min amount passes the threshold', () => {
+          context('when the amount to claim passes the threshold', () => {
+            const thresholdAmount = minAmountOut.mul(thresholdRate)
+
             beforeEach('set threshold', async () => {
-              const usdc = await deploy('TokenMock', ['TKN'])
-              await priceOracle.mockRate(fp(2))
-              const setThresholdRole = action.interface.getSighash('setThreshold')
-              await action.connect(admin).authorize(admin.address, setThresholdRole)
-              await action.connect(admin).setThreshold(usdc.address, minAmountOut)
+              await action.connect(owner).setThreshold(thresholdToken.address, thresholdAmount)
             })
 
             const sign = async (signer: SignerWithAddress, deadline: BigNumber): Promise<string> => {
@@ -181,7 +166,7 @@ describe('ERC20Claimer', () => {
                 ethers.utils.arrayify(
                   ethers.utils.solidityKeccak256(
                     ['address', 'address', 'uint256', 'uint256', 'uint256'],
-                    [token.address, wrappedNativeToken.address, amountIn, minAmountOut, deadline]
+                    [token.address, mimic.wrappedNativeToken.address, amountIn, minAmountOut, deadline]
                   )
                 )
               )
@@ -190,8 +175,8 @@ describe('ERC20Claimer', () => {
             context('when the message is sign by the swap signer', () => {
               beforeEach('set swap signer', async () => {
                 const setSwapSignerRole = action.interface.getSighash('setSwapSigner')
-                await action.connect(admin).authorize(admin.address, setSwapSignerRole)
-                await action.connect(admin).setSwapSigner(swapSigner.address)
+                await action.connect(owner).authorize(owner.address, setSwapSignerRole)
+                await action.connect(owner).setSwapSigner(swapSigner.address)
               })
 
               context('when the deadline is not expired', () => {
@@ -205,10 +190,10 @@ describe('ERC20Claimer', () => {
                     await feeClaimer.mockFail(false)
                   })
 
-                  it('calls the collect primitive', async () => {
+                  it('calls the call primitive', async () => {
                     const tx = await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
 
-                    const calldata = feeClaimer.interface.encodeFunctionData('withdrawSomeERC20', [
+                    const callData = feeClaimer.interface.encodeFunctionData('withdrawSomeERC20', [
                       token.address,
                       amountIn,
                       wallet.address,
@@ -216,8 +201,9 @@ describe('ERC20Claimer', () => {
 
                     await assertIndirectEvent(tx, wallet.interface, 'Call', {
                       target: feeClaimer,
-                      data: calldata,
+                      callData,
                       value: 0,
+                      data: '0x',
                     })
                   })
 
@@ -226,7 +212,7 @@ describe('ERC20Claimer', () => {
 
                     await assertIndirectEvent(tx, wallet.interface, 'Swap', {
                       tokenIn: token,
-                      tokenOut: wrappedNativeToken,
+                      tokenOut: mimic.wrappedNativeToken,
                       amountIn,
                       minAmountOut,
                       data,
@@ -236,7 +222,7 @@ describe('ERC20Claimer', () => {
                   it('transfers the token in from the fee claimer to the swap connector', async () => {
                     const previousWalletBalance = await token.balanceOf(wallet.address)
                     const previousFeeClaimerBalance = await token.balanceOf(feeClaimer.address)
-                    const previousSwapConnectorBalance = await token.balanceOf(swapConnector.address)
+                    const previousDexBalance = await token.balanceOf(await mimic.swapConnector.dex())
 
                     await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
 
@@ -246,28 +232,28 @@ describe('ERC20Claimer', () => {
                     const currentFeeClaimerBalance = await token.balanceOf(feeClaimer.address)
                     expect(currentFeeClaimerBalance).to.be.eq(previousFeeClaimerBalance.sub(amountIn))
 
-                    const currentSwapConnectorBalance = await token.balanceOf(swapConnector.address)
-                    expect(currentSwapConnectorBalance).to.be.eq(previousSwapConnectorBalance.add(amountIn))
+                    const currentDexBalance = await token.balanceOf(await mimic.swapConnector.dex())
+                    expect(currentDexBalance).to.be.eq(previousDexBalance.add(amountIn))
                   })
 
                   it('transfers the token out from the swap connector to the wallet', async () => {
-                    const previousWalletBalance = await wrappedNativeToken.balanceOf(wallet.address)
-                    const previousFeeClaimerBalance = await wrappedNativeToken.balanceOf(feeClaimer.address)
-                    const previousFeeCollectorBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-                    const previousSwapConnectorBalance = await wrappedNativeToken.balanceOf(swapConnector.address)
+                    const previousWalletBalance = await mimic.wrappedNativeToken.balanceOf(wallet.address)
+                    const previousFeeClaimerBalance = await mimic.wrappedNativeToken.balanceOf(feeClaimer.address)
+                    const previousFeeCollectorBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                    const previousDexBalance = await mimic.wrappedNativeToken.balanceOf(await mimic.swapConnector.dex())
 
                     await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
 
-                    const currentFeeCollectorBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+                    const currentFeeCollectorBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
                     const gasPaid = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
-                    const currentWalletBalance = await wrappedNativeToken.balanceOf(wallet.address)
+                    const currentWalletBalance = await mimic.wrappedNativeToken.balanceOf(wallet.address)
                     expect(currentWalletBalance).to.be.eq(previousWalletBalance.add(minAmountOut).sub(gasPaid))
 
-                    const currentFeeClaimerBalance = await wrappedNativeToken.balanceOf(feeClaimer.address)
+                    const currentFeeClaimerBalance = await mimic.wrappedNativeToken.balanceOf(feeClaimer.address)
                     expect(currentFeeClaimerBalance).to.be.eq(previousFeeClaimerBalance)
 
-                    const currentSwapConnectorBalance = await wrappedNativeToken.balanceOf(swapConnector.address)
-                    expect(currentSwapConnectorBalance).to.be.eq(previousSwapConnectorBalance.sub(minAmountOut))
+                    const currentDexBalance = await mimic.wrappedNativeToken.balanceOf(await mimic.swapConnector.dex())
+                    expect(currentDexBalance).to.be.eq(previousDexBalance.sub(minAmountOut))
                   })
 
                   it('emits an Executed event', async () => {
@@ -277,11 +263,11 @@ describe('ERC20Claimer', () => {
                   })
 
                   it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-                    const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+                    const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
                     await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
 
-                    const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+                    const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
                     expect(currentBalance).to.be[refunds ? 'gt' : 'eq'](previousBalance)
                   })
                 })
@@ -328,13 +314,11 @@ describe('ERC20Claimer', () => {
             })
           })
 
-          context('when the min amount does not pass the threshold', () => {
+          context('when the amount to claim passes the threshold', () => {
+            const thresholdAmount = minAmountOut.mul(thresholdRate).add(1)
+
             beforeEach('set threshold', async () => {
-              const usdc = await deploy('TokenMock', ['TKN'])
-              await priceOracle.mockRate(fp(2))
-              const setThresholdRole = action.interface.getSighash('setThreshold')
-              await action.connect(admin).authorize(admin.address, setThresholdRole)
-              await action.connect(admin).setThreshold(usdc.address, minAmountOut.mul(2).add(1))
+              await action.connect(owner).setThreshold(thresholdToken.address, thresholdAmount)
             })
 
             it('reverts', async () => {
@@ -347,7 +331,7 @@ describe('ERC20Claimer', () => {
 
         context('when the token to collect is the wrapped native token', () => {
           it('reverts', async () => {
-            await expect(action.call(wrappedNativeToken.address, 0, 0, 0, '0x', '0x')).to.be.revertedWith(
+            await expect(action.call(mimic.wrappedNativeToken.address, 0, 0, 0, '0x', '0x')).to.be.revertedWith(
               'ERC20_CLAIMER_INVALID_TOKEN'
             )
           })
@@ -365,12 +349,12 @@ describe('ERC20Claimer', () => {
       context('when the sender is a relayer', () => {
         beforeEach('mark sender as relayer', async () => {
           const setRelayerRole = action.interface.getSighash('setRelayer')
-          await action.connect(admin).authorize(admin.address, setRelayerRole)
-          await action.connect(admin).setRelayer(admin.address, true)
+          await action.connect(owner).authorize(owner.address, setRelayerRole)
+          await action.connect(owner).setRelayer(owner.address, true)
 
           const setLimitsRole = action.interface.getSighash('setLimits')
-          await action.connect(admin).authorize(admin.address, setLimitsRole)
-          await action.connect(admin).setLimits(fp(100), 0, wrappedNativeToken.address)
+          await action.connect(owner).authorize(owner.address, setLimitsRole)
+          await action.connect(owner).setLimits(fp(100), 0, mimic.wrappedNativeToken.address)
         })
 
         itPerformsTheExpectedCall(true)

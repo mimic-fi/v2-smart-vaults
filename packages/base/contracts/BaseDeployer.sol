@@ -18,7 +18,7 @@ import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
-import '@mimic-fi/v2-price-oracle/contracts/PriceOracle.sol';
+import '@mimic-fi/v2-price-oracle/contracts/oracle/PriceOracle.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 
 import './actions/RelayedAction.sol';
@@ -45,6 +45,9 @@ contract BaseDeployer {
     // Namespace to use by this deployer to fetch ISmartVault implementations from the Mimic Registry
     bytes32 private constant SMART_VAULT_NAMESPACE = keccak256('SMART_VAULT');
 
+    // Namespace to use by this deployer to fetch IStrategy implementations from the Mimic Registry
+    bytes32 private constant STRATEGY_NAMESPACE = keccak256('STRATEGY');
+
     // Namespace to use by this deployer to fetch IPriceOracle implementations from the Mimic Registry
     bytes32 private constant PRICE_ORACLE_NAMESPACE = keccak256('PRICE_ORACLE');
 
@@ -65,38 +68,52 @@ contract BaseDeployer {
      * @dev Wallet params
      * @param impl Address of the Wallet implementation to be used
      * @param admin Address that will be granted with admin rights for the deployed Wallet
-     * @param feeCollector Address to be set as the fee collector
-     * @param strategy Optional strategy to set for the Mimic Wallet
      * @param swapConnector Optional Swap Connector to set for the Mimic Wallet
-     * @param swapFee Swap fee percentage, can be zero
-     * @param withdrawFee Withdraw fee percentage, can be zero
-     * @param performanceFee Performance fee percentage, can be zero
+     * @param strategies List of strategies to be allowed for the Mimic Wallet
+     * @param priceOracle Optional Price Oracle to set for the Mimic Wallet
+     * @param priceFeedParams List of price feeds to be set for the Mimic Wallet
+     * @param feeCollector Address to be set as the fee collector
+     * @param swapFee Swap fee params
+     * @param withdrawFee Withdraw fee params
+     * @param performanceFee Performance fee params
      */
     struct WalletParams {
         address impl;
         address admin;
-        address feeCollector;
-        address strategy;
+        address[] strategies;
         address swapConnector;
-        uint256 swapFee;
-        uint256 withdrawFee;
-        uint256 performanceFee;
+        address priceOracle;
+        WalletPriceFeedParams[] priceFeedParams;
+        address feeCollector;
+        WalletFeeParams swapFee;
+        WalletFeeParams withdrawFee;
+        WalletFeeParams performanceFee;
     }
 
     /**
-     * @dev Price Oracle params
-     * @param impl Address of the Price Oracle implementation to be used
-     * @param admin Address that will be granted with admin rights for the deployed Price Oracle
-     * @param bases List of base tokens to be set
-     * @param quotes List of quote tokens to be set
-     * @param feeds List of feeds to be set
+     * @dev Wallet price feed params
+     * @param base Base token of the price feed
+     * @param quote Quote token of the price feed
+     * @param feed Address of the price feed
      */
-    struct PriceOracleParams {
-        address impl;
-        address admin;
-        address[] bases;
-        address[] quotes;
-        address[] feeds;
+    struct WalletPriceFeedParams {
+        address base;
+        address quote;
+        address feed;
+    }
+
+    /**
+     * @dev Wallet fee configuration parameters
+     * @param pct Percentage expressed using 16 decimals (1e18 = 100%)
+     * @param cap Maximum amount of fees to be charged per period
+     * @param token Address of the token to express the cap amount
+     * @param period Period length in seconds
+     */
+    struct WalletFeeParams {
+        uint256 pct;
+        uint256 cap;
+        address token;
+        uint256 period;
     }
 
     /**
@@ -156,7 +173,7 @@ contract BaseDeployer {
         bool transferPermissions
     ) internal returns (SmartVault smartVault) {
         // Clone requested smart vault implementation and initialize
-        require(registry.isRegistered(SMART_VAULT_NAMESPACE, params.impl), 'SMART_VAULT_IMPL_NOT_REGISTERED');
+        require(registry.isActive(SMART_VAULT_NAMESPACE, params.impl), 'BAD_SMART_VAULT_IMPLEMENTATION');
         bytes memory initializeData = abi.encodeWithSelector(SmartVault.initialize.selector, address(this));
         smartVault = SmartVault(registry.clone(params.impl, initializeData));
 
@@ -180,20 +197,15 @@ contract BaseDeployer {
      * @dev Internal function to create a new Wallet instance
      * @param registry Address of the registry to validate the Wallet implementation against
      * @param params Params to customize the Wallet to be deployed
-     * @param strategy Address of the strategy to be set in the Wallet to be deployed
-     * @param priceOracle Address of the price oracle to be set in the Wallet to be deployed
      * @param transferPermissions Whether or not admin permissions on the Wallet should be transfer to the admin right
      * after creating the Wallet. Sometimes this is not desired if further customization might take in place.
      */
-    function _createWallet(
-        IRegistry registry,
-        WalletParams memory params,
-        address strategy,
-        address priceOracle,
-        bool transferPermissions
-    ) internal returns (Wallet wallet) {
+    function _createWallet(IRegistry registry, WalletParams memory params, bool transferPermissions)
+        internal
+        returns (Wallet wallet)
+    {
         // Clone requested wallet implementation and initialize
-        require(registry.isRegistered(WALLET_NAMESPACE, params.impl), 'WALLET_IMPL_NOT_REGISTERED');
+        require(registry.isActive(WALLET_NAMESPACE, params.impl), 'BAD_WALLET_IMPLEMENTATION');
         bytes memory initializeData = abi.encodeWithSelector(Wallet.initialize.selector, address(this));
         wallet = Wallet(payable(registry.clone(params.impl, initializeData)));
 
@@ -207,30 +219,45 @@ contract BaseDeployer {
         wallet.authorize(params.admin, wallet.exit.selector);
         wallet.authorize(params.admin, wallet.swap.selector);
         wallet.authorize(params.admin, wallet.setStrategy.selector);
+        wallet.authorize(params.admin, wallet.setPriceFeed.selector);
+        wallet.authorize(params.admin, wallet.setPriceFeeds.selector);
         wallet.authorize(params.admin, wallet.setPriceOracle.selector);
         wallet.authorize(params.admin, wallet.setSwapConnector.selector);
         wallet.authorize(params.admin, wallet.setWithdrawFee.selector);
         wallet.authorize(params.admin, wallet.setPerformanceFee.selector);
         wallet.authorize(params.admin, wallet.setSwapFee.selector);
 
+        // Set price feeds if any
+        if (params.priceFeedParams.length > 0) {
+            wallet.authorize(address(this), wallet.setPriceFeed.selector);
+            for (uint256 i = 0; i < params.priceFeedParams.length; i = i.uncheckedAdd(1)) {
+                WalletPriceFeedParams memory feedParams = params.priceFeedParams[i];
+                wallet.setPriceFeed(feedParams.base, feedParams.quote, feedParams.feed);
+            }
+            wallet.unauthorize(address(this), wallet.setPriceFeed.selector);
+        }
+
         // Set price oracle if given
-        if (priceOracle != address(0)) {
+        if (params.priceOracle != address(0)) {
+            require(registry.isActive(PRICE_ORACLE_NAMESPACE, params.priceOracle), 'BAD_PRICE_ORACLE_DEPENDENCY');
             wallet.authorize(address(this), wallet.setPriceOracle.selector);
-            wallet.setPriceOracle(priceOracle);
+            wallet.setPriceOracle(params.priceOracle);
             wallet.unauthorize(address(this), wallet.setPriceOracle.selector);
         }
 
-        // Set strategy if given
-        if (strategy != address(0)) {
+        // Set strategies if any
+        if (params.strategies.length > 0) {
             wallet.authorize(address(this), wallet.setStrategy.selector);
-            wallet.setStrategy(strategy);
+            for (uint256 i = 0; i < params.strategies.length; i = i.uncheckedAdd(1)) {
+                require(registry.isActive(STRATEGY_NAMESPACE, params.strategies[i]), 'BAD_STRATEGY_DEPENDENCY');
+                wallet.setStrategy(params.strategies[i], true);
+            }
             wallet.unauthorize(address(this), wallet.setStrategy.selector);
         }
 
         // Set swap connector if given
         if (params.swapConnector != address(0)) {
-            bool isRegistered = registry.isRegistered(SWAP_CONNECTOR_NAMESPACE, params.swapConnector);
-            require(isRegistered, 'SWAP_CONNECTOR_NOT_REGISTERED');
+            require(registry.isActive(SWAP_CONNECTOR_NAMESPACE, params.swapConnector), 'BAD_SWAP_CONNECTOR_DEPENDENCY');
             wallet.authorize(address(this), wallet.setSwapConnector.selector);
             wallet.setSwapConnector(params.swapConnector);
             wallet.unauthorize(address(this), wallet.setSwapConnector.selector);
@@ -244,59 +271,36 @@ contract BaseDeployer {
             wallet.setFeeCollector(params.feeCollector);
             wallet.unauthorize(address(this), wallet.setFeeCollector.selector);
         } else {
-            bool noFees = params.withdrawFee == 0 && params.swapFee == 0 && params.performanceFee == 0;
+            bool noFees = params.withdrawFee.pct == 0 && params.swapFee.pct == 0 && params.performanceFee.pct == 0;
             require(noFees, 'WALLET_FEES_WITHOUT_COLLECTOR');
             wallet.authorize(params.admin, wallet.setFeeCollector.selector);
         }
 
         // Set withdraw fee if not zero
-        if (params.withdrawFee != 0) {
+        WalletFeeParams memory withdrawFee = params.withdrawFee;
+        if (withdrawFee.pct != 0) {
             wallet.authorize(address(this), wallet.setWithdrawFee.selector);
-            wallet.setWithdrawFee(params.withdrawFee);
+            wallet.setWithdrawFee(withdrawFee.pct, withdrawFee.cap, withdrawFee.token, withdrawFee.period);
             wallet.unauthorize(address(this), wallet.setWithdrawFee.selector);
         }
 
         // Set swap fee if not zero
-        if (params.swapFee != 0) {
+        WalletFeeParams memory swapFee = params.swapFee;
+        if (swapFee.pct != 0) {
             wallet.authorize(address(this), wallet.setSwapFee.selector);
-            wallet.setSwapFee(params.swapFee);
+            wallet.setSwapFee(swapFee.pct, swapFee.cap, swapFee.token, swapFee.period);
             wallet.unauthorize(address(this), wallet.setSwapFee.selector);
         }
 
         // Set performance fee if not zero
-        if (params.performanceFee != 0) {
+        WalletFeeParams memory perfFee = params.performanceFee;
+        if (perfFee.pct != 0) {
             wallet.authorize(address(this), wallet.setPerformanceFee.selector);
-            wallet.setPerformanceFee(params.performanceFee);
+            wallet.setPerformanceFee(perfFee.pct, perfFee.cap, perfFee.token, perfFee.period);
             wallet.unauthorize(address(this), wallet.setPerformanceFee.selector);
         }
 
         if (transferPermissions) _transferAdminPermissions(wallet, params.admin);
-    }
-
-    /**
-     * @dev Internal function to create a new Price Oracle instance
-     * @param registry Address of the registry to validate the Price Oracle implementation against
-     * @param params Params to customize the Price Oracle to be deployed
-     * @param transferPermissions Whether or not admin permissions on the Price Oracle should be transfer to the admin
-     * right after creating the Price Oracle. Sometimes this is not desired if further customization might take in place.
-     */
-    function _createPriceOracle(IRegistry registry, PriceOracleParams memory params, bool transferPermissions)
-        internal
-        returns (PriceOracle priceOracle)
-    {
-        // Clone requested price oracle implementation and initialize
-        require(registry.isRegistered(PRICE_ORACLE_NAMESPACE, params.impl), 'PRICE_ORACLE_IMPL_NOT_REGISTERED');
-        bytes memory initializeData = abi.encodeWithSelector(PriceOracle.initialize.selector, address(this));
-        priceOracle = PriceOracle(registry.clone(params.impl, initializeData));
-
-        // Set feeds – it does not fail if there are no feeds
-        priceOracle.authorize(address(this), priceOracle.setFeeds.selector);
-        priceOracle.setFeeds(params.bases, params.quotes, params.feeds);
-        priceOracle.unauthorize(address(this), priceOracle.setFeeds.selector);
-
-        // Authorize admin
-        priceOracle.authorize(params.admin, priceOracle.setFeeds.selector);
-        if (transferPermissions) _transferAdminPermissions(priceOracle, params.admin);
     }
 
     /**

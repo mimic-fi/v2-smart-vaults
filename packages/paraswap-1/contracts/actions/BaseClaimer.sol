@@ -42,7 +42,7 @@ abstract contract BaseClaimer is BaseAction, TokenThresholdAction, RelayedAction
     }
 
     function _claim(bytes memory withdrawData) internal {
-        bytes memory withdrawResponse = wallet.call(feeClaimer, withdrawData, 0);
+        bytes memory withdrawResponse = wallet.call(feeClaimer, withdrawData, 0, new bytes(0));
         require(abi.decode(withdrawResponse, (bool)), 'FEE_CLAIMER_WITHDRAW_FAILED');
     }
 }

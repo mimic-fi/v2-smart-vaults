@@ -75,7 +75,7 @@ contract ERC20Claimer is BaseClaimer {
         bytes memory claim = abi.encodeWithSelector(IFeeClaimer.withdrawSomeERC20.selector, tokenIn, amountIn, wallet);
         _claim(claim);
         wallet.swap(
-            ISwapConnector.Source.ParaswapV5,
+            uint8(ISwapConnector.Source.ParaswapV5),
             tokenIn,
             wrappedNativeToken,
             amountIn,

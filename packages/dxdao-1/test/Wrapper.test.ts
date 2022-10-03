@@ -1,99 +1,85 @@
-import { assertEvent, assertIndirectEvent, deploy, fp, getSigners } from '@mimic-fi/v2-helpers'
-import { createClone } from '@mimic-fi/v2-registry'
+import { assertEvent, assertIndirectEvent, deploy, fp, getSigners, NATIVE_TOKEN_ADDRESS } from '@mimic-fi/v2-helpers'
+import { createTokenMock, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('Wrapper', () => {
-  let action: Contract, wallet: Contract, registry: Contract, priceOracle: Contract, wrappedNativeToken: Contract
-  let admin: SignerWithAddress, recipient: SignerWithAddress, feeCollector: SignerWithAddress
+  let action: Contract, wallet: Contract, mimic: Mimic
+  let owner: SignerWithAddress, recipient: SignerWithAddress, feeCollector: SignerWithAddress
 
   before('set up signers', async () => {
     // eslint-disable-next-line prettier/prettier
-    [, admin, recipient, feeCollector] = await getSigners()
+    [, owner, recipient, feeCollector] = await getSigners()
   })
 
-  beforeEach('deploy wallet', async () => {
-    wrappedNativeToken = await deploy('WrappedNativeTokenMock')
-    registry = await deploy('@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry', [admin.address])
-    wallet = await createClone(
-      registry,
-      admin,
-      '@mimic-fi/v2-wallet/artifacts/contracts/Wallet.sol/Wallet',
-      [wrappedNativeToken.address, registry.address],
-      [admin.address]
-    )
+  beforeEach('deploy action', async () => {
+    mimic = await setupMimic(true)
+    wallet = await createWallet(mimic, owner)
+    action = await deploy('Wrapper', [owner.address, wallet.address])
   })
 
-  beforeEach('set price oracle', async () => {
-    priceOracle = await createClone(registry, admin, 'PriceOracleMock', [])
-    const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
-    await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
-    await wallet.connect(admin).setPriceOracle(priceOracle.address)
+  beforeEach('authorize action', async () => {
+    const wrapRole = wallet.interface.getSighash('wrap')
+    await wallet.connect(owner).authorize(action.address, wrapRole)
+    const withdrawRole = wallet.interface.getSighash('withdraw')
+    await wallet.connect(owner).authorize(action.address, withdrawRole)
   })
 
   beforeEach('set fee collector', async () => {
     const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
-    await wallet.connect(admin).authorize(admin.address, setFeeCollectorRole)
-    await wallet.connect(admin).setFeeCollector(feeCollector.address)
-  })
-
-  beforeEach('deploy action', async () => {
-    action = await deploy('Wrapper', [admin.address, wallet.address])
-    const wrapRole = wallet.interface.getSighash('wrap')
-    await wallet.connect(admin).authorize(action.address, wrapRole)
-    const withdrawRole = wallet.interface.getSighash('withdraw')
-    await wallet.connect(admin).authorize(action.address, withdrawRole)
+    await wallet.connect(owner).authorize(owner.address, setFeeCollectorRole)
+    await wallet.connect(owner).setFeeCollector(feeCollector.address)
   })
 
   describe('call', () => {
     const balance = fp(0.5)
 
     beforeEach('fund wallet token', async () => {
-      await admin.sendTransaction({ to: wallet.address, value: balance })
+      await owner.sendTransaction({ to: wallet.address, value: balance })
     })
 
     beforeEach('set recipient', async () => {
       const setRecipientRole = action.interface.getSighash('setRecipient')
-      await action.connect(admin).authorize(admin.address, setRecipientRole)
-      await action.connect(admin).setRecipient(recipient.address)
+      await action.connect(owner).authorize(owner.address, setRecipientRole)
+      await action.connect(owner).setRecipient(recipient.address)
     })
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         const callRole = action.interface.getSighash('call')
-        await action.connect(admin).authorize(admin.address, callRole)
-        action = action.connect(admin)
+        await action.connect(owner).authorize(owner.address, callRole)
+        action = action.connect(owner)
       })
 
       const itPerformsTheExpectedCall = (refunds: boolean) => {
         context('when the min amount passes the threshold', () => {
           beforeEach('set threshold', async () => {
-            const usdc = await deploy('TokenMock', ['TKN'])
-            await priceOracle.mockRate(fp(2))
+            const usdc = await createTokenMock()
+            await mimic.priceOracle.mockRate(NATIVE_TOKEN_ADDRESS, usdc.address, fp(2))
             const setThresholdRole = action.interface.getSighash('setThreshold')
-            await action.connect(admin).authorize(admin.address, setThresholdRole)
-            await action.connect(admin).setThreshold(usdc.address, balance)
+            await action.connect(owner).authorize(owner.address, setThresholdRole)
+            await action.connect(owner).setThreshold(usdc.address, balance)
           })
 
           it('calls the wrap primitive', async () => {
             const tx = await action.call()
 
-            await assertIndirectEvent(tx, wallet.interface, 'Wrap', { amount: balance, data: '0x' })
+            await assertIndirectEvent(tx, wallet.interface, 'Wrap', { wrapped: balance, data: '0x' })
           })
 
           it('calls the withdraw primitive', async () => {
-            const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+            const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
             const tx = await action.call()
 
-            const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+            const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
             const refund = currentBalance.sub(previousBalance)
 
             await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
-              token: wrappedNativeToken,
+              token: mimic.wrappedNativeToken,
               recipient,
-              amount: balance.sub(refund),
+              withdrawn: balance.sub(refund),
               fee: 0,
               data: '0x',
             })
@@ -106,22 +92,22 @@ describe('Wrapper', () => {
           })
 
           it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-            const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+            const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
             await action.call()
 
-            const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+            const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
             expect(currentBalance).to.be[refunds ? 'gt' : 'eq'](previousBalance)
           })
         })
 
         context('when the min amount does not pass the threshold', () => {
           beforeEach('set threshold', async () => {
-            const usdc = await deploy('TokenMock', ['TKN'])
-            await priceOracle.mockRate(fp(2))
+            const usdc = await createTokenMock()
+            await mimic.priceOracle.mockRate(NATIVE_TOKEN_ADDRESS, usdc.address, fp(2))
             const setThresholdRole = action.interface.getSighash('setThreshold')
-            await action.connect(admin).authorize(admin.address, setThresholdRole)
-            await action.connect(admin).setThreshold(usdc.address, balance.mul(3))
+            await action.connect(owner).authorize(owner.address, setThresholdRole)
+            await action.connect(owner).setThreshold(usdc.address, balance.mul(3))
           })
 
           it('reverts', async () => {
@@ -133,12 +119,12 @@ describe('Wrapper', () => {
       context('when the sender is a relayer', () => {
         beforeEach('mark sender as relayer', async () => {
           const setRelayerRole = action.interface.getSighash('setRelayer')
-          await action.connect(admin).authorize(admin.address, setRelayerRole)
-          await action.connect(admin).setRelayer(admin.address, true)
+          await action.connect(owner).authorize(owner.address, setRelayerRole)
+          await action.connect(owner).setRelayer(owner.address, true)
 
           const setLimitsRole = action.interface.getSighash('setLimits')
-          await action.connect(admin).authorize(admin.address, setLimitsRole)
-          await action.connect(admin).setLimits(fp(100), 0, wrappedNativeToken.address)
+          await action.connect(owner).authorize(owner.address, setLimitsRole)
+          await action.connect(owner).setLimits(fp(100), 0, mimic.wrappedNativeToken.address)
         })
 
         itPerformsTheExpectedCall(true)

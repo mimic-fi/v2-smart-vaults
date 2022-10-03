@@ -16,7 +16,6 @@ pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
-import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
 
 import './BaseAction.sol';
 
@@ -125,9 +124,7 @@ abstract contract RelayedAction is BaseAction {
      */
     function _getPayingGasTokenPrice(address payingToken) private view returns (uint256) {
         address wrappedNativeToken = wallet.wrappedNativeToken();
-        return
-            payingToken == Denominations.NATIVE_TOKEN || payingToken == wrappedNativeToken
-                ? FixedPoint.ONE
-                : IPriceOracle(wallet.priceOracle()).getPrice(wrappedNativeToken, payingToken);
+        bool isUsingNativeToken = payingToken == Denominations.NATIVE_TOKEN || payingToken == wrappedNativeToken;
+        return isUsingNativeToken ? FixedPoint.ONE : wallet.getPrice(wrappedNativeToken, payingToken);
     }
 }

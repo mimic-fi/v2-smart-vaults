@@ -15,7 +15,6 @@
 pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
-import '@mimic-fi/v2-price-oracle/contracts/IPriceOracle.sol';
 
 import './BaseAction.sol';
 
@@ -49,7 +48,7 @@ abstract contract TokenThresholdAction is BaseAction {
      * @param amount Amount of tokens to validate the threshold
      */
     function _validateThreshold(address token, uint256 amount) internal view {
-        uint256 price = IPriceOracle(wallet.priceOracle()).getPrice(token, thresholdToken);
+        uint256 price = wallet.getPrice(token, thresholdToken);
         // Result balance is rounded down to make sure we always match at least the threshold
         require(amount.mulDown(price) >= thresholdAmount, 'MIN_THRESHOLD_NOT_MET');
     }
