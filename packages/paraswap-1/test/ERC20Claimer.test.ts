@@ -165,8 +165,8 @@ describe('ERC20Claimer', () => {
               return signer.signMessage(
                 ethers.utils.arrayify(
                   ethers.utils.solidityKeccak256(
-                    ['address', 'address', 'uint256', 'uint256', 'uint256'],
-                    [token.address, mimic.wrappedNativeToken.address, amountIn, minAmountOut, deadline]
+                    ['address', 'address', 'bool', 'uint256', 'uint256', 'uint256', 'bytes'],
+                    [token.address, mimic.wrappedNativeToken.address, false, amountIn, minAmountOut, deadline, data]
                   )
                 )
               )

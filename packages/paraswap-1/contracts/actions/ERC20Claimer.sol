@@ -70,7 +70,7 @@ contract ERC20Claimer is BaseClaimer {
         address wrappedNativeToken = wallet.wrappedNativeToken();
         require(tokenIn != wrappedNativeToken && tokenIn != Denominations.NATIVE_TOKEN, 'ERC20_CLAIMER_INVALID_TOKEN');
         _validateThreshold(wrappedNativeToken, minAmountOut);
-        _validateSwapSignature(tokenIn, wrappedNativeToken, amountIn, minAmountOut, deadline, sig);
+        _validateSwapSignature(tokenIn, wrappedNativeToken, amountIn, minAmountOut, deadline, data, sig);
 
         bytes memory claim = abi.encodeWithSelector(IFeeClaimer.withdrawSomeERC20.selector, tokenIn, amountIn, wallet);
         _claim(claim);
@@ -92,9 +92,11 @@ contract ERC20Claimer is BaseClaimer {
         uint256 amountIn,
         uint256 minAmountOut,
         uint256 deadline,
+        bytes memory data,
         bytes memory sig
     ) internal view {
-        bytes32 hash = keccak256(abi.encodePacked(tokenIn, tokenOut, amountIn, minAmountOut, deadline));
+        bool isBuy = false;
+        bytes32 hash = keccak256(abi.encodePacked(tokenIn, tokenOut, isBuy, amountIn, minAmountOut, deadline, data));
         address signer = ECDSA.recover(ECDSA.toEthSignedMessageHash(hash), sig);
         require(signer == swapSigner, 'INVALID_SWAP_SIGNATURE');
         require(block.timestamp <= deadline, 'SWAP_DEADLINE_EXPIRED');
