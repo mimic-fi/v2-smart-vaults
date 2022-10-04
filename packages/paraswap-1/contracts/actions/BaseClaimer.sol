@@ -32,7 +32,7 @@ abstract contract BaseClaimer is BaseAction, TokenThresholdAction, RelayedAction
 
     event FeeClaimerSet(address feeClaimer);
 
-    constructor(address _admin, IWallet _wallet) BaseAction(_admin, _wallet) {
+    constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
 

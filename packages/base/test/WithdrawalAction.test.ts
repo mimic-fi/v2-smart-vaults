@@ -1,9 +1,9 @@
-import { assertEvent, assertIndirectEvent, deploy, fp, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { assertEvent, assertIndirectEvent, fp, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { createTokenMock, createWallet, Mimic, setupMimic } from '..'
+import { createAction, createTokenMock, createWallet, Mimic, setupMimic } from '..'
 
 describe('WithdrawalAction', () => {
   let action: Contract, wallet: Contract, mimic: Mimic
@@ -17,7 +17,7 @@ describe('WithdrawalAction', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     wallet = await createWallet(mimic, owner)
-    action = await deploy('WithdrawalActionMock', [owner.address, wallet.address])
+    action = await createAction('WithdrawalActionMock', mimic, owner, wallet)
   })
 
   beforeEach('authorize action', async () => {

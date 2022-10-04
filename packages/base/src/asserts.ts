@@ -1,7 +1,13 @@
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { PermissionAssertion } from './types'
+export type NAry<N> = N | N[]
+
+export type PermissionAssertion = {
+  name: string
+  roles: string[]
+  account: NAry<{ address: string } | string>
+}
 
 export async function assertPermissions(target: Contract, assertions: PermissionAssertion[]): Promise<void> {
   for (const assertion of assertions) {

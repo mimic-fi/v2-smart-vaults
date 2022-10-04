@@ -1,9 +1,9 @@
-import { advanceTime, assertEvent, deploy, getSigners, MONTH } from '@mimic-fi/v2-helpers'
+import { advanceTime, assertEvent, getSigners, MONTH } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { createWallet, Mimic, setupMimic } from '..'
+import { createAction, createWallet, Mimic, setupMimic } from '..'
 
 describe('TimeLockedAction', () => {
   let action: Contract, wallet: Contract, mimic: Mimic
@@ -17,7 +17,7 @@ describe('TimeLockedAction', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     wallet = await createWallet(mimic, owner)
-    action = await deploy('TimeLockedActionMock', [owner.address, wallet.address])
+    action = await createAction('TimeLockedActionMock', mimic, owner, wallet)
   })
 
   describe('setTimeLock', () => {

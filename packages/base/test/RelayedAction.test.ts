@@ -2,7 +2,6 @@ import {
   assertAlmostEqual,
   assertEvent,
   assertIndirectEvent,
-  deploy,
   fp,
   getSigners,
   NATIVE_TOKEN_ADDRESS,
@@ -12,7 +11,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { createTokenMock, createWallet, Mimic, setupMimic } from '..'
+import { createAction, createTokenMock, createWallet, Mimic, setupMimic } from '..'
 
 describe('RelayedAction', () => {
   let action: Contract, wallet: Contract, mimic: Mimic
@@ -26,7 +25,7 @@ describe('RelayedAction', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     wallet = await createWallet(mimic, owner)
-    action = await deploy('RelayedActionMock', [owner.address, wallet.address])
+    action = await createAction('RelayedActionMock', mimic, owner, wallet)
   })
 
   beforeEach('authorize action', async () => {

@@ -7,7 +7,7 @@ import '../../actions/RelayedAction.sol';
 contract RelayedActionMock is RelayedAction {
     uint256 public constant override BASE_GAS = 21e3 + 20e3;
 
-    constructor(address _admin, IWallet _wallet) BaseAction(_admin, _wallet) {
+    constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
 

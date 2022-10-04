@@ -8,7 +8,7 @@ import {
   MONTH,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
-import { assertPermissions, getActions, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import { assertPermissions, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -35,22 +35,31 @@ describe('SmartVault', () => {
   })
 
   before('deploy smart vault', async () => {
-    const deployer = await deploy('SmartVaultDeployer')
+    const deployer = await deploy('SmartVaultDeployer', [], owner, { Deployer: mimic.deployer.address })
+    withdrawer = await deploy('Withdrawer', [deployer.address, mimic.registry.address])
+    erc20Claimer = await deploy('ERC20Claimer', [deployer.address, mimic.registry.address])
+    nativeClaimer = await deploy('NativeClaimer', [deployer.address, mimic.registry.address])
+
     const tx = await deployer.deploy({
       registry: mimic.registry.address,
-      walletParams: {
-        impl: mimic.wallet.address,
+      smartVaultParams: {
+        impl: mimic.smartVault.address,
         admin: owner.address,
-        feeCollector: mimic.admin.address,
-        strategies: [],
-        priceFeedParams: [],
-        priceOracle: mimic.priceOracle.address,
-        swapConnector: mimic.swapConnector.address,
-        swapFee: { pct: fp(0.1), cap: fp(1), token: mimic.wrappedNativeToken.address, period: 60 },
-        withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-        performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+        walletParams: {
+          impl: mimic.wallet.address,
+          admin: owner.address,
+          feeCollector: mimic.admin.address,
+          strategies: [],
+          priceFeedParams: [],
+          priceOracle: mimic.priceOracle.address,
+          swapConnector: mimic.swapConnector.address,
+          swapFee: { pct: fp(0.1), cap: fp(1), token: mimic.wrappedNativeToken.address, period: 60 },
+          withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+          performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+        },
       },
       withdrawerActionParams: {
+        impl: withdrawer.address,
         admin: owner.address,
         managers: managers.map((m) => m.address),
         withdrawalActionParams: {
@@ -67,6 +76,7 @@ describe('SmartVault', () => {
         },
       },
       erc20ClaimerActionParams: {
+        impl: erc20Claimer.address,
         admin: owner.address,
         managers: managers.map((m) => m.address),
         swapSigner: owner.address,
@@ -85,6 +95,7 @@ describe('SmartVault', () => {
         },
       },
       nativeClaimerActionParams: {
+        impl: nativeClaimer.address,
         admin: owner.address,
         managers: managers.map((m) => m.address),
         feeClaimerParams: {
@@ -101,23 +112,14 @@ describe('SmartVault', () => {
           },
         },
       },
-      smartVaultParams: {
-        impl: mimic.smartVault.address,
-        admin: owner.address,
-      },
     })
 
     const { args } = await assertIndirectEvent(tx, mimic.registry.interface, 'Cloned', {
       implementation: mimic.smartVault.address,
     })
+
     smartVault = await instanceAt('SmartVault', args.instance)
     wallet = await instanceAt('Wallet', await smartVault.wallet())
-
-    const actions = await getActions(tx, smartVault)
-    expect(actions.length).to.be.equal(3)
-    withdrawer = await instanceAt('Withdrawer', actions[0])
-    erc20Claimer = await instanceAt('ERC20Claimer', actions[1])
-    nativeClaimer = await instanceAt('NativeClaimer', actions[2])
   })
 
   describe('smart vault', () => {
@@ -223,7 +225,16 @@ describe('SmartVault', () => {
         {
           name: 'owner',
           account: owner,
-          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setTimeLock', 'setRecipient', 'call'],
+          roles: [
+            'authorize',
+            'unauthorize',
+            'setWallet',
+            'setLimits',
+            'setRelayer',
+            'setTimeLock',
+            'setRecipient',
+            'call',
+          ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
@@ -233,6 +244,10 @@ describe('SmartVault', () => {
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
       ])
+    })
+
+    it('has the proper wallet set', async () => {
+      expect(await withdrawer.wallet()).to.be.equal(wallet.address)
     })
 
     it('sets the owner as the recipient', async () => {
@@ -272,6 +287,7 @@ describe('SmartVault', () => {
           roles: [
             'authorize',
             'unauthorize',
+            'setWallet',
             'setLimits',
             'setRelayer',
             'setSwapSigner',
@@ -288,6 +304,10 @@ describe('SmartVault', () => {
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
       ])
+    })
+
+    it('has the proper wallet set', async () => {
+      expect(await erc20Claimer.wallet()).to.be.equal(wallet.address)
     })
 
     it('sets the expected fee claimer params', async () => {
@@ -325,7 +345,16 @@ describe('SmartVault', () => {
         {
           name: 'owner',
           account: owner,
-          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setFeeClaimer', 'setThreshold', 'call'],
+          roles: [
+            'authorize',
+            'unauthorize',
+            'setWallet',
+            'setLimits',
+            'setRelayer',
+            'setFeeClaimer',
+            'setThreshold',
+            'call',
+          ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
@@ -335,6 +364,10 @@ describe('SmartVault', () => {
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
       ])
+    })
+
+    it('has the proper wallet set', async () => {
+      expect(await nativeClaimer.wallet()).to.be.equal(wallet.address)
     })
 
     it('sets the expected gas limits', async () => {

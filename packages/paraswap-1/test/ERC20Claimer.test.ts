@@ -10,7 +10,7 @@ import {
   NATIVE_TOKEN_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
-import { createTokenMock, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import { createAction, createTokenMock, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
@@ -28,7 +28,7 @@ describe('ERC20Claimer', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     wallet = await createWallet(mimic, owner)
-    action = await deploy('ERC20Claimer', [owner.address, wallet.address])
+    action = await createAction('ERC20Claimer', mimic, owner, wallet)
   })
 
   describe('setFeeClaimer', () => {

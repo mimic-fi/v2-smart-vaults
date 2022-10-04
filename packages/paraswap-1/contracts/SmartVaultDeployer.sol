@@ -17,7 +17,7 @@ pragma solidity ^0.8.0;
 import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/BaseDeployer.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 
 import './actions/Withdrawer.sol';
@@ -26,31 +26,33 @@ import './actions/NativeClaimer.sol';
 
 // solhint-disable avoid-low-level-calls
 
-contract SmartVaultDeployer is BaseDeployer {
+contract SmartVaultDeployer {
     struct Params {
         IRegistry registry;
-        WalletParams walletParams;
         WithdrawerActionParams withdrawerActionParams;
         ERC20ClaimerActionParams erc20ClaimerActionParams;
         NativeClaimerActionParams nativeClaimerActionParams;
-        SmartVaultParams smartVaultParams;
+        Deployer.SmartVaultParams smartVaultParams;
     }
 
     struct WithdrawerActionParams {
+        address impl;
         address admin;
         address[] managers;
-        RelayedActionParams relayedActionParams;
-        TimeLockedActionParams timeLockedActionParams;
-        WithdrawalActionParams withdrawalActionParams;
+        Deployer.RelayedActionParams relayedActionParams;
+        Deployer.TimeLockedActionParams timeLockedActionParams;
+        Deployer.WithdrawalActionParams withdrawalActionParams;
     }
 
     struct NativeClaimerActionParams {
+        address impl;
         address admin;
         address[] managers;
         FeeClaimerParams feeClaimerParams;
     }
 
     struct ERC20ClaimerActionParams {
+        address impl;
         address admin;
         address[] managers;
         address swapSigner;
@@ -59,29 +61,30 @@ contract SmartVaultDeployer is BaseDeployer {
 
     struct FeeClaimerParams {
         address feeClaimer;
-        RelayedActionParams relayedActionParams;
-        TokenThresholdActionParams tokenThresholdActionParams;
+        Deployer.RelayedActionParams relayedActionParams;
+        Deployer.TokenThresholdActionParams tokenThresholdActionParams;
     }
 
     function deploy(Params memory params) external {
-        Wallet wallet = _createWallet(params.registry, params.walletParams, false);
+        Wallet wallet = Deployer.createWallet(params.registry, params.smartVaultParams.walletParams, false);
         IAction withdrawer = _setupWithdrawerAction(wallet, params.withdrawerActionParams);
         IAction erc20Claimer = _setupERC20ClaimerAction(wallet, params.erc20ClaimerActionParams);
         IAction nativeClaimer = _setupNativeClaimerAction(wallet, params.nativeClaimerActionParams);
         address[] memory actions = _actions(withdrawer, erc20Claimer, nativeClaimer);
-        _transferAdminPermissions(wallet, params.walletParams.admin);
-        _createSmartVault(params.registry, params.smartVaultParams, address(wallet), actions, true);
+        Deployer.transferAdminPermissions(wallet, params.smartVaultParams.walletParams.admin);
+        Deployer.createSmartVault(params.registry, params.smartVaultParams, address(wallet), actions, true);
     }
 
     function _setupWithdrawerAction(Wallet wallet, WithdrawerActionParams memory params) internal returns (IAction) {
         // Create and setup action
-        Withdrawer withdrawer = new Withdrawer(address(this), wallet);
+        Withdrawer withdrawer = Withdrawer(params.impl);
+        Deployer.setupBaseAction(withdrawer, params.admin, address(wallet));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
-        _setupActionExecutors(withdrawer, executors, withdrawer.call.selector);
-        _setupRelayedAction(withdrawer, params.admin, params.relayedActionParams);
-        _setupTimeLockedAction(withdrawer, params.admin, params.timeLockedActionParams);
-        _setupWithdrawalAction(withdrawer, params.admin, params.withdrawalActionParams);
-        _transferAdminPermissions(withdrawer, params.admin);
+        Deployer.setupActionExecutors(withdrawer, executors, withdrawer.call.selector);
+        Deployer.setupRelayedAction(withdrawer, params.admin, params.relayedActionParams);
+        Deployer.setupTimeLockedAction(withdrawer, params.admin, params.timeLockedActionParams);
+        Deployer.setupWithdrawalAction(withdrawer, params.admin, params.withdrawalActionParams);
+        Deployer.transferAdminPermissions(withdrawer, params.admin);
 
         // Authorize action to collect, unwrap, and withdraw from wallet
         wallet.authorize(address(withdrawer), wallet.withdraw.selector);
@@ -93,17 +96,17 @@ contract SmartVaultDeployer is BaseDeployer {
         returns (IAction)
     {
         // Create and setup action
-        NativeClaimer claimer = new NativeClaimer(address(this), wallet);
+        NativeClaimer claimer = NativeClaimer(params.impl);
+        Deployer.setupBaseAction(claimer, params.admin, address(wallet));
         address[] memory executors = Arrays.from(
             params.admin,
             params.managers,
             params.feeClaimerParams.relayedActionParams.relayers
         );
-
-        _setupActionExecutors(claimer, executors, claimer.call.selector);
-        _setupRelayedAction(claimer, params.admin, params.feeClaimerParams.relayedActionParams);
+        Deployer.setupActionExecutors(claimer, executors, claimer.call.selector);
+        Deployer.setupRelayedAction(claimer, params.admin, params.feeClaimerParams.relayedActionParams);
         _setupBaseClaimerAction(claimer, params.admin, params.feeClaimerParams);
-        _transferAdminPermissions(claimer, params.admin);
+        Deployer.transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and wrap
         wallet.authorize(address(claimer), wallet.call.selector);
@@ -117,18 +120,18 @@ contract SmartVaultDeployer is BaseDeployer {
         returns (IAction)
     {
         // Create and setup action
-        ERC20Claimer claimer = new ERC20Claimer(address(this), wallet);
+        ERC20Claimer claimer = ERC20Claimer(params.impl);
+        Deployer.setupBaseAction(claimer, params.admin, address(wallet));
         address[] memory executors = Arrays.from(
             params.admin,
             params.managers,
             params.feeClaimerParams.relayedActionParams.relayers
         );
-
-        _setupActionExecutors(claimer, executors, claimer.call.selector);
-        _setupRelayedAction(claimer, params.admin, params.feeClaimerParams.relayedActionParams);
+        Deployer.setupActionExecutors(claimer, executors, claimer.call.selector);
+        Deployer.setupRelayedAction(claimer, params.admin, params.feeClaimerParams.relayedActionParams);
         _setupBaseClaimerAction(claimer, params.admin, params.feeClaimerParams);
         _setupSwapSignerAction(claimer, params.admin, params.swapSigner);
-        _transferAdminPermissions(claimer, params.admin);
+        Deployer.transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and swap
         wallet.authorize(address(claimer), wallet.call.selector);
@@ -138,7 +141,7 @@ contract SmartVaultDeployer is BaseDeployer {
     }
 
     function _setupBaseClaimerAction(BaseClaimer claimer, address admin, FeeClaimerParams memory params) internal {
-        _setupTokenThresholdAction(claimer, admin, params.tokenThresholdActionParams);
+        Deployer.setupTokenThresholdAction(claimer, admin, params.tokenThresholdActionParams);
 
         claimer.authorize(admin, claimer.setFeeClaimer.selector);
         claimer.authorize(address(this), claimer.setFeeClaimer.selector);
@@ -151,5 +154,12 @@ contract SmartVaultDeployer is BaseDeployer {
         claimer.authorize(address(this), claimer.setSwapSigner.selector);
         claimer.setSwapSigner(signer);
         claimer.unauthorize(address(this), claimer.setSwapSigner.selector);
+    }
+
+    function _actions(IAction action1, IAction action2, IAction action3) internal pure returns (address[] memory arr) {
+        arr = new address[](3);
+        arr[0] = address(action1);
+        arr[1] = address(action2);
+        arr[2] = address(action3);
     }
 }

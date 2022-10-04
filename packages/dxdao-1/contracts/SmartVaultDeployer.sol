@@ -17,49 +17,55 @@ pragma solidity ^0.8.0;
 import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/BaseDeployer.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 
 import './actions/Wrapper.sol';
 
 // solhint-disable avoid-low-level-calls
 
-contract SmartVaultDeployer is BaseDeployer {
+contract SmartVaultDeployer {
     struct Params {
         IRegistry registry;
-        WalletParams walletParams;
         WrapperActionParams wrapperActionParams;
-        SmartVaultParams smartVaultParams;
+        Deployer.SmartVaultParams smartVaultParams;
     }
 
     struct WrapperActionParams {
+        address impl;
         address admin;
         address[] managers;
-        RelayedActionParams relayedActionParams;
-        WithdrawalActionParams withdrawalActionParams;
-        TokenThresholdActionParams tokenThresholdActionParams;
+        Deployer.RelayedActionParams relayedActionParams;
+        Deployer.WithdrawalActionParams withdrawalActionParams;
+        Deployer.TokenThresholdActionParams tokenThresholdActionParams;
     }
 
     function deploy(Params memory params) external {
-        Wallet wallet = _createWallet(params.registry, params.walletParams, false);
+        Wallet wallet = Deployer.createWallet(params.registry, params.smartVaultParams.walletParams, false);
         IAction wrapper = _setupWrapperAction(wallet, params.wrapperActionParams);
-        _transferAdminPermissions(wallet, params.walletParams.admin);
-        _createSmartVault(params.registry, params.smartVaultParams, address(wallet), _actions(wrapper), true);
+        Deployer.transferAdminPermissions(wallet, params.smartVaultParams.walletParams.admin);
+        Deployer.createSmartVault(params.registry, params.smartVaultParams, address(wallet), _actions(wrapper), true);
     }
 
     function _setupWrapperAction(Wallet wallet, WrapperActionParams memory params) internal returns (IAction) {
         // Create and setup action
-        Wrapper wrapper = new Wrapper(address(this), wallet);
+        Wrapper wrapper = Wrapper(params.impl);
+        Deployer.setupBaseAction(wrapper, params.admin, address(wallet));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
-        _setupActionExecutors(wrapper, executors, wrapper.call.selector);
-        _setupRelayedAction(wrapper, params.admin, params.relayedActionParams);
-        _setupTokenThresholdAction(wrapper, params.admin, params.tokenThresholdActionParams);
-        _setupWithdrawalAction(wrapper, params.admin, params.withdrawalActionParams);
-        _transferAdminPermissions(wrapper, params.admin);
+        Deployer.setupActionExecutors(wrapper, executors, wrapper.call.selector);
+        Deployer.setupRelayedAction(wrapper, params.admin, params.relayedActionParams);
+        Deployer.setupTokenThresholdAction(wrapper, params.admin, params.tokenThresholdActionParams);
+        Deployer.setupWithdrawalAction(wrapper, params.admin, params.withdrawalActionParams);
+        Deployer.transferAdminPermissions(wrapper, params.admin);
 
         // Authorize action to wrap and withdraw from wallet
         wallet.authorize(address(wrapper), wallet.wrap.selector);
         wallet.authorize(address(wrapper), wallet.withdraw.selector);
         return wrapper;
+    }
+
+    function _actions(IAction action) internal pure returns (address[] memory arr) {
+        arr = new address[](1);
+        arr[0] = address(action);
     }
 }

@@ -1,5 +1,5 @@
 import { assertIndirectEvent, deploy, fp, getSigner, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
-import { assertPermissions, getActions, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import { assertPermissions, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -8,36 +8,41 @@ describe('SmartVault', () => {
   let smartVault: Contract, wallet: Contract, wrapper: Contract, mimic: Mimic
   let other: SignerWithAddress, owner: SignerWithAddress, managers: SignerWithAddress[], relayers: SignerWithAddress[]
 
-  before('set up signers', async () => {
+  beforeEach('set up signers', async () => {
     other = await getSigner(1)
     owner = await getSigner(2)
     managers = await getSigners(3, 3)
     relayers = await getSigners(2, 6)
   })
 
-  before('setup mimic', async () => {
+  beforeEach('setup mimic', async () => {
     mimic = await setupMimic(false)
   })
 
-  before('deploy smart vault', async () => {
-    const deployer = await deploy('SmartVaultDeployer')
+  beforeEach('deploy smart vault', async () => {
+    const deployer = await deploy('SmartVaultDeployer', [], owner, { Deployer: mimic.deployer.address })
+    wrapper = await deploy('Wrapper', [deployer.address, mimic.registry.address])
+
     const tx = await deployer.deploy({
-      owner: owner.address,
-      managers: managers.map((m) => m.address),
       registry: mimic.registry.address,
-      walletParams: {
-        impl: mimic.wallet.address,
+      smartVaultParams: {
+        impl: mimic.smartVault.address,
         admin: owner.address,
-        feeCollector: mimic.admin.address,
-        strategies: [],
-        priceFeedParams: [],
-        priceOracle: mimic.priceOracle.address,
-        swapConnector: mimic.swapConnector.address,
-        swapFee: { pct: fp(0.1), cap: fp(1), token: mimic.wrappedNativeToken.address, period: 60 },
-        withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-        performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+        walletParams: {
+          impl: mimic.wallet.address,
+          admin: owner.address,
+          feeCollector: mimic.admin.address,
+          strategies: [],
+          priceFeedParams: [],
+          priceOracle: mimic.priceOracle.address,
+          swapConnector: mimic.swapConnector.address,
+          swapFee: { pct: fp(0.1), cap: fp(1), token: mimic.wrappedNativeToken.address, period: 60 },
+          withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+          performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+        },
       },
       wrapperActionParams: {
+        impl: wrapper.address,
         admin: owner.address,
         managers: managers.map((m) => m.address),
         relayedActionParams: {
@@ -54,21 +59,14 @@ describe('SmartVault', () => {
           recipient: owner.address,
         },
       },
-      smartVaultParams: {
-        impl: mimic.smartVault.address,
-        admin: owner.address,
-      },
     })
 
     const { args } = await assertIndirectEvent(tx, mimic.registry.interface, 'Cloned', {
       implementation: mimic.smartVault,
     })
+
     smartVault = await instanceAt('SmartVault', args.instance)
     wallet = await instanceAt('Wallet', await smartVault.wallet())
-
-    const actions = await getActions(tx, smartVault)
-    expect(actions.length).to.be.equal(1)
-    wrapper = await instanceAt('Wrapper', actions[0])
   })
 
   describe('smart vault', () => {
@@ -169,7 +167,16 @@ describe('SmartVault', () => {
         {
           name: 'owner',
           account: owner,
-          roles: ['authorize', 'unauthorize', 'setLimits', 'setRelayer', 'setThreshold', 'setRecipient', 'call'],
+          roles: [
+            'authorize',
+            'unauthorize',
+            'setWallet',
+            'setLimits',
+            'setRelayer',
+            'setThreshold',
+            'setRecipient',
+            'call',
+          ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'wrapper', account: wrapper, roles: [] },
@@ -177,6 +184,10 @@ describe('SmartVault', () => {
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
       ])
+    })
+
+    it('has the proper wallet set', async () => {
+      expect(await wrapper.wallet()).to.be.equal(wallet.address)
     })
 
     it('sets the owner as the recipient', async () => {

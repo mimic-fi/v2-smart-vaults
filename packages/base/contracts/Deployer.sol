@@ -16,9 +16,8 @@ pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
-import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
+import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
-import '@mimic-fi/v2-price-oracle/contracts/oracle/PriceOracle.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 
 import './actions/RelayedAction.sol';
@@ -27,10 +26,10 @@ import './actions/TimeLockedAction.sol';
 import './actions/TokenThresholdAction.sol';
 
 /**
- * @title BaseDeployer
- * @dev Base Deployer contract offering a bunch of set-up methods to deploy and customize smart vaults
+ * @title Deployer
+ * @dev Deployer library offering a bunch of set-up methods to deploy and customize smart vaults
  */
-contract BaseDeployer {
+library Deployer {
     using UncheckedMath for uint256;
 
     // Internal constant meaning no strategy attached for a wallet
@@ -58,10 +57,12 @@ contract BaseDeployer {
      * @dev Smart vault params
      * @param impl Address of the Smart Vault implementation to be used
      * @param admin Address that will be granted with admin rights for the deployed Smart Vault
+     * @param walletParams Wallet params to be set for the Smart Vault's Wallet
      */
     struct SmartVaultParams {
         address impl;
         address admin;
+        WalletParams walletParams;
     }
 
     /**
@@ -157,7 +158,7 @@ contract BaseDeployer {
     }
 
     /**
-     * @dev Internal function to create a new Smart Vault instance
+     * @dev Create a new Smart Vault instance
      * @param registry Address of the registry to validate the Smart Vault implementation against
      * @param params Params to customize the Smart Vault to be deployed
      * @param wallet Address of the wallet to be set in the Smart Vault to be deployed
@@ -165,13 +166,13 @@ contract BaseDeployer {
      * @param transferPermissions Whether or not admin permissions on the Smart Vault should be transfer to the admin
      * right after creating the Smart Vault. Sometimes this is not desired if further customization might take in place.
      */
-    function _createSmartVault(
+    function createSmartVault(
         IRegistry registry,
         SmartVaultParams memory params,
         address wallet,
         address[] memory actions,
         bool transferPermissions
-    ) internal returns (SmartVault smartVault) {
+    ) external returns (SmartVault smartVault) {
         // Clone requested smart vault implementation and initialize
         require(registry.isActive(SMART_VAULT_NAMESPACE, params.impl), 'BAD_SMART_VAULT_IMPLEMENTATION');
         bytes memory initializeData = abi.encodeWithSelector(SmartVault.initialize.selector, address(this));
@@ -190,18 +191,18 @@ contract BaseDeployer {
         // Authorize admin
         smartVault.authorize(params.admin, smartVault.setWallet.selector);
         smartVault.authorize(params.admin, smartVault.setAction.selector);
-        if (transferPermissions) _transferAdminPermissions(smartVault, params.admin);
+        if (transferPermissions) transferAdminPermissions(smartVault, params.admin);
     }
 
     /**
-     * @dev Internal function to create a new Wallet instance
+     * @dev Create a new Wallet instance
      * @param registry Address of the registry to validate the Wallet implementation against
      * @param params Params to customize the Wallet to be deployed
      * @param transferPermissions Whether or not admin permissions on the Wallet should be transfer to the admin right
      * after creating the Wallet. Sometimes this is not desired if further customization might take in place.
      */
-    function _createWallet(IRegistry registry, WalletParams memory params, bool transferPermissions)
-        internal
+    function createWallet(IRegistry registry, WalletParams memory params, bool transferPermissions)
+        external
         returns (Wallet wallet)
     {
         // Clone requested wallet implementation and initialize
@@ -300,28 +301,41 @@ contract BaseDeployer {
             wallet.unauthorize(address(this), wallet.setPerformanceFee.selector);
         }
 
-        if (transferPermissions) _transferAdminPermissions(wallet, params.admin);
+        if (transferPermissions) transferAdminPermissions(wallet, params.admin);
     }
 
     /**
-     * @dev Internal function to set up a list of executors for a given action
+     * @dev Set up a base action
+     * @param action Base action to be set up
+     * @param admin Address that will be granted with admin rights for the Base Action
+     * @param wallet Address of the wallet to be set in the Base Action
+     */
+    function setupBaseAction(BaseAction action, address admin, address wallet) external {
+        action.authorize(admin, action.setWallet.selector);
+        action.authorize(address(this), action.setWallet.selector);
+        action.setWallet(wallet);
+        action.unauthorize(address(this), action.setWallet.selector);
+    }
+
+    /**
+     * @dev Set up a list of executors for a given action
      * @param action Action whose executors are being allowed
      * @param executors List of addresses to be allowed to call the given action
      * @param callSelector Selector of the function to allow the list of executors
      */
-    function _setupActionExecutors(RelayedAction action, address[] memory executors, bytes4 callSelector) internal {
+    function setupActionExecutors(RelayedAction action, address[] memory executors, bytes4 callSelector) external {
         for (uint256 i = 0; i < executors.length; i = i.uncheckedAdd(1)) {
             action.authorize(executors[i], callSelector);
         }
     }
 
     /**
-     * @dev Internal function to set up a Relayed action
+     * @dev Set up a Relayed action
      * @param action Relayed action to be configured
-     * @param admin Address that will be granted with admin rights for the deployed Relayed action
+     * @param admin Address that will be granted with admin rights for the Relayed action
      * @param params Params to customize the Relayed action
      */
-    function _setupRelayedAction(RelayedAction action, address admin, RelayedActionParams memory params) internal {
+    function setupRelayedAction(RelayedAction action, address admin, RelayedActionParams memory params) external {
         // Authorize admin to set relayers and txs limits
         action.authorize(admin, action.setLimits.selector);
         action.authorize(admin, action.setRelayer.selector);
@@ -340,16 +354,16 @@ contract BaseDeployer {
     }
 
     /**
-     * @dev Internal function to set up a Token Threshold action
+     * @dev Set up a Token Threshold action
      * @param action Token threshold action to be configured
-     * @param admin Address that will be granted with admin rights for the deployed Token Threshold action
+     * @param admin Address that will be granted with admin rights for the Token Threshold action
      * @param params Params to customize the Token Threshold action
      */
-    function _setupTokenThresholdAction(
+    function setupTokenThresholdAction(
         TokenThresholdAction action,
         address admin,
         TokenThresholdActionParams memory params
-    ) internal {
+    ) external {
         action.authorize(admin, action.setThreshold.selector);
         action.authorize(address(this), action.setThreshold.selector);
         action.setThreshold(params.token, params.amount);
@@ -357,13 +371,13 @@ contract BaseDeployer {
     }
 
     /**
-     * @dev Internal function to set up a Time-locked action
+     * @dev Set up a Time-locked action
      * @param action Time-locked action to be configured
-     * @param admin Address that will be granted with admin rights for the deployed Time-locked action
+     * @param admin Address that will be granted with admin rights for the Time-locked action
      * @param params Params to customize the Time-locked action
      */
-    function _setupTimeLockedAction(TimeLockedAction action, address admin, TimeLockedActionParams memory params)
-        internal
+    function setupTimeLockedAction(TimeLockedAction action, address admin, TimeLockedActionParams memory params)
+        external
     {
         action.authorize(admin, action.setTimeLock.selector);
         action.authorize(address(this), action.setTimeLock.selector);
@@ -372,13 +386,13 @@ contract BaseDeployer {
     }
 
     /**
-     * @dev Internal function to set up a Withdrawal action
+     * @dev Set up a Withdrawal action
      * @param action Relayed action to be configured
-     * @param admin Address that will be granted with admin rights for the deployed Withdrawal action
+     * @param admin Address that will be granted with admin rights for the Withdrawal action
      * @param params Params to customize the Withdrawal action
      */
-    function _setupWithdrawalAction(WithdrawalAction action, address admin, WithdrawalActionParams memory params)
-        internal
+    function setupWithdrawalAction(WithdrawalAction action, address admin, WithdrawalActionParams memory params)
+        external
     {
         action.authorize(admin, action.setRecipient.selector);
         action.authorize(address(this), action.setRecipient.selector);
@@ -387,59 +401,32 @@ contract BaseDeployer {
     }
 
     /**
-     * @dev Internal function to transfer admin rights from the deployer to another account
+     * @dev Transfer admin rights from the deployer to another account
      * @param target Contract whose permissions are being transferred
      * @param to Address that will receive the admin rights
      */
-    function _transferAdminPermissions(Authorizer target, address to) internal {
-        _grantAdminPermissions(target, to);
-        _revokeAdminPermissions(target, address(this));
+    function transferAdminPermissions(IAuthorizer target, address to) public {
+        grantAdminPermissions(target, to);
+        revokeAdminPermissions(target, address(this));
     }
 
     /**
-     * @dev Internal function to grant admin permissions to an account
+     * @dev Grant admin permissions to an account
      * @param target Contract whose permissions are being granted
      * @param to Address that will receive the admin rights
      */
-    function _grantAdminPermissions(Authorizer target, address to) internal {
+    function grantAdminPermissions(IAuthorizer target, address to) public {
         target.authorize(to, target.authorize.selector);
         target.authorize(to, target.unauthorize.selector);
     }
 
     /**
-     * @dev Internal function to revoke admin permissions from an account
+     * @dev Revoke admin permissions from an account
      * @param target Contract whose permissions are being revoked
      * @param from Address that will be revoked
      */
-    function _revokeAdminPermissions(Authorizer target, address from) internal {
+    function revokeAdminPermissions(IAuthorizer target, address from) public {
         target.unauthorize(from, target.authorize.selector);
         target.unauthorize(from, target.unauthorize.selector);
-    }
-
-    /**
-     * @dev Syntax sugar internal method to build an array of actions
-     */
-    function _actions(IAction action) internal pure returns (address[] memory arr) {
-        arr = new address[](1);
-        arr[0] = address(action);
-    }
-
-    /**
-     * @dev Syntax sugar internal method to build an array of actions
-     */
-    function _actions(IAction action1, IAction action2) internal pure returns (address[] memory arr) {
-        arr = new address[](2);
-        arr[0] = address(action1);
-        arr[1] = address(action2);
-    }
-
-    /**
-     * @dev Syntax sugar internal method to build an array of actions
-     */
-    function _actions(IAction action1, IAction action2, IAction action3) internal pure returns (address[] memory arr) {
-        arr = new address[](3);
-        arr[0] = address(action1);
-        arr[1] = address(action2);
-        arr[2] = address(action3);
     }
 }

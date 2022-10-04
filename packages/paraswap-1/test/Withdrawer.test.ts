@@ -1,5 +1,5 @@
-import { assertEvent, assertIndirectEvent, deploy, fp, getSigners } from '@mimic-fi/v2-helpers'
-import { createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import { assertEvent, assertIndirectEvent, fp, getSigners } from '@mimic-fi/v2-helpers'
+import { createAction, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -16,7 +16,7 @@ describe('Withdrawer', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     wallet = await createWallet(mimic, owner)
-    action = await deploy('Withdrawer', [owner.address, wallet.address])
+    action = await createAction('Withdrawer', mimic, owner, wallet)
   })
 
   beforeEach('authorize action', async () => {

@@ -16,25 +16,42 @@ pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-wallet/contracts/IWallet.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
+import '@mimic-fi/v2-registry/contracts/implementations/BaseAuthorizedImplementation.sol';
 
 import './IAction.sol';
 
 /**
  * @title BaseAction
- * @dev Action holding a wallet reference and using the Authorizer mixin
+ * @dev Simple action implementation with a Wallet reference and using the Authorizer mixin
  */
-contract BaseAction is IAction, Authorizer {
+contract BaseAction is IAction, BaseAuthorizedImplementation {
+    bytes32 public constant override NAMESPACE = keccak256('ACTION');
+
     // Mimic Wallet reference
-    IWallet public immutable override wallet;
+    IWallet public override wallet;
 
     /**
-     * @dev Creates a new Base Action
-     * @param _admin Address of the account that will be granted with admin rights
-     * @param _wallet Address of the wallet to be set
+     * @dev Emitted every time a new wallet is set
      */
-    constructor(address _admin, IWallet _wallet) {
-        wallet = _wallet;
-        _authorize(_admin, Authorizer.authorize.selector);
-        _authorize(_admin, Authorizer.unauthorize.selector);
+    event WalletSet(address indexed wallet);
+
+    /**
+     * @dev Creates a new BaseAction
+     * @param admin Address to be granted authorize and unauthorize permissions
+     * @param registry Address of the Mimic Registry
+     */
+    constructor(address admin, address registry) BaseAuthorizedImplementation(admin, registry) {
+        // solhint-disable-previous-line no-empty-blocks
+    }
+
+    /**
+     * @dev Sets the Mimic Wallet tied to the Action. Sender must be authorized. It can be set only once.
+     * @param newWallet Address of the wallet to be set
+     */
+    function setWallet(address newWallet) external auth {
+        require(address(wallet) == address(0), 'WALLET_ALREADY_SET');
+        _validateDependency(address(wallet), newWallet);
+        wallet = IWallet(newWallet);
+        emit WalletSet(newWallet);
     }
 }

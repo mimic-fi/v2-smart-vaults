@@ -1,8 +1,9 @@
-import { assertEvent, deploy, getSigner, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { deploy, getSigner, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { Contract } from 'ethers'
 
 export type Mimic = {
+  deployer: Contract
   registry: Contract
   wallet: Contract
   smartVault: Contract
@@ -31,29 +32,10 @@ export const ARTIFACTS = {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export async function createTokenMock(symbol = 'TKN'): Promise<Contract> {
-  return deploy(MOCKS.TOKEN, [symbol])
-}
-
-export async function createWallet(mimic: Mimic, admin: SignerWithAddress): Promise<Contract> {
-  const initializeData = mimic.wallet.interface.encodeFunctionData('initialize', [admin.address])
-  const tx = await mimic.registry.clone(mimic.wallet.address, initializeData)
-  const event = await assertEvent(tx, 'Cloned', { implementation: mimic.wallet })
-  const wallet = await instanceAt(ARTIFACTS.WALLET, event.args.instance)
-
-  const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
-  await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
-  await wallet.connect(admin).setPriceOracle(mimic.priceOracle.address)
-
-  const setSwapConnector = wallet.interface.getSighash('setSwapConnector')
-  await wallet.connect(admin).authorize(admin.address, setSwapConnector)
-  await wallet.connect(admin).setSwapConnector(mimic.swapConnector.address)
-
-  return wallet
-}
-
 export async function setupMimic(mocked: boolean): Promise<Mimic> {
   const admin = await getSigner()
+
+  const deployer = await deploy('Deployer')
 
   const registry = await deploy(ARTIFACTS.REGISTRY, [admin.address])
 
@@ -75,5 +57,5 @@ export async function setupMimic(mocked: boolean): Promise<Mimic> {
     : deploy(ARTIFACTS.SWAP_CONNECTOR, [registry.address, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS]))
   await registry.connect(admin).register(await swapConnector.NAMESPACE(), swapConnector.address, true)
 
-  return { registry, wallet, smartVault, priceOracle, swapConnector, wrappedNativeToken, admin }
+  return { deployer, registry, wallet, smartVault, priceOracle, swapConnector, wrappedNativeToken, admin }
 }

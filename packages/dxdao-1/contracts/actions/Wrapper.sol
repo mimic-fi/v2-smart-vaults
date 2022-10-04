@@ -26,7 +26,7 @@ contract Wrapper is BaseAction, TokenThresholdAction, RelayedAction, WithdrawalA
     // Base gas amount charged to cover gas payment
     uint256 public constant override BASE_GAS = 0;
 
-    constructor(address _admin, IWallet _wallet) BaseAction(_admin, _wallet) {
+    constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
 
