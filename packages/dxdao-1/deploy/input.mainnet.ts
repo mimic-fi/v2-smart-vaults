@@ -1,4 +1,4 @@
-import { bn, fp, NATIVE_TOKEN_ADDRESS, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { bn, fp, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
 /* eslint-disable no-secrets/no-secrets */
 
@@ -48,7 +48,7 @@ export default {
         relayers: [mimic.bot],
         gasPriceLimit: bn(100e9),
         totalCostLimit: 0,
-        payingGasToken: NATIVE_TOKEN_ADDRESS,
+        payingGasToken: WETH,
       },
       tokenThresholdActionParams: {
         amount: fp(200),

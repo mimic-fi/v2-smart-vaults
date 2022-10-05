@@ -8,7 +8,14 @@ import {
   NATIVE_TOKEN_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
-import { createAction, createTokenMock, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import {
+  createAction,
+  createPriceFeedMock,
+  createTokenMock,
+  createWallet,
+  Mimic,
+  setupMimic,
+} from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -91,7 +98,11 @@ describe('NativeClaimer', () => {
       thresholdToken = (await createTokenMock()).address
       const setThresholdRole = action.interface.getSighash('setThreshold')
       await action.connect(owner).authorize(owner.address, setThresholdRole)
-      await mimic.priceOracle.mockRate(mimic.wrappedNativeToken.address, thresholdToken, fp(thresholdRate))
+
+      const feed = await createPriceFeedMock(fp(thresholdRate))
+      const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
+      await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
+      await wallet.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, thresholdToken, feed.address)
     })
 
     context('when the sender is authorized', () => {
@@ -196,7 +207,10 @@ describe('NativeClaimer', () => {
 
           beforeEach('set token', async () => {
             token = mimic.wrappedNativeToken.address
-            await mimic.priceOracle.mockRate(mimic.wrappedNativeToken.address, thresholdToken, fp(2))
+            const feed = await createPriceFeedMock(fp(2))
+            const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
+            await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
+            await wallet.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, thresholdToken, feed.address)
           })
 
           beforeEach('fund fee claimer', async () => {

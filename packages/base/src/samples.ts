@@ -1,4 +1,4 @@
-import { assertEvent, deploy, instanceAt } from '@mimic-fi/v2-helpers'
+import { assertEvent, BigNumberish, deploy, instanceAt } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { Contract } from 'ethers'
 
@@ -6,6 +6,10 @@ import { ARTIFACTS, Mimic, MOCKS } from './setup'
 
 export async function createTokenMock(symbol = 'TKN'): Promise<Contract> {
   return deploy(MOCKS.TOKEN, [symbol])
+}
+
+export async function createPriceFeedMock(price: BigNumberish): Promise<Contract> {
+  return deploy(MOCKS.PRICE_FEED, [price])
 }
 
 export async function createWallet(mimic: Mimic, admin: SignerWithAddress): Promise<Contract> {

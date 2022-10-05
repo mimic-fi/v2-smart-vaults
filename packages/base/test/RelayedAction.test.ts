@@ -12,6 +12,7 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 import { createAction, createTokenMock, createWallet, Mimic, setupMimic } from '..'
+import { createPriceFeedMock } from '../src/samples'
 
 describe('RelayedAction', () => {
   let action: Contract, wallet: Contract, mimic: Mimic
@@ -321,9 +322,14 @@ describe('RelayedAction', () => {
           const rate = fp(2)
           let payingGasToken: Contract
 
-          beforeEach('set paying token and mock oracle rate', async () => {
+          beforeEach('set paying token and mock price feed', async () => {
             payingGasToken = await createTokenMock()
-            await mimic.priceOracle.mockRate(mimic.wrappedNativeToken.address, payingGasToken.address, rate)
+            const feed = await createPriceFeedMock(rate)
+            const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
+            await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
+            await wallet
+              .connect(owner)
+              .setPriceFeed(mimic.wrappedNativeToken.address, payingGasToken.address, feed.address)
           })
 
           context('when total gas cost limit is above the actual cost', () => {

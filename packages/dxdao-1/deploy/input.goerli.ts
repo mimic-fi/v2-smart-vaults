@@ -1,6 +1,8 @@
-import { bn, fp, NATIVE_TOKEN_ADDRESS, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { bn, fp, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
 /* eslint-disable no-secrets/no-secrets */
+
+const WETH = '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6'
 
 const dxDAO = {
   owner: '0x519b70055af55a007110b4ff99b0ea33071c720a',
@@ -44,11 +46,11 @@ export default {
         relayers: [mimic.bot],
         gasPriceLimit: bn(100e9),
         totalCostLimit: 0,
-        payingGasToken: NATIVE_TOKEN_ADDRESS,
+        payingGasToken: WETH,
       },
       tokenThresholdActionParams: {
         amount: fp(0.5),
-        token: NATIVE_TOKEN_ADDRESS,
+        token: WETH,
       },
       withdrawalActionParams: {
         recipient: dxDAO.owner,

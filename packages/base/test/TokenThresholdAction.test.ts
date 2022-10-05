@@ -1,9 +1,10 @@
-import { assertEvent, fp, getSigners, NATIVE_TOKEN_ADDRESS, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { assertEvent, fp, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 import { createAction, createWallet, Mimic, setupMimic } from '..'
+import { createPriceFeedMock, createTokenMock } from '../src/samples'
 
 describe('TokenThresholdAction', () => {
   let action: Contract, wallet: Contract, mimic: Mimic
@@ -57,26 +58,34 @@ describe('TokenThresholdAction', () => {
   })
 
   describe('validate', () => {
+    let token: Contract, thresholdToken: Contract
+
     const rate = 2
-    const token = ZERO_ADDRESS
     const thresholdAmount = fp(2)
-    const thresholdToken = NATIVE_TOKEN_ADDRESS
+
+    beforeEach('deploy tokens', async () => {
+      token = await createTokenMock()
+      thresholdToken = await createTokenMock()
+    })
 
     beforeEach('set threshold', async () => {
       const setThresholdRole = action.interface.getSighash('setThreshold')
       await action.connect(owner).authorize(owner.address, setThresholdRole)
-      await action.connect(owner).setThreshold(thresholdToken, thresholdAmount)
+      await action.connect(owner).setThreshold(thresholdToken.address, thresholdAmount)
     })
 
-    beforeEach('mock rate', async () => {
-      await mimic.priceOracle.mockRate(token, thresholdToken, fp(rate))
+    beforeEach('mock price feed', async () => {
+      const feed = await createPriceFeedMock(fp(rate))
+      const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
+      await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
+      await wallet.connect(owner).setPriceFeed(token.address, thresholdToken.address, feed.address)
     })
 
     context('when the given amount is lower than the set limit', () => {
       const amount = thresholdAmount.div(rate).sub(1)
 
       it('reverts', async () => {
-        await expect(action.validateThreshold(token, amount)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+        await expect(action.validateThreshold(token.address, amount)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
       })
     })
 
@@ -84,7 +93,7 @@ describe('TokenThresholdAction', () => {
       const amount = thresholdAmount.div(rate).add(1)
 
       it('does not revert', async () => {
-        await expect(action.validateThreshold(token, amount)).not.to.be.reverted
+        await expect(action.validateThreshold(token.address, amount)).not.to.be.reverted
       })
     })
   })

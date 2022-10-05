@@ -10,7 +10,14 @@ import {
   NATIVE_TOKEN_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
-import { createAction, createTokenMock, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import {
+  createAction,
+  createPriceFeedMock,
+  createTokenMock,
+  createWallet,
+  Mimic,
+  setupMimic,
+} from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
@@ -137,7 +144,11 @@ describe('ERC20Claimer', () => {
       thresholdToken = await createTokenMock()
       const setThresholdRole = action.interface.getSighash('setThreshold')
       await action.connect(owner).authorize(owner.address, setThresholdRole)
-      await mimic.priceOracle.mockRate(mimic.wrappedNativeToken.address, thresholdToken.address, fp(thresholdRate))
+
+      const feed = await createPriceFeedMock(fp(thresholdRate))
+      const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
+      await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
+      await wallet.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, thresholdToken.address, feed.address)
     })
 
     beforeEach('fund fee claimer', async () => {

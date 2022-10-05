@@ -1,5 +1,12 @@
-import { assertEvent, assertIndirectEvent, fp, getSigners, NATIVE_TOKEN_ADDRESS } from '@mimic-fi/v2-helpers'
-import { createAction, createTokenMock, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import { assertEvent, assertIndirectEvent, fp, getSigners } from '@mimic-fi/v2-helpers'
+import {
+  createAction,
+  createPriceFeedMock,
+  createTokenMock,
+  createWallet,
+  Mimic,
+  setupMimic,
+} from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -54,12 +61,16 @@ describe('Wrapper', () => {
 
       const itPerformsTheExpectedCall = (refunds: boolean) => {
         context('when the min amount passes the threshold', () => {
-          beforeEach('set threshold', async () => {
+          beforeEach('set threshold and mock feed', async () => {
             const usdc = await createTokenMock()
-            await mimic.priceOracle.mockRate(NATIVE_TOKEN_ADDRESS, usdc.address, fp(2))
             const setThresholdRole = action.interface.getSighash('setThreshold')
             await action.connect(owner).authorize(owner.address, setThresholdRole)
             await action.connect(owner).setThreshold(usdc.address, balance)
+
+            const feed = await createPriceFeedMock(fp(2))
+            const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
+            await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
+            await wallet.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, usdc.address, feed.address)
           })
 
           it('calls the wrap primitive', async () => {
@@ -104,10 +115,14 @@ describe('Wrapper', () => {
         context('when the min amount does not pass the threshold', () => {
           beforeEach('set threshold', async () => {
             const usdc = await createTokenMock()
-            await mimic.priceOracle.mockRate(NATIVE_TOKEN_ADDRESS, usdc.address, fp(2))
             const setThresholdRole = action.interface.getSighash('setThreshold')
             await action.connect(owner).authorize(owner.address, setThresholdRole)
             await action.connect(owner).setThreshold(usdc.address, balance.mul(3))
+
+            const feed = await createPriceFeedMock(fp(2))
+            const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
+            await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
+            await wallet.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, usdc.address, feed.address)
           })
 
           it('reverts', async () => {

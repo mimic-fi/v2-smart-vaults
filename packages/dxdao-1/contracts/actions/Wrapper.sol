@@ -41,7 +41,7 @@ contract Wrapper is BaseAction, TokenThresholdAction, RelayedAction, WithdrawalA
 
     function _call() internal {
         uint256 balance = address(wallet).balance;
-        _validateThreshold(Denominations.NATIVE_TOKEN, balance);
+        _validateThreshold(wallet.wrappedNativeToken(), balance);
         wallet.wrap(balance, new bytes(0));
         emit Executed();
     }

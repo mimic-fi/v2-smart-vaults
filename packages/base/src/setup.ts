@@ -17,7 +17,7 @@ const SMART_VAULTS_BASE_PATH = '@mimic-fi/v2-smart-vaults-base/artifacts/contrac
 
 export const MOCKS = {
   TOKEN: `${SMART_VAULTS_BASE_PATH}/samples/TokenMock.sol/TokenMock`,
-  PRICE_ORACLE: `${SMART_VAULTS_BASE_PATH}/core/PriceOracleMock.sol/PriceOracleMock`,
+  PRICE_FEED: `${SMART_VAULTS_BASE_PATH}/samples/PriceFeedMock.sol/PriceFeedMock`,
   SWAP_CONNECTOR: `${SMART_VAULTS_BASE_PATH}/core/SwapConnectorMock.sol/SwapConnectorMock`,
   WRAPPED_NATIVE_TOKEN: `${SMART_VAULTS_BASE_PATH}/samples/WrappedNativeTokenMock.sol/WrappedNativeTokenMock`,
 }
@@ -47,9 +47,7 @@ export async function setupMimic(mocked: boolean): Promise<Mimic> {
   const smartVault = await deploy(ARTIFACTS.SMART_VAULT, [registry.address])
   await registry.connect(admin).register(await smartVault.NAMESPACE(), smartVault.address, false)
 
-  const priceOracle = await (mocked
-    ? deploy(MOCKS.PRICE_ORACLE, [registry.address])
-    : deploy(ARTIFACTS.PRICE_ORACLE, [wrappedNativeToken.address, registry.address]))
+  const priceOracle = await deploy(ARTIFACTS.PRICE_ORACLE, [wrappedNativeToken.address, registry.address])
   await registry.connect(admin).register(await priceOracle.NAMESPACE(), priceOracle.address, true)
 
   const swapConnector = await (mocked
