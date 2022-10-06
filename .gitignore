@@ -2,3 +2,4 @@ cache
 artifacts
 node_modules
 *.log
+**/output/test.json

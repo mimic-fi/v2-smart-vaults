@@ -2,16 +2,16 @@ import { bn, fp, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
 /* eslint-disable no-secrets/no-secrets */
 
-const WETH = '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6'
+const WETH = '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6'
 
-const dxDAO = {
-  owner: '0x519b70055af55a007110b4ff99b0ea33071c720a',
+const accounts = {
+  owner: '0x519b70055af55A007110B4Ff99b0eA33071c720a',
   managers: [],
+  bot: '0xB3AfB6DB38a8E72905165c1fBB96772e63560790',
+  feeCollector: '0x27751A0Fe3bd6EBfeB04B359D97B0cf199f20D22',
 }
 
 const mimic = {
-  bot: '0xB3AfB6DB38a8E72905165c1fBB96772e63560790',
-  feeCollector: '0x27751A0Fe3bd6EBfeB04B359D97B0cf199f20D22',
   Deployer: '0x9d085d66dA25A4854Dd769b3780CeAB2cB7CfB94',
   Registry: '0x089849373fe735FDe9CAb7a7591cc2630919131b',
   Wallet: '0x24E4A0d5368a1844F621ee00AF9f56d5Bcfc15FF',
@@ -20,16 +20,17 @@ const mimic = {
 }
 
 export default {
+  accounts,
   mimic,
   params: {
     registry: mimic.Registry,
     smartVaultParams: {
       impl: mimic.SmartVault,
-      admin: dxDAO.owner,
+      admin: accounts.owner,
       walletParams: {
         impl: mimic.Wallet,
-        admin: dxDAO.owner,
-        feeCollector: mimic.feeCollector,
+        admin: accounts.owner,
+        feeCollector: accounts.feeCollector,
         strategies: [],
         priceFeedParams: [],
         priceOracle: mimic.PriceOracle,
@@ -40,10 +41,10 @@ export default {
       },
     },
     wrapperActionParams: {
-      admin: dxDAO.owner,
-      managers: dxDAO.managers,
+      admin: accounts.owner,
+      managers: accounts.managers,
       relayedActionParams: {
-        relayers: [mimic.bot],
+        relayers: [accounts.bot],
         gasPriceLimit: bn(100e9),
         totalCostLimit: 0,
         payingGasToken: WETH,
@@ -53,7 +54,7 @@ export default {
         token: WETH,
       },
       withdrawalActionParams: {
-        recipient: dxDAO.owner,
+        recipient: accounts.owner,
       },
     },
   },
