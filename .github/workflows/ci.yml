@@ -89,5 +89,36 @@ jobs:
           severity: warn
           details: Test cancelled!
           webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      - name: Install
+        run: yarn --immutable
+      - name: Setup hardhat config
+        run: .github/scripts/setup-hardhat-config.sh ${{secrets.GOERLI_RPC}} ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}}
+      - name: Build
+        run: yarn build
+      - name: Test Goerli
+        run: yarn test:goerli
+      - name: Test failure
+        uses: rjstone/discord-webhook-notify@v1
+        if: failure()
+        with:
+          severity: error
+          details: Test failed!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Test cancelled
+        uses: rjstone/discord-webhook-notify@v1
+        if: cancelled()
+        with:
+          severity: warn
+          details: Test cancelled!
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 env:
   CI: true
