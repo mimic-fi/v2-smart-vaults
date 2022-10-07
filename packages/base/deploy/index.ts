@@ -10,7 +10,7 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   const deployer = await deploy('Deployer')
   writeOutput('Deployer', deployer.address)
 
-  const admin = await getSigner()
+  const admin = await getSigner(input.admin)
   const registry = await deploy(ARTIFACTS.REGISTRY, [admin.address])
   writeOutput('Registry', registry.address)
 
