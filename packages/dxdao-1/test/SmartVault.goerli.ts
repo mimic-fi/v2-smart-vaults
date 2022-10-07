@@ -179,9 +179,7 @@ describe('SmartVault', () => {
         expect(await wrapper.isRelayer(manager)).to.be.false
       }
     })
-  })
 
-  describe('call', () => {
     it('can wrap WETH when passing the threshold', async () => {
       const bot = await impersonate(relayers[0])
       const weth = await instanceAt('IERC20', WETH)
