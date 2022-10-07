@@ -7,7 +7,7 @@ const WETH = '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6'
 const accounts = {
   owner: '0x519b70055af55A007110B4Ff99b0eA33071c720a',
   managers: [],
-  bot: '0xB3AfB6DB38a8E72905165c1fBB96772e63560790',
+  relayers: ['0xB3AfB6DB38a8E72905165c1fBB96772e63560790'],
   feeCollector: '0x27751A0Fe3bd6EBfeB04B359D97B0cf199f20D22',
 }
 
@@ -41,10 +41,11 @@ export default {
       },
     },
     wrapperActionParams: {
+      impl: undefined,
       admin: accounts.owner,
       managers: accounts.managers,
       relayedActionParams: {
-        relayers: [accounts.bot],
+        relayers: accounts.relayers,
         gasPriceLimit: bn(100e9),
         totalCostLimit: 0,
         payingGasToken: WETH,
