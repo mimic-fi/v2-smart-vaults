@@ -11,6 +11,7 @@ import {
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import {
+  assertRelayedBaseCost,
   createAction,
   createPriceFeedMock,
   createTokenMock,
@@ -276,10 +277,11 @@ describe('ERC20Claimer', () => {
                   it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
                     const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-                    await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
+                    const tx = await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
 
                     const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-                    expect(currentBalance).to.be[refunds ? 'gt' : 'eq'](previousBalance)
+                    if (refunds) await assertRelayedBaseCost(tx, currentBalance.sub(previousBalance))
+                    else expect(currentBalance).to.be.equal(previousBalance)
                   })
                 })
 

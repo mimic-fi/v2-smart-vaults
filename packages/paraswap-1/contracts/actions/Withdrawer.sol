@@ -21,7 +21,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/WithdrawalAction.sol';
 
 contract Withdrawer is BaseAction, RelayedAction, TimeLockedAction, WithdrawalAction {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 0;
+    uint256 public constant override BASE_GAS = 110e3;
 
     constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks

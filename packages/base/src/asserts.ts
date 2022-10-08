@@ -1,5 +1,6 @@
+import { decimal, instanceAt, pct } from '@mimic-fi/v2-helpers'
 import { expect } from 'chai'
-import { Contract } from 'ethers'
+import { BigNumber, Contract, ContractTransaction } from 'ethers'
 
 export type NAry<N> = N | N[]
 
@@ -21,6 +22,32 @@ export async function assertPermissions(target: Contract, assertions: Permission
         const message = `expected "${assertion.name}" ${address} ${should ? 'to' : 'not to'} have "${fn}" rights`
         expect(await target.isAuthorized(address, role)).to.be.equal(should, message)
       }
+    }
+  }
+}
+
+export async function assertRelayedBaseCost(tx: ContractTransaction, redeemedCost: BigNumber): Promise<void> {
+  const { gasUsed, effectiveGasPrice } = await tx.wait()
+  const redeemedGas = redeemedCost.div(effectiveGasPrice)
+
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const relayedAction = await instanceAt('RelayedAction', tx.to!)
+  const BASE_GAS = await relayedAction.BASE_GAS()
+
+  if (redeemedGas.lt(gasUsed)) {
+    const missing = gasUsed.sub(redeemedGas)
+    const ideal = BASE_GAS.add(missing)
+    const message = `Missing ${missing.toString()} gas units. Set it at least to ${ideal.toString()} gas units.`
+    expect(redeemedGas.toNumber()).to.be.gt(gasUsed.toNumber(), message)
+  } else {
+    const extraGas = redeemedGas.sub(gasUsed)
+    const ratio = decimal(redeemedGas).div(decimal(gasUsed)).toNumber() - 1
+    const message = `Redeemed ${extraGas} extra gas units (+${(ratio * 100).toPrecision(4)} %)`
+    if (ratio <= 0.05) console.log(message)
+    else {
+      const min = gasUsed.sub(redeemedGas.sub(BASE_GAS))
+      const max = pct(gasUsed, 1.05).sub(redeemedGas.sub(BASE_GAS))
+      expect(ratio).to.be.lte(0.05, `${message}. Set it between ${min} and ${max}`)
     }
   }
 }

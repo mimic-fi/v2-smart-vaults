@@ -24,7 +24,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/WithdrawalAction.sol';
 
 contract Wrapper is BaseAction, TokenThresholdAction, RelayedAction, WithdrawalAction {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 0;
+    uint256 public constant override BASE_GAS = 80e3;
 
     constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks

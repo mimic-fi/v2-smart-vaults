@@ -22,7 +22,7 @@ import './BaseClaimer.sol';
 
 contract ERC20Claimer is BaseClaimer {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 0;
+    uint256 public constant override BASE_GAS = 22e3;
 
     address public swapSigner;
 
