@@ -12,22 +12,26 @@ export async function deployFromHre(args: any, hreOrNetwork: string | HardhatRun
   await deploy(network)
 }
 
-export async function deploy(network: string, outputFileName: string = network): Promise<{ [key: string]: string }> {
-  const scriptPath = dir('index.ts')
+export async function deploy(
+  network: string,
+  outputFileName: string = network,
+  rootDir?: string
+): Promise<{ [key: string]: string }> {
+  const scriptPath = dir('index.ts', rootDir)
   if (!fs.existsSync(scriptPath)) throw Error('Missing deployment script')
   const script = require(scriptPath).default
 
-  const input = readInput(network)
-  await script(input, writeOutput(outputFileName))
-  return readOutput(outputFileName)
+  const input = readInput(network, rootDir)
+  await script(input, writeOutput(outputFileName, rootDir))
+  return readOutput(outputFileName, rootDir)
 }
 
-export function readInput(network: string): { [key: string]: any } {
-  const generalInputPath = dir('input.ts')
+export function readInput(network: string, rootDir?: string): { [key: string]: any } {
+  const generalInputPath = dir('input.ts', rootDir)
   const existsGeneralInputPath = fs.existsSync(generalInputPath)
   const generalInput = existsGeneralInputPath ? require(generalInputPath).default[network] : undefined
 
-  const networkInputPath = dir(`input.${network}.ts`)
+  const networkInputPath = dir(`input.${network}.ts`, rootDir)
   const existsNetworkInputPath = fs.existsSync(networkInputPath)
   const networkInput = existsNetworkInputPath ? require(networkInputPath).default : undefined
 
@@ -36,18 +40,18 @@ export function readInput(network: string): { [key: string]: any } {
   return generalInput || networkInput
 }
 
-export function readOutput(outputFileName: string): { [key: string]: string } {
-  const outputFile = dir(`output/${outputFileName}.json`)
+export function readOutput(outputFileName: string, rootDir?: string): { [key: string]: string } {
+  const outputFile = dir(`output/${outputFileName}.json`, rootDir)
   return fs.existsSync(outputFile) ? JSON.parse(fs.readFileSync(outputFile).toString()) : {}
 }
 
-function writeOutput(outputFileName: string): (key: string, value: string) => void {
+export function writeOutput(outputFileName: string, rootDir?: string): (key: string, value: string) => void {
   return (key: string, value: string): void => {
     console.log(`${key}: ${value}`)
-    const outputPath = dir('output')
+    const outputPath = dir('output', rootDir)
     if (!fs.existsSync(outputPath)) fs.mkdirSync(outputPath)
 
-    const outputFile = dir(`output/${outputFileName}.json`)
+    const outputFile = dir(`output/${outputFileName}.json`, rootDir)
     const previousOutput = fs.existsSync(outputFile) ? JSON.parse(fs.readFileSync(outputFile).toString()) : {}
 
     const finalOutput = { ...previousOutput, [key]: value }
@@ -56,6 +60,6 @@ function writeOutput(outputFileName: string): (key: string, value: string) => vo
   }
 }
 
-function dir(name: string): string {
-  return path.join(process.cwd(), 'deploy', name)
+function dir(name: string, rootDir?: string): string {
+  return path.join(rootDir || process.cwd(), 'deploy', name)
 }
