@@ -20,6 +20,10 @@ contract FeeClaimerMock is IFeeClaimer {
         fail = _fail;
     }
 
+    function getBalance(address token, address) external view override returns (uint256) {
+        return token == Denominations.NATIVE_TOKEN ? address(this).balance : IERC20(token).balanceOf(address(this));
+    }
+
     function withdrawAllERC20(address token, address recipient) external override returns (bool) {
         token == Denominations.NATIVE_TOKEN
             ? _transferTokens(token, recipient, address(this).balance)

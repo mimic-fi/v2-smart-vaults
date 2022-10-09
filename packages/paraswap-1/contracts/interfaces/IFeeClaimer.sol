@@ -17,6 +17,8 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 interface IFeeClaimer {
+    function getBalance(address token, address partner) external view returns (uint256);
+
     function withdrawAllERC20(address token, address recipient) external returns (bool);
 
     function withdrawSomeERC20(address token, uint256 amount, address recipient) external returns (bool);

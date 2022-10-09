@@ -35,7 +35,8 @@ contract NativeClaimer is BaseClaimer {
     function _call(address token) internal {
         address wrappedNativeToken = wallet.wrappedNativeToken();
         require(token == Denominations.NATIVE_TOKEN || token == wrappedNativeToken, 'NATIVE_CLAIMER_INVALID_TOKEN');
-        uint256 balance = token == wrappedNativeToken ? IERC20(token).balanceOf(feeClaimer) : feeClaimer.balance;
+
+        uint256 balance = IFeeClaimer(feeClaimer).getBalance(token, address(wallet));
         _validateThreshold(wrappedNativeToken, balance);
 
         bytes memory claimData = abi.encodeWithSelector(IFeeClaimer.withdrawAllERC20.selector, token, wallet);

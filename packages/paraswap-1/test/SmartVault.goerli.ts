@@ -2,16 +2,14 @@ import {
   bn,
   fp,
   getForkedNetwork,
-  getSigner,
   impersonate,
   instanceAt,
-  MAX_UINT256,
   MONTH,
   NATIVE_TOKEN_ADDRESS,
   YEAR,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
-import { assertPermissions, createPriceFeedMock, createTokenMock, deployment } from '@mimic-fi/v2-smart-vaults-base'
+import { assertPermissions, deployment } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -43,7 +41,7 @@ describe('SmartVault', () => {
     withdrawer = await instanceAt('Withdrawer', output.Withdrawer)
     erc20Claimer = await instanceAt('ERC20Claimer', output.ERC20Claimer)
     nativeClaimer = await instanceAt('NativeClaimer', output.NativeClaimer)
-    feeClaimer = await instanceAt('IFeeClaimer', output.FeeClaimer)
+    feeClaimer = await instanceAt('IFeeClaimer', await nativeClaimer.feeClaimer())
   })
 
   describe('smart vault', () => {
@@ -253,54 +251,6 @@ describe('SmartVault', () => {
       for (const manager of managers) {
         expect(await erc20Claimer.isRelayer(manager)).to.be.false
       }
-    })
-
-    describe('call', async () => {
-      let bot: SignerWithAddress, token: Contract
-
-      before('load accounts', async () => {
-        bot = await impersonate(relayers[0])
-      })
-
-      before('deploy feed', async () => {
-        token = await createTokenMock('DAI')
-        const rate = fp(2)
-        const feed = await createPriceFeedMock(rate)
-        await wallet.connect(await impersonate(owner)).setPriceFeed(token.address, WETH, feed.address)
-      })
-
-      // TODO: Paraswap fork test WIP
-      it.skip('can claim a token amount when passing the threshold', async () => {
-        const previousTokenBalance = await token.balanceOf(wallet.address)
-        const previousFeeCollectorBalance = await token.balanceOf(feeCollector)
-
-        const signer = await getSigner()
-        await erc20Claimer.connect(await impersonate(owner)).setSwapSigner(signer.address)
-
-        const data = '0x'
-        const amountIn = fp(0.15)
-        const minAmountOut = fp(0.3)
-        const deadline = MAX_UINT256
-        const signature = await signer.signMessage(
-          ethers.utils.arrayify(
-            ethers.utils.solidityKeccak256(
-              ['address', 'address', 'bool', 'uint256', 'uint256', 'uint256', 'bytes'],
-              [token.address, WETH, false, amountIn, minAmountOut, deadline, data]
-            )
-          )
-        )
-
-        await token.mint(feeClaimer.address, amountIn)
-        await erc20Claimer.connect(bot).call(token.address, amountIn, minAmountOut, deadline, data, signature)
-
-        expect(await token.balanceOf(feeClaimer.address)).to.be.equal(0)
-
-        const currentFeeCollectorBalance = await token.balanceOf(feeCollector)
-        const relayedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
-        const currentWalletBalance = await token.balanceOf(wallet.address)
-        const expectedClaimedBalance = fp(0.15).sub(relayedCost)
-        expect(currentWalletBalance).to.be.equal(previousTokenBalance.add(expectedClaimedBalance))
-      })
     })
   })
 

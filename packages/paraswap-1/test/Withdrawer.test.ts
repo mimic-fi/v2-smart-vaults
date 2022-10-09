@@ -1,5 +1,5 @@
 import { assertEvent, assertIndirectEvent, fp, getSigners } from '@mimic-fi/v2-helpers'
-import {assertRelayedBaseCost, createAction, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import { assertRelayedBaseCost, createAction, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
