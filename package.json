@@ -10,7 +10,8 @@
     "build": "yarn workspaces run build",
     "lint": "yarn workspaces run lint",
     "test": "yarn workspaces run test",
-    "test:goerli": "yarn workspaces run test:goerli"
+    "test:goerli": "yarn workspaces run test:goerli",
+    "test:mainnet": "yarn workspaces run test:mainnet"
   },
   "dependencies": {},
   "devDependencies": {},
