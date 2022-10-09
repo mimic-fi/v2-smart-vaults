@@ -20,8 +20,16 @@ contract FeeClaimerMock is IFeeClaimer {
         fail = _fail;
     }
 
+    function augustusSwapper() external pure override returns (address) {
+        return address(0);
+    }
+
     function getBalance(address token, address) external view override returns (uint256) {
         return token == Denominations.NATIVE_TOKEN ? address(this).balance : IERC20(token).balanceOf(address(this));
+    }
+
+    function registerFee(address, address, uint256) external override {
+        // solhint-disable-previous-line no-empty-blocks
     }
 
     function withdrawAllERC20(address token, address recipient) external override returns (bool) {

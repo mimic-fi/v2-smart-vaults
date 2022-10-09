@@ -17,7 +17,11 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 interface IFeeClaimer {
+    function augustusSwapper() external view returns (address);
+
     function getBalance(address token, address partner) external view returns (uint256);
+
+    function registerFee(address account, address token, uint256 fee) external;
 
     function withdrawAllERC20(address token, address recipient) external returns (bool);
 

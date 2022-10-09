@@ -10,8 +10,9 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   const deployer = await deploy('SmartVaultDeployer', [], undefined, { Deployer: mimic.Deployer })
   writeOutput('Deployer', deployer.address)
 
-  const feeClaimer = await deploy('FeeClaimerMock')
-  writeOutput('FeeClaimer', feeClaimer.address)
+  const feeClaimer = input.accounts.feeClaimer
+    ? await instanceAt('IFeeClaimer', input.accounts.feeClaimer)
+    : await deploy('FeeClaimerMock')
 
   const erc20Claimer = await deploy('ERC20Claimer', [deployer.address, mimic.Registry])
   writeOutput('ERC20Claimer', erc20Claimer.address)

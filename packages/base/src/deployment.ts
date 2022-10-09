@@ -47,7 +47,7 @@ export function readOutput(outputFileName: string, rootDir?: string): { [key: st
 
 export function writeOutput(outputFileName: string, rootDir?: string): (key: string, value: string) => void {
   return (key: string, value: string): void => {
-    console.log(`${key}: ${value}`)
+    if (outputFileName !== 'test') console.log(`${key}: ${value}`)
     const outputPath = dir('output', rootDir)
     if (!fs.existsSync(outputPath)) fs.mkdirSync(outputPath)
 
