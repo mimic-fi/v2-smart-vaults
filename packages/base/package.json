@@ -30,7 +30,7 @@
     "@mimic-fi/v2-price-oracle": "0.0.5",
     "@mimic-fi/v2-registry": "0.0.5",
     "@mimic-fi/v2-smart-vault": "0.0.5",
-    "@mimic-fi/v2-swap-connector": "0.0.7",
+    "@mimic-fi/v2-swap-connector": "0.0.8",
     "@mimic-fi/v2-wallet": "0.0.7",
     "@openzeppelin/contracts": "4.7.0"
   },

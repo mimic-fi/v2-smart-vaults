@@ -19,13 +19,13 @@
     "lint:typescript": "eslint . --ext .ts",
     "test": "hardhat test",
     "test:goerli": "yarn test --fork goerli --block-number 7722762",
-    "test:mainnet": "yarn test --fork mainnet --block-number 15706121",
+    "test:mainnet": "yarn test --fork mainnet",
     "prepare": "yarn build"
   },
   "dependencies": {
     "@mimic-fi/v2-helpers": "0.0.8",
     "@mimic-fi/v2-registry": "0.0.5",
-    "@mimic-fi/v2-swap-connector": "0.0.7",
+    "@mimic-fi/v2-swap-connector": "0.0.8",
     "@mimic-fi/v2-smart-vaults-base": "0.0.1",
     "@mimic-fi/v2-wallet": "0.0.7",
     "@openzeppelin/contracts": "4.7.0"
@@ -35,6 +35,7 @@
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@types/chai": "^4.2.18",
     "@types/mocha": "^8.2.2",
+    "axios": "^1.1.2",
     "chai": "^4.2.0",
     "eslint-config-mimic": "^0.0.2",
     "ethereum-waffle": "^3.3.0",
