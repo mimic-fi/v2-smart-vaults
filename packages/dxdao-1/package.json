@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@mimic-fi/v2-wallet": "0.0.7",
-    "@mimic-fi/v2-helpers": "0.0.7",
+    "@mimic-fi/v2-helpers": "0.0.8",
     "@mimic-fi/v2-smart-vaults-base": "0.0.1",
     "@openzeppelin/contracts": "4.7.0"
   },

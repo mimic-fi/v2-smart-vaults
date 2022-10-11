@@ -514,6 +514,19 @@
     decimal.js "^10.3.1"
     ethers "^5.0.8"
 
+"@mimic-fi/v2-helpers@0.0.8":
+  version "0.0.8"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.8.tgz#ab36186769a3fa05c05741ed7c50ea0a7e821904"
+  integrity sha512-nW+wokC5D8b/IIDZM3wUNXRzgW/OfyetGrWmTTrgEtpjAbTQTYm5k5YB9e06JVmrbme2omiULD2xu2LViQZccQ==
+  dependencies:
+    "@nomiclabs/hardhat-ethers" "^2.0.2"
+    "@nomiclabs/hardhat-waffle" "^2.0.1"
+    "@types/chai" "^4.2.18"
+    "@types/mocha" "^8.2.2"
+    chai "^4.2.0"
+    decimal.js "^10.3.1"
+    ethers "^5.0.8"
+
 "@mimic-fi/v2-price-oracle@0.0.5":
   version "0.0.5"
   resolved "https://registry.yarnpkg.com/@mimic-fi/v2-price-oracle/-/v2-price-oracle-0.0.5.tgz#d459acacb1e2b6914a98cd800bd2d6b706ad35a5"
@@ -554,6 +567,19 @@
   integrity sha512-HkJZul8IYt45mlenQzBTyNuiUh6f3u7anSpJNxzJykNEFm21MINew2H//Y1XvN/cklcqdxv8jb4jawDyO5zn2Q==
   dependencies:
     "@mimic-fi/v2-helpers" "0.0.7"
+    "@mimic-fi/v2-registry" "0.0.5"
+    "@openzeppelin/contracts" "4.7.0"
+    "@uniswap/v2-core" "^1.0.1"
+    "@uniswap/v2-periphery" "^1.1.0-beta.0"
+    "@uniswap/v3-core" "^1.0.1"
+    "@uniswap/v3-periphery" "^1.4.1"
+
+"@mimic-fi/v2-swap-connector@0.0.7":
+  version "0.0.7"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-swap-connector/-/v2-swap-connector-0.0.7.tgz#d75fc2d465e5014437f51331f7fb24e5a513c840"
+  integrity sha512-7jYSFp+uQNvO9d7bWOIlUefiIWe9KtwcsMGsJkTVEEyDICS+mKumNk/rhXdJgkTXkEMRhNFFnroIViZ9V0/p0Q==
+  dependencies:
+    "@mimic-fi/v2-helpers" "0.0.8"
     "@mimic-fi/v2-registry" "0.0.5"
     "@openzeppelin/contracts" "4.7.0"
     "@uniswap/v2-core" "^1.0.1"
