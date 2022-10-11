@@ -1,15 +1,19 @@
 import {
+  assertAlmostEqual,
   bn,
+  currentTimestamp,
   fp,
   getForkedNetwork,
   getSigner,
   impersonate,
   instanceAt,
+  MINUTE,
   MONTH,
   NATIVE_TOKEN_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import { assertPermissions, deployment } from '@mimic-fi/v2-smart-vaults-base'
+import { getSwapData } from '@mimic-fi/v2-swap-connector'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -161,7 +165,11 @@ describe('SmartVault', () => {
 
     it('sets a price feed for WETH-USDC', async () => {
       expect(await wallet.getPriceFeed(USDC, WETH)).not.to.be.equal(ZERO_ADDRESS)
-      expect(await wallet.getPrice(WETH, USDC)).to.be.gt(bn(1300e6))
+
+      const usdc = await instanceAt('IERC20Metadata', USDC)
+      const weth = await instanceAt('IERC20Metadata', WETH)
+      const { minAmountOut: price } = await getSwapData(wallet, weth, usdc, fp(1), 0.001)
+      assertAlmostEqual(await wallet.getPrice(WETH, USDC), price, 0.01)
     })
   })
 
@@ -284,23 +292,23 @@ describe('SmartVault', () => {
       let bot: SignerWithAddress, usdc: Contract, weth: Contract
 
       before('load accounts', async () => {
-        bot = await impersonate(relayers[0])
-        usdc = await instanceAt('IERC20', USDC)
-        weth = await instanceAt('IERC20', WETH)
+        bot = await impersonate(relayers[0], fp(10))
+        usdc = await instanceAt('IERC20Metadata', USDC)
+        weth = await instanceAt('IERC20Metadata', WETH)
       })
 
-      it.skip('can claim a token amount when passing the threshold', async () => {
+      it('can claim a token amount when passing the threshold', async () => {
         const previousWalletBalance = await weth.balanceOf(wallet.address)
         const previousFeeCollectorBalance = await weth.balanceOf(feeCollector)
 
         const signer = await getSigner()
         await erc20Claimer.connect(await impersonate(owner)).setSwapSigner(signer.address)
 
-        // TODO: Use Paraswap API
-        const amountIn = bn(200e6)
-        const minAmountOut = bn(0) // pick from API response
-        const deadline = 0 // pick from API response
-        const data = '0x' // pick from API response
+        const slippage = 0.01
+        const amountIn = bn(1500e6)
+        const deadline = (await currentTimestamp()).add(MINUTE * 2)
+        const { minAmountOut, data } = await getSwapData(wallet, usdc, weth, amountIn, slippage)
+
         const signature = await signer.signMessage(
           ethers.utils.arrayify(
             ethers.utils.solidityKeccak256(
@@ -322,7 +330,7 @@ describe('SmartVault', () => {
         const relayedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
         const currentWalletBalance = await weth.balanceOf(wallet.address)
         const expectedClaimedBalance = minAmountOut.sub(relayedCost)
-        expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedClaimedBalance))
+        expect(currentWalletBalance).to.be.at.least(previousWalletBalance.add(expectedClaimedBalance))
       })
     })
   })
