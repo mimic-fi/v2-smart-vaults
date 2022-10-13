@@ -1,4 +1,4 @@
-import { advanceTime, assertEvent, getSigners, MONTH } from '@mimic-fi/v2-helpers'
+import { advanceTime, assertEvent, currentTimestamp, getSigners, MONTH } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -67,11 +67,10 @@ describe('TimeLockedAction', () => {
     })
 
     beforeEach('execute once', async () => {
-      const previousNextResetTime = await action.nextResetTime()
-
       await action.execute()
+      const timestamp = await currentTimestamp()
 
-      expect(await action.nextResetTime()).to.be.equal(previousNextResetTime.add(period))
+      expect(await action.nextResetTime()).to.be.equal(timestamp.add(period))
     })
 
     context('when the time-lock has not expired', () => {
@@ -86,11 +85,10 @@ describe('TimeLockedAction', () => {
       })
 
       it('does not revert', async () => {
-        const previousNextResetTime = await action.nextResetTime()
-
         await expect(action.execute()).not.to.be.reverted
+        const timestamp = await currentTimestamp()
 
-        expect(await action.nextResetTime()).to.be.equal(previousNextResetTime.add(period))
+        expect(await action.nextResetTime()).to.be.equal(timestamp.add(period))
       })
     })
   })

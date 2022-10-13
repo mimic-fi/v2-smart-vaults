@@ -97,5 +97,24 @@ export default {
         },
       },
     },
+    swapFeeSetterActionParams: {
+      impl: undefined,
+      admin: accounts.owner,
+      managers: accounts.managers,
+      feeParams: [
+        { pct: fp(0.05), cap: fp(100), token: WETH, period: YEAR },
+        { pct: fp(0.1), cap: fp(200), token: WETH, period: YEAR },
+        { pct: fp(0.15), cap: fp(300), token: WETH, period: YEAR },
+      ],
+      relayedActionParams: {
+        relayers: accounts.relayers,
+        gasPriceLimit: bn(100e9),
+        totalCostLimit: 0,
+        payingGasToken: WETH,
+      },
+      timeLockedActionParams: {
+        period: MONTH,
+      },
+    },
   },
 }

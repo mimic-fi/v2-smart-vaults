@@ -269,7 +269,6 @@ describe('ERC20Claimer', () => {
                     })
 
                     it('calls the call primitive', async () => {
-                      console.log('min bn', minAmountOut.toString())
                       const tx = await action.call(
                         token.address,
                         amountIn,

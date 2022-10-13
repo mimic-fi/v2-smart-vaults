@@ -1,4 +1,4 @@
-import { bn, fp, MONTH, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { bn, fp, MONTH, YEAR, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
 /* eslint-disable no-secrets/no-secrets */
 
@@ -98,6 +98,26 @@ export default {
           totalCostLimit: 0,
           payingGasToken: WETH,
         },
+      },
+    },
+    swapFeeSetterActionParams: {
+      impl: undefined,
+      admin: accounts.owner,
+      managers: accounts.managers,
+      feeParams: [
+        { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+        { pct: fp(0.05), cap: bn(5000e6), token: USDC, period: YEAR },
+        { pct: fp(0.1), cap: bn(5000e6), token: USDC, period: YEAR },
+        { pct: fp(0.2), cap: bn(5000e6), token: USDC, period: YEAR },
+      ],
+      relayedActionParams: {
+        relayers: accounts.relayers,
+        gasPriceLimit: bn(100e9),
+        totalCostLimit: 0,
+        payingGasToken: WETH,
+      },
+      timeLockedActionParams: {
+        period: 3 * MONTH,
       },
     },
   },
