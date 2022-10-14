@@ -4,7 +4,6 @@ import {
   currentTimestamp,
   fp,
   getForkedNetwork,
-  getSigner,
   impersonate,
   instanceAt,
   MINUTE,
@@ -17,7 +16,7 @@ import { getSwapData } from '@mimic-fi/v2-swap-connector'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
-import hre, { ethers } from 'hardhat'
+import hre from 'hardhat'
 import path from 'path'
 
 /* eslint-disable no-secrets/no-secrets */
@@ -301,28 +300,18 @@ describe('SmartVault', () => {
         const previousWalletBalance = await weth.balanceOf(wallet.address)
         const previousFeeCollectorBalance = await weth.balanceOf(feeCollector)
 
-        const signer = await getSigner()
-        await erc20Claimer.connect(await impersonate(owner)).setSwapSigner(signer.address)
-
         const slippage = 0.01
         const amountIn = bn(1500e6)
-        const deadline = (await currentTimestamp()).add(MINUTE * 2)
-        const { minAmountOut, data } = await getSwapData(wallet, usdc, weth, amountIn, slippage)
+        const deadline = (await currentTimestamp()).add(MINUTE)
+        const { minAmountOut, data, sig, signer } = await getSwapData(wallet, usdc, weth, amountIn, slippage)
 
-        const signature = await signer.signMessage(
-          ethers.utils.arrayify(
-            ethers.utils.solidityKeccak256(
-              ['address', 'address', 'bool', 'uint256', 'uint256', 'uint256', 'bytes'],
-              [USDC, WETH, false, amountIn, minAmountOut, deadline, data]
-            )
-          )
-        )
+        await erc20Claimer.connect(await impersonate(owner)).setSwapSigner(signer)
 
         const whale = await impersonate(WHALE, fp(100))
         await usdc.connect(whale).transfer(feeClaimer.address, amountIn)
         const augustusSwapper = await impersonate(await feeClaimer.augustusSwapper(), fp(10))
         await feeClaimer.connect(augustusSwapper).registerFee(wallet.address, USDC, fp(0.5))
-        await erc20Claimer.connect(bot).call(USDC, amountIn, minAmountOut, deadline, data, signature)
+        await erc20Claimer.connect(bot).call(USDC, amountIn, minAmountOut, deadline, data, sig)
 
         expect(await feeClaimer.getBalance(USDC, wallet.address)).to.be.equal(0)
 

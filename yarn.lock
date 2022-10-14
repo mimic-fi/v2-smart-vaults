@@ -574,10 +574,10 @@
     "@uniswap/v3-core" "^1.0.1"
     "@uniswap/v3-periphery" "^1.4.1"
 
-"@mimic-fi/v2-swap-connector@0.0.8":
-  version "0.0.8"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-swap-connector/-/v2-swap-connector-0.0.8.tgz#b3af87d5106c336ad35c62cf972c2ba8dadc9981"
-  integrity sha512-/dLRv8Q8YFm3ywVq+ubWgN0Ufg7jX0u0D0x5QeAfe0wSWewBh62ixwKSnD9GhxV0A1v/4wWCtHYjlizALHceuQ==
+"@mimic-fi/v2-swap-connector@0.0.9":
+  version "0.0.9"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-swap-connector/-/v2-swap-connector-0.0.9.tgz#840f6c1089613f2369de1ffff7980845cea208ae"
+  integrity sha512-8sZd4xirbjzwYFubLImjqNw0damz7Z2DGTB4q2fdhJr1E9RX/nkhvgTqRm+EtAMipRqYAafR/FrmtuH0Zq2yUQ==
   dependencies:
     "@mimic-fi/v2-helpers" "0.0.8"
     "@mimic-fi/v2-registry" "0.0.5"
