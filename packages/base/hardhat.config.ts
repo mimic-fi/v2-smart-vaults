@@ -7,9 +7,9 @@ import { task } from 'hardhat/config'
 import { homedir } from 'os'
 import path from 'path'
 
-import { deployment } from '.'
+import { deployFromHre } from './src/deployment'
 
-task('deploy', 'Deploy Mimic').setAction(deployment.deployFromHre)
+task('deploy', 'Deploy Mimic').setAction(deployFromHre)
 
 export default {
   localNetworksConfig: path.join(homedir(), '/.hardhat/networks.mimic.json'),
