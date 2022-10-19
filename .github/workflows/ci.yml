@@ -8,14 +8,11 @@ on:
 
 jobs:
   lint:
+    using: node16
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Install node
-        uses: actions/setup-node@v1
-        with:
-          node-version: 16
+        uses: actions/checkout@v3
       - name: Install
         run: yarn --immutable
       - name: Lint
@@ -36,14 +33,11 @@ jobs:
           webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
   build:
+    using: node16
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Install node
-        uses: actions/setup-node@v1
-        with:
-          node-version: 16
+        uses: actions/checkout@v3
       - name: Install
         run: yarn --immutable
       - name: Build
@@ -64,14 +58,11 @@ jobs:
           webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
   test:
+    using: node16
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Install node
-        uses: actions/setup-node@v1
-        with:
-          node-version: 16
+        uses: actions/checkout@v3
       - name: Install
         run: yarn --immutable
       - name: Build
@@ -94,14 +85,11 @@ jobs:
           webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
 
   integration:
+    using: node16
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Install node
-        uses: actions/setup-node@v1
-        with:
-          node-version: 16
+        uses: actions/checkout@v3
       - name: Install
         run: yarn --immutable
       - name: Setup hardhat config
