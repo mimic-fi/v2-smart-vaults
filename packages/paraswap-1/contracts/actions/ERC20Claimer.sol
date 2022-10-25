@@ -26,7 +26,7 @@ contract ERC20Claimer is BaseClaimer {
 
     address public swapSigner;
 
-    event SwapSignerSet(address swapSigner);
+    event SwapSignerSet(address indexed swapSigner);
 
     constructor(address admin, address registry) BaseClaimer(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
