@@ -303,9 +303,7 @@ describe('SmartVault', () => {
         const slippage = 0.01
         const amountIn = bn(1500e6)
         const deadline = (await currentTimestamp()).add(MINUTE)
-        const { minAmountOut, data, sig, signer } = await getSwapData(wallet, usdc, weth, amountIn, slippage)
-
-        await erc20Claimer.connect(await impersonate(owner)).setSwapSigner(signer)
+        const { minAmountOut, data, sig } = await getSwapData(wallet, usdc, weth, amountIn, slippage)
 
         const whale = await impersonate(WHALE, fp(100))
         await usdc.connect(whale).transfer(feeClaimer.address, amountIn)
