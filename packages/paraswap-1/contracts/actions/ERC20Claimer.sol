@@ -17,21 +17,25 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
+import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 
 import './BaseClaimer.sol';
 
 contract ERC20Claimer is BaseClaimer {
     using FixedPoint for uint256;
+    using UncheckedMath for uint256;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 22e3;
+    uint256 public constant override BASE_GAS = 42e3;
 
     address public swapSigner;
     uint256 public maxSlippage;
+    mapping (address => bool) public isTokenSwapIgnored;
 
-    event SwapSignerSet(address swapSigner);
+    event SwapSignerSet(address indexed swapSigner);
     event MaxSlippageSet(uint256 maxSlippage);
+    event IgnoreTokenSwapSet(address indexed token, bool ignored);
 
     constructor(address admin, address registry) BaseClaimer(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
@@ -46,6 +50,14 @@ contract ERC20Claimer is BaseClaimer {
         require(newMaxSlippage <= FixedPoint.ONE, 'CLAIMER_SLIPPAGE_ABOVE_ONE');
         maxSlippage = newMaxSlippage;
         emit MaxSlippageSet(newMaxSlippage);
+    }
+
+    function setIgnoreTokenSwaps(address[] memory tokens, bool[] memory ignores) external auth {
+        require(tokens.length == ignores.length, 'IGNORE_SWAP_TOKENS_INVALID_LEN');
+        for (uint256 i = 0; i < tokens.length; i = i.uncheckedAdd(1)) {
+            isTokenSwapIgnored[tokens[i]] = ignores[i];
+            emit IgnoreTokenSwapSet(tokens[i], ignores[i]);
+        }
     }
 
     function call(
@@ -97,15 +109,20 @@ contract ERC20Claimer is BaseClaimer {
 
         bytes memory claim = abi.encodeWithSelector(IFeeClaimer.withdrawSomeERC20.selector, tokenIn, amountIn, wallet);
         _claim(claim);
-        wallet.swap(
-            uint8(ISwapConnector.Source.ParaswapV5),
-            tokenIn,
-            wrappedNativeToken,
-            amountIn,
-            IWallet.SwapLimit.MinAmountOut,
-            minAmountOut,
-            data
-        );
+
+        if (!isTokenSwapIgnored[tokenIn]) {
+            _validateSwapSignature(tokenIn, wrappedNativeToken, amountIn, minAmountOut, deadline, data, sig);
+            wallet.swap(
+                uint8(ISwapConnector.Source.ParaswapV5),
+                tokenIn,
+                wrappedNativeToken,
+                amountIn,
+                IWallet.SwapLimit.MinAmountOut,
+                minAmountOut,
+                data
+            );
+        }
+
         emit Executed();
     }
 
