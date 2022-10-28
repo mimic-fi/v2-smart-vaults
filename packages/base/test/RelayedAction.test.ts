@@ -2,6 +2,7 @@ import {
   assertAlmostEqual,
   assertEvent,
   assertIndirectEvent,
+  assertNoIndirectEvent,
   fp,
   getSigners,
   NATIVE_TOKEN_ADDRESS,
@@ -10,6 +11,7 @@ import {
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
+import { ethers } from 'hardhat'
 
 import { createAction, createTokenMock, createWallet, Mimic, setupMimic } from '..'
 import { createPriceFeedMock } from '../src/samples'
@@ -38,6 +40,62 @@ describe('RelayedAction', () => {
     const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
     await wallet.connect(owner).authorize(owner.address, setFeeCollectorRole)
     await wallet.connect(owner).setFeeCollector(feeCollector.address)
+  })
+
+  describe('setPermissiveMode', () => {
+    context('when the sender is authorized', async () => {
+      beforeEach('set sender', async () => {
+        const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
+        await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
+        action = action.connect(owner)
+      })
+
+      context('when the permissive mode was inactive', async () => {
+        it('can be activated', async () => {
+          const tx = await action.setPermissiveMode(true)
+
+          expect(await action.isPermissiveModeActive()).to.be.true
+          await assertEvent(tx, 'PermissiveModeSet', { active: true })
+        })
+
+        it('can be deactivated', async () => {
+          const tx = await action.setPermissiveMode(false)
+
+          expect(await action.isPermissiveModeActive()).to.be.false
+          await assertEvent(tx, 'PermissiveModeSet', { active: false })
+        })
+      })
+
+      context('when the permissive mode was active', async () => {
+        beforeEach('activate permissive mode', async () => {
+          await action.setPermissiveMode(true)
+        })
+
+        it('can be activated', async () => {
+          const tx = await action.setPermissiveMode(true)
+
+          expect(await action.isPermissiveModeActive()).to.be.true
+          await assertEvent(tx, 'PermissiveModeSet', { active: true })
+        })
+
+        it('can be deactivated', async () => {
+          const tx = await action.setPermissiveMode(false)
+
+          expect(await action.isPermissiveModeActive()).to.be.false
+          await assertEvent(tx, 'PermissiveModeSet', { active: false })
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        action = action.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(action.setPermissiveMode(true)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
   })
 
   describe('setRelayer', () => {
@@ -70,7 +128,7 @@ describe('RelayedAction', () => {
         })
       })
 
-      context('when the relayer was not allowed', async () => {
+      context('when the relayer was allowed', async () => {
         beforeEach('allow relayer', async () => {
           await action.setRelayer(newRelayer.address, true)
         })
@@ -248,17 +306,87 @@ describe('RelayedAction', () => {
               await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
             })
 
-            it('redeems the expected cost to the wallet fee collector', async () => {
-              const tx = await action.call()
-
-              const { args } = await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
-                token: payingGasToken,
-                recipient: feeCollector,
-                data: REDEEM_GAS_NOTE,
+            context('when the wallet has enough funds', () => {
+              beforeEach('ensure wallet balance', async () => {
+                const balance = await ethers.provider.getBalance(wallet.address)
+                expect(balance).to.be.gt(realGasCostEth)
               })
 
-              expect(args.withdrawn).to.be.at.least(realGasCostEth.sub(gasCostError))
-              expect(args.withdrawn).to.be.at.most(realGasCostEth.add(gasCostError))
+              context('when the permissive mode is on', () => {
+                beforeEach('activate permission mode', async () => {
+                  const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
+                  await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
+                  await action.connect(owner).setPermissiveMode(true)
+                })
+
+                it('redeems the expected cost to the wallet fee collector', async () => {
+                  const tx = await action.call()
+
+                  const { args } = await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+                    token: payingGasToken,
+                    recipient: feeCollector,
+                    data: REDEEM_GAS_NOTE,
+                  })
+
+                  expect(args.withdrawn).to.be.at.least(realGasCostEth.sub(gasCostError))
+                  expect(args.withdrawn).to.be.at.most(realGasCostEth.add(gasCostError))
+                })
+              })
+
+              context('when the permissive mode is off', () => {
+                beforeEach('deactivate permission mode', async () => {
+                  const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
+                  await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
+                  await action.connect(owner).setPermissiveMode(false)
+                })
+
+                it('redeems the expected cost to the wallet fee collector', async () => {
+                  const tx = await action.call()
+
+                  const { args } = await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+                    token: payingGasToken,
+                    recipient: feeCollector,
+                    data: REDEEM_GAS_NOTE,
+                  })
+
+                  expect(args.withdrawn).to.be.at.least(realGasCostEth.sub(gasCostError))
+                  expect(args.withdrawn).to.be.at.most(realGasCostEth.add(gasCostError))
+                })
+              })
+            })
+
+            context('when the wallet has does not have enough funds', () => {
+              beforeEach('empty wallet', async () => {
+                const balance = await ethers.provider.getBalance(wallet.address)
+                const withdrawRole = wallet.interface.getSighash('withdraw')
+                await wallet.connect(owner).authorize(owner.address, withdrawRole)
+                await wallet.connect(owner).withdraw(payingGasToken, balance, owner.address, '0x')
+              })
+
+              context('when the permissive mode is on', () => {
+                beforeEach('activate permission mode', async () => {
+                  const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
+                  await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
+                  await action.connect(owner).setPermissiveMode(true)
+                })
+
+                it('does not revert nor redeems any cost', async () => {
+                  const tx = await action.call()
+                  await assertNoIndirectEvent(tx, wallet.interface, 'Withdraw')
+                })
+              })
+
+              context('when the permissive mode is off', () => {
+                beforeEach('deactivate permission mode', async () => {
+                  const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
+                  await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
+                  await action.connect(owner).setPermissiveMode(false)
+                })
+
+                it('reverts', async () => {
+                  await expect(action.call()).to.be.revertedWith('Address: insufficient balance')
+                })
+              })
             })
           })
 
