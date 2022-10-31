@@ -14,6 +14,8 @@
 
 pragma solidity ^0.8.0;
 
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 
@@ -37,6 +39,9 @@ abstract contract RelayedAction is BaseAction {
     // Internal variable used to allow a better developer experience to reimburse tx gas cost
     uint256 internal _initialGas;
 
+    // Allows relaying transactions even if there is not enough balance in the wallet to pay for the tx gas cost
+    bool public isPermissiveModeActive;
+
     // Gas price limit, if surpassed it wont relay the transaction
     uint256 public gasPriceLimit;
 
@@ -50,14 +55,19 @@ abstract contract RelayedAction is BaseAction {
     mapping (address => bool) public isRelayer;
 
     /**
+     * @dev Emitted every time the permissive mode is changed
+     */
+    event PermissiveModeSet(bool active);
+
+    /**
+     * @dev Emitted every time the relayers list is changed
+     */
+    event RelayerSet(address indexed relayer, bool allowed);
+
+    /**
      * @dev Emitted every time the relayer limits are set
      */
     event LimitsSet(uint256 gasPriceLimit, uint256 totalCostLimit, address payingGasToken);
-
-    /**
-     * @dev Emitted every the relayers list is changed
-     */
-    event RelayerSet(address indexed relayer, bool allowed);
 
     /**
      * @dev Modifier that can be used to reimburse the gas cost of the tagged function
@@ -66,6 +76,15 @@ abstract contract RelayedAction is BaseAction {
         _beforeCall();
         _;
         _afterCall();
+    }
+
+    /**
+     * @dev Sets the relayed action permissive mode. If active,  relayer address. Sender must be authorized.
+     * @param active Whether the permissive mode should be active or not
+     */
+    function setPermissiveMode(bool active) external auth {
+        isPermissiveModeActive = active;
+        emit PermissiveModeSet(active);
     }
 
     /**
@@ -107,15 +126,18 @@ abstract contract RelayedAction is BaseAction {
      */
     function _afterCall() internal {
         uint256 totalGas = _initialGas - gasleft();
-        uint256 totalCostEth = (totalGas + RelayedAction(this).BASE_GAS()) * tx.gasprice;
+        uint256 totalCostNative = (totalGas + RelayedAction(this).BASE_GAS()) * tx.gasprice;
 
         uint256 limit = totalCostLimit;
         address payingToken = payingGasToken;
         // Total cost is rounded down to make sure we always match at least the threshold
-        uint256 totalCostAmount = totalCostEth.mulDown(_getPayingGasTokenPrice(payingToken));
-        require(limit == 0 || totalCostAmount <= limit, 'TX_COST_ABOVE_LIMIT');
+        uint256 totalCostToken = totalCostNative.mulDown(_getPayingGasTokenPrice(payingToken));
+        require(limit == 0 || totalCostToken <= limit, 'TX_COST_ABOVE_LIMIT');
 
-        wallet.withdraw(payingToken, totalCostAmount, wallet.feeCollector(), REDEEM_GAS_NOTE);
+        if (_shouldTryRedeemFromWallet(payingToken, totalCostToken)) {
+            wallet.withdraw(payingToken, totalCostToken, wallet.feeCollector(), REDEEM_GAS_NOTE);
+        }
+
         delete _initialGas;
     }
 
@@ -126,5 +148,20 @@ abstract contract RelayedAction is BaseAction {
         address wrappedNativeToken = wallet.wrappedNativeToken();
         bool isUsingNativeToken = payingToken == Denominations.NATIVE_TOKEN || payingToken == wrappedNativeToken;
         return isUsingNativeToken ? FixedPoint.ONE : wallet.getPrice(wrappedNativeToken, payingToken);
+    }
+
+    /**
+     * @dev Internal function to tell if the relayed action should try to redeem the gas cost from the wallet
+     * @param token Address of the token to pay the relayed gas cost
+     * @param amount Amount of tokens to pay for the relayed gas cost
+     */
+    function _shouldTryRedeemFromWallet(address token, uint256 amount) private view returns (bool) {
+        if (!isPermissiveModeActive) return true;
+
+        uint256 balance = (token == Denominations.NATIVE_TOKEN)
+            ? address(wallet).balance
+            : IERC20(token).balanceOf(address(wallet));
+
+        return balance >= amount;
     }
 }

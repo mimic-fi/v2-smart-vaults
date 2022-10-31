@@ -79,6 +79,7 @@ describe('SmartVault', () => {
         impl: erc20Claimer.address,
         admin: owner.address,
         managers: managers.map((m) => m.address),
+        maxSlippage: fp(0.1),
         swapSigner: owner.address,
         feeClaimerParams: {
           feeClaimer: feeClaimer.address,
@@ -291,6 +292,7 @@ describe('SmartVault', () => {
             'setLimits',
             'setRelayer',
             'setSwapSigner',
+            'setMaxSlippage',
             'setFeeClaimer',
             'setThreshold',
             'call',
@@ -311,6 +313,7 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected fee claimer params', async () => {
+      expect(await erc20Claimer.maxSlippage()).to.be.equal(fp(0.1))
       expect(await erc20Claimer.swapSigner()).to.be.equal(owner.address)
       expect(await erc20Claimer.feeClaimer()).to.be.equal(feeClaimer.address)
     })

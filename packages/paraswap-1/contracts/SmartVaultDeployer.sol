@@ -56,6 +56,7 @@ contract SmartVaultDeployer {
         address admin;
         address[] managers;
         address swapSigner;
+        uint256 maxSlippage;
         FeeClaimerParams feeClaimerParams;
     }
 
@@ -131,6 +132,7 @@ contract SmartVaultDeployer {
         Deployer.setupRelayedAction(claimer, params.admin, params.feeClaimerParams.relayedActionParams);
         _setupBaseClaimerAction(claimer, params.admin, params.feeClaimerParams);
         _setupSwapSignerAction(claimer, params.admin, params.swapSigner);
+        _setupMaxSlippageAction(claimer, params.admin, params.maxSlippage);
         Deployer.transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and swap
@@ -154,6 +156,13 @@ contract SmartVaultDeployer {
         claimer.authorize(address(this), claimer.setSwapSigner.selector);
         claimer.setSwapSigner(signer);
         claimer.unauthorize(address(this), claimer.setSwapSigner.selector);
+    }
+
+    function _setupMaxSlippageAction(ERC20Claimer claimer, address admin, uint256 maxSlippage) internal {
+        claimer.authorize(admin, claimer.setMaxSlippage.selector);
+        claimer.authorize(address(this), claimer.setMaxSlippage.selector);
+        claimer.setMaxSlippage(maxSlippage);
+        claimer.unauthorize(address(this), claimer.setMaxSlippage.selector);
     }
 
     function _actions(IAction action1, IAction action2, IAction action3) internal pure returns (address[] memory arr) {

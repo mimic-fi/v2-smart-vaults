@@ -1,4 +1,4 @@
-import { bn, MONTH, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { bn, fp, MONTH, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
 /* eslint-disable no-secrets/no-secrets */
 
@@ -10,7 +10,7 @@ const accounts = {
   owner: '0x82109Cc00922A515D5FA14eE05a6880c6FAB5E19',
   managers: [],
   relayers: ['0xB3AfB6DB38a8E72905165c1fBB96772e63560790'],
-  swapSigner: '0x213ec49E59E6D219Db083C2833746b5dFCad646c',
+  swapSigner: '0x6278c27CF5534F07fA8f1Ab6188a155cb8750FFA',
   feeClaimer: '0xeF13101C5bbD737cFb2bF00Bbd38c626AD6952F7',
   feeCollector: '0x27751A0Fe3bd6EBfeB04B359D97B0cf199f20D22',
 }
@@ -67,6 +67,7 @@ export default {
       admin: accounts.owner,
       managers: accounts.managers,
       swapSigner: accounts.swapSigner,
+      maxSlippage: fp(0.03),
       feeClaimerParams: {
         feeClaimer: accounts.feeClaimer,
         tokenThresholdActionParams: {
