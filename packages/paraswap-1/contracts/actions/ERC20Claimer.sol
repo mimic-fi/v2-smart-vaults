@@ -30,7 +30,7 @@ contract ERC20Claimer is BaseClaimer {
     address public swapSigner;
     uint256 public maxSlippage;
 
-    event SwapSignerSet(address swapSigner);
+    event SwapSignerSet(address indexed swapSigner);
     event MaxSlippageSet(uint256 maxSlippage);
 
     constructor(address admin, address registry) BaseClaimer(admin, registry) {
