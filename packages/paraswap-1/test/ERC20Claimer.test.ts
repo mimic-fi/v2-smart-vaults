@@ -27,7 +27,7 @@ import { BigNumber, Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
 describe('ERC20Claimer', () => {
-  let action: Contract, wallet: Contract, mimic: Mimic
+  let action: Contract, wallet: Contract, mimic: Mimic, wrappedNativeToken: Contract
   let owner: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress, swapSigner: SignerWithAddress
 
   before('set up signers', async () => {
@@ -39,6 +39,7 @@ describe('ERC20Claimer', () => {
     mimic = await setupMimic(true)
     wallet = await createWallet(mimic, owner)
     action = await createAction('ERC20Claimer', mimic, owner, wallet)
+    wrappedNativeToken = mimic.wrappedNativeToken
   })
 
   describe('setFeeClaimer', () => {
@@ -229,8 +230,8 @@ describe('ERC20Claimer', () => {
     beforeEach('fund swap connector', async () => {
       const swapConnectorRate = fp(swapRate * (1 - slippage))
       await mimic.swapConnector.mockRate(swapConnectorRate)
-      await mimic.wrappedNativeToken.connect(owner).deposit({ value: minAmountOut })
-      await mimic.wrappedNativeToken.connect(owner).transfer(await mimic.swapConnector.dex(), minAmountOut)
+      await wrappedNativeToken.connect(owner).deposit({ value: minAmountOut })
+      await wrappedNativeToken.connect(owner).transfer(await mimic.swapConnector.dex(), minAmountOut)
     })
 
     beforeEach('deploy threshold token', async () => {
@@ -241,7 +242,7 @@ describe('ERC20Claimer', () => {
       const feed = await createPriceFeedMock(fp(thresholdRate))
       const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
       await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
-      await wallet.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, thresholdToken.address, feed.address)
+      await wallet.connect(owner).setPriceFeed(wrappedNativeToken.address, thresholdToken.address, feed.address)
     })
 
     beforeEach('fund fee claimer', async () => {
@@ -281,7 +282,7 @@ describe('ERC20Claimer', () => {
                       ['address', 'address', 'bool', 'uint256', 'uint256', 'uint256', 'uint256', 'bytes'],
                       [
                         token.address,
-                        mimic.wrappedNativeToken.address,
+                        wrappedNativeToken.address,
                         false,
                         amountIn,
                         minAmountOut,
@@ -357,7 +358,7 @@ describe('ERC20Claimer', () => {
 
                         await assertIndirectEvent(tx, wallet.interface, 'Swap', {
                           tokenIn: token,
-                          tokenOut: mimic.wrappedNativeToken,
+                          tokenOut: wrappedNativeToken,
                           amountIn,
                           minAmountOut,
                           data,
@@ -390,14 +391,10 @@ describe('ERC20Claimer', () => {
                       })
 
                       it('transfers the token out from the swap connector to the wallet', async () => {
-                        const previousWalletBalance = await mimic.wrappedNativeToken.balanceOf(wallet.address)
-                        const previousFeeClaimerBalance = await mimic.wrappedNativeToken.balanceOf(feeClaimer.address)
-                        const previousFeeCollectorBalance = await mimic.wrappedNativeToken.balanceOf(
-                          feeCollector.address
-                        )
-                        const previousDexBalance = await mimic.wrappedNativeToken.balanceOf(
-                          await mimic.swapConnector.dex()
-                        )
+                        const previousWalletBalance = await wrappedNativeToken.balanceOf(wallet.address)
+                        const previousFeeClaimerBalance = await wrappedNativeToken.balanceOf(feeClaimer.address)
+                        const previousFeeCollectorBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+                        const previousDexBalance = await wrappedNativeToken.balanceOf(await mimic.swapConnector.dex())
 
                         await action.call(
                           token.address,
@@ -409,19 +406,15 @@ describe('ERC20Claimer', () => {
                           signature
                         )
 
-                        const currentFeeCollectorBalance = await mimic.wrappedNativeToken.balanceOf(
-                          feeCollector.address
-                        )
+                        const currentFeeCollectorBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
                         const gasPaid = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
-                        const currentWalletBalance = await mimic.wrappedNativeToken.balanceOf(wallet.address)
+                        const currentWalletBalance = await wrappedNativeToken.balanceOf(wallet.address)
                         expect(currentWalletBalance).to.be.eq(previousWalletBalance.add(minAmountOut).sub(gasPaid))
 
-                        const currentFeeClaimerBalance = await mimic.wrappedNativeToken.balanceOf(feeClaimer.address)
+                        const currentFeeClaimerBalance = await wrappedNativeToken.balanceOf(feeClaimer.address)
                         expect(currentFeeClaimerBalance).to.be.eq(previousFeeClaimerBalance)
 
-                        const currentDexBalance = await mimic.wrappedNativeToken.balanceOf(
-                          await mimic.swapConnector.dex()
-                        )
+                        const currentDexBalance = await wrappedNativeToken.balanceOf(await mimic.swapConnector.dex())
                         expect(currentDexBalance).to.be.eq(previousDexBalance.sub(minAmountOut))
                       })
 
@@ -440,7 +433,7 @@ describe('ERC20Claimer', () => {
                       })
 
                       it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-                        const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                        const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
 
                         const tx = await action.call(
                           token.address,
@@ -452,7 +445,7 @@ describe('ERC20Claimer', () => {
                           signature
                         )
 
-                        const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                        const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
                         if (refunds) await assertRelayedBaseCost(tx, currentBalance.sub(previousBalance), 0.1)
                         else expect(currentBalance).to.be.equal(previousBalance)
                       })
@@ -517,8 +510,8 @@ describe('ERC20Claimer', () => {
 
                 if (refunds) {
                   beforeEach('fund wallet to redeem relayed tx', async () => {
-                    await mimic.wrappedNativeToken.connect(owner).deposit({ value: fp(1) })
-                    await mimic.wrappedNativeToken.connect(owner).transfer(wallet.address, fp(1))
+                    await wrappedNativeToken.connect(owner).deposit({ value: fp(1) })
+                    await wrappedNativeToken.connect(owner).transfer(wallet.address, fp(1))
                   })
                 }
 
@@ -528,7 +521,7 @@ describe('ERC20Claimer', () => {
                   })
 
                   it('calls the call primitive', async () => {
-                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, '0x', '0x')
+                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
 
                     const callData = feeClaimer.interface.encodeFunctionData('withdrawSomeERC20', [
                       token.address,
@@ -545,29 +538,29 @@ describe('ERC20Claimer', () => {
                   })
 
                   it('does not call swap primitive', async () => {
-                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, '0x', '0x')
+                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
                     await assertNoIndirectEvent(tx, wallet.interface, 'Swap')
                   })
 
                   it('emits an Executed event', async () => {
-                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, '0x', '0x')
+                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
 
                     await assertEvent(tx, 'Executed')
                   })
 
                   it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-                    const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                    const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
 
-                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, '0x', '0x')
+                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
 
-                    const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                    const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
                     if (!refunds) expect(currentBalance).to.be.equal(previousBalance)
                     else {
                       const redeemedCost = currentBalance.sub(previousBalance)
                       const { gasUsed, effectiveGasPrice } = await tx.wait()
                       const redeemedGas = redeemedCost.div(effectiveGasPrice)
                       const missing = gasUsed.sub(redeemedGas)
-                      expect(missing).to.be.lt(21e3)
+                      expect(missing).to.be.lt(24e3)
                     }
                   })
                 })
@@ -578,9 +571,9 @@ describe('ERC20Claimer', () => {
                   })
 
                   it('reverts', async () => {
-                    await expect(action.call(token.address, amountIn, minAmountOut, 0, '0x', '0x')).to.be.revertedWith(
-                      'FEE_CLAIMER_WITHDRAW_FAILED'
-                    )
+                    await expect(
+                      action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
+                    ).to.be.revertedWith('FEE_CLAIMER_WITHDRAW_FAILED')
                   })
                 })
               })
@@ -620,7 +613,7 @@ describe('ERC20Claimer', () => {
 
         context('when the token to collect is the wrapped native token', () => {
           it('reverts', async () => {
-            await expect(action.call(mimic.wrappedNativeToken.address, 0, 0, 0, 0, '0x', '0x')).to.be.revertedWith(
+            await expect(action.call(wrappedNativeToken.address, 0, 0, 0, 0, '0x', '0x')).to.be.revertedWith(
               'ERC20_CLAIMER_INVALID_TOKEN'
             )
           })
@@ -643,14 +636,14 @@ describe('ERC20Claimer', () => {
 
           const setLimitsRole = action.interface.getSighash('setLimits')
           await action.connect(owner).authorize(owner.address, setLimitsRole)
-          await action.connect(owner).setLimits(fp(100), 0, mimic.wrappedNativeToken.address)
+          await action.connect(owner).setLimits(fp(100), 0, wrappedNativeToken.address)
         })
 
         itPerformsTheExpectedCall(true)
       })
 
       context('when the sender is not a relayer', () => {
-        // itPerformsTheExpectedCall(false)
+        itPerformsTheExpectedCall(false)
       })
     })
 

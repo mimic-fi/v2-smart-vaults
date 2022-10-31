@@ -16,6 +16,7 @@ pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
@@ -27,6 +28,8 @@ import './actions/NativeClaimer.sol';
 // solhint-disable avoid-low-level-calls
 
 contract SmartVaultDeployer {
+    using UncheckedMath for uint256;
+
     struct Params {
         IRegistry registry;
         WithdrawerActionParams withdrawerActionParams;
@@ -57,6 +60,7 @@ contract SmartVaultDeployer {
         address[] managers;
         address swapSigner;
         uint256 maxSlippage;
+        address[] tokenSwapIgnores;
         FeeClaimerParams feeClaimerParams;
     }
 
@@ -133,6 +137,7 @@ contract SmartVaultDeployer {
         _setupBaseClaimerAction(claimer, params.admin, params.feeClaimerParams);
         _setupSwapSignerAction(claimer, params.admin, params.swapSigner);
         _setupMaxSlippageAction(claimer, params.admin, params.maxSlippage);
+        _setupTokenSwapIgnoresAction(claimer, params.admin, params.tokenSwapIgnores);
         Deployer.transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and swap
@@ -165,10 +170,22 @@ contract SmartVaultDeployer {
         claimer.unauthorize(address(this), claimer.setMaxSlippage.selector);
     }
 
+    function _setupTokenSwapIgnoresAction(ERC20Claimer claimer, address admin, address[] memory ignores) internal {
+        claimer.authorize(admin, claimer.setIgnoreTokenSwaps.selector);
+        claimer.authorize(address(this), claimer.setIgnoreTokenSwaps.selector);
+        claimer.setIgnoreTokenSwaps(ignores, _trues(ignores.length));
+        claimer.unauthorize(address(this), claimer.setIgnoreTokenSwaps.selector);
+    }
+
     function _actions(IAction action1, IAction action2, IAction action3) internal pure returns (address[] memory arr) {
         arr = new address[](3);
         arr[0] = address(action1);
         arr[1] = address(action2);
         arr[2] = address(action3);
+    }
+
+    function _trues(uint256 length) internal pure returns (bool[] memory arr) {
+        arr = new bool[](length);
+        for (uint256 i = 0; i < length; i = i.uncheckedAdd(1)) arr[i] = true;
     }
 }

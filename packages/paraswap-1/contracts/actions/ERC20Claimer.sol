@@ -104,14 +104,14 @@ contract ERC20Claimer is BaseClaimer {
         address wrappedNativeToken = wallet.wrappedNativeToken();
         require(tokenIn != wrappedNativeToken && tokenIn != Denominations.NATIVE_TOKEN, 'ERC20_CLAIMER_INVALID_TOKEN');
         _validateThreshold(wrappedNativeToken, minAmountOut);
-        _validateSlippage(minAmountOut, expectedAmountOut);
-        _validateSignature(tokenIn, wrappedNativeToken, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
 
         bytes memory claim = abi.encodeWithSelector(IFeeClaimer.withdrawSomeERC20.selector, tokenIn, amountIn, wallet);
         _claim(claim);
 
         if (!isTokenSwapIgnored[tokenIn]) {
-            _validateSwapSignature(tokenIn, wrappedNativeToken, amountIn, minAmountOut, deadline, data, sig);
+            _validateSlippage(minAmountOut, expectedAmountOut);
+            _validateSig(tokenIn, wrappedNativeToken, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
+
             wallet.swap(
                 uint8(ISwapConnector.Source.ParaswapV5),
                 tokenIn,
@@ -132,7 +132,7 @@ contract ERC20Claimer is BaseClaimer {
         require(slippage <= maxSlippage, 'CLAIMER_SLIPPAGE_TOO_BIG');
     }
 
-    function _validateSignature(
+    function _validateSig(
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
