@@ -1,4 +1,4 @@
-import { bn, MONTH, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { bn, fp, MONTH, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
 /* eslint-disable no-secrets/no-secrets */
 
@@ -67,6 +67,7 @@ export default {
       admin: accounts.owner,
       managers: accounts.managers,
       swapSigner: accounts.swapSigner,
+      maxSlippage: fp(0.03),
       feeClaimerParams: {
         feeClaimer: accounts.feeClaimer,
         tokenThresholdActionParams: {

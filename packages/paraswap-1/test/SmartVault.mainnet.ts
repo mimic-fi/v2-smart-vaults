@@ -241,6 +241,7 @@ describe('SmartVault', () => {
             'setWallet',
             'setLimits',
             'setRelayer',
+            'setMaxSlippage',
             'setSwapSigner',
             'setFeeClaimer',
             'setThreshold',
@@ -260,6 +261,7 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected fee claimer params', async () => {
+      expect(await erc20Claimer.maxSlippage()).to.be.equal(fp(0.03))
       expect(await erc20Claimer.swapSigner()).to.be.equal(swapSigner)
       expect(await erc20Claimer.feeClaimer()).to.be.equal(feeClaimer.address)
     })
@@ -303,13 +305,13 @@ describe('SmartVault', () => {
         const slippage = 0.01
         const amountIn = bn(1500e6)
         const deadline = (await currentTimestamp()).add(MINUTE)
-        const { minAmountOut, data, sig } = await getSwapData(wallet, usdc, weth, amountIn, slippage)
+        const { data, sig, expectedAmountOut, minAmountOut } = await getSwapData(wallet, usdc, weth, amountIn, slippage)
 
         const whale = await impersonate(WHALE, fp(100))
         await usdc.connect(whale).transfer(feeClaimer.address, amountIn)
         const augustusSwapper = await impersonate(await feeClaimer.augustusSwapper(), fp(10))
         await feeClaimer.connect(augustusSwapper).registerFee(wallet.address, USDC, fp(0.5))
-        await erc20Claimer.connect(bot).call(USDC, amountIn, minAmountOut, deadline, data, sig)
+        await erc20Claimer.connect(bot).call(USDC, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig)
 
         expect(await feeClaimer.getBalance(USDC, wallet.address)).to.be.equal(0)
 

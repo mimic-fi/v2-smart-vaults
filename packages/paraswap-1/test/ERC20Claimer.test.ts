@@ -8,6 +8,7 @@ import {
   getSigners,
   MINUTE,
   NATIVE_TOKEN_ADDRESS,
+  pct,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import {
@@ -103,14 +104,60 @@ describe('ERC20Claimer', () => {
     })
   })
 
+  describe('setMaxSlippage', () => {
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
+        await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
+        action = action.connect(owner)
+      })
+
+      context('when the slippage is not above one', () => {
+        const slippage = fp(1)
+
+        it('sets the slippage', async () => {
+          await action.setMaxSlippage(slippage)
+
+          expect(await action.maxSlippage()).to.be.equal(slippage)
+        })
+
+        it('emits an event', async () => {
+          const tx = await action.setMaxSlippage(slippage)
+
+          await assertEvent(tx, 'MaxSlippageSet', { maxSlippage: slippage })
+        })
+      })
+
+      context('when the slippage is above one', () => {
+        const slippage = fp(1).add(1)
+
+        it('reverts', async () => {
+          await expect(action.setMaxSlippage(slippage)).to.be.revertedWith('SLIPPAGE_ABOVE_ONE')
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        action = action.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(action.setMaxSlippage(1)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
+  })
+
   describe('call', () => {
     let deadline: BigNumber, signature: string
     let feeClaimer: Contract, token: Contract, thresholdToken: Contract
 
     const swapRate = 2
+    const slippage = 0.02
     const data = '0xaaaabbbb'
     const amountIn = fp(1)
-    const minAmountOut = amountIn.mul(swapRate)
+    const expectedAmountOut = amountIn.mul(swapRate)
+    const minAmountOut = expectedAmountOut.sub(pct(expectedAmountOut, slippage))
     const thresholdRate = 2
 
     beforeEach('authorize action', async () => {
@@ -136,7 +183,8 @@ describe('ERC20Claimer', () => {
     })
 
     beforeEach('fund swap connector', async () => {
-      await mimic.swapConnector.mockRate(fp(swapRate))
+      const swapConnectorRate = fp(swapRate * (1 - slippage))
+      await mimic.swapConnector.mockRate(swapConnectorRate)
       await mimic.wrappedNativeToken.connect(owner).deposit({ value: minAmountOut })
       await mimic.wrappedNativeToken.connect(owner).transfer(await mimic.swapConnector.dex(), minAmountOut)
     })
@@ -173,156 +221,244 @@ describe('ERC20Claimer', () => {
               await action.connect(owner).setThreshold(thresholdToken.address, thresholdAmount)
             })
 
-            const sign = async (signer: SignerWithAddress, deadline: BigNumber): Promise<string> => {
-              return signer.signMessage(
-                ethers.utils.arrayify(
-                  ethers.utils.solidityKeccak256(
-                    ['address', 'address', 'bool', 'uint256', 'uint256', 'uint256', 'bytes'],
-                    [token.address, mimic.wrappedNativeToken.address, false, amountIn, minAmountOut, deadline, data]
-                  )
-                )
-              )
-            }
+            context('when the slippage is acceptable', () => {
+              const maxSlippage = fp(slippage).add(1)
 
-            context('when the message is sign by the swap signer', () => {
-              beforeEach('set swap signer', async () => {
-                const setSwapSignerRole = action.interface.getSighash('setSwapSigner')
-                await action.connect(owner).authorize(owner.address, setSwapSignerRole)
-                await action.connect(owner).setSwapSigner(swapSigner.address)
+              beforeEach('set max slippage', async () => {
+                const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
+                await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
+                await action.connect(owner).setMaxSlippage(maxSlippage)
               })
 
-              context('when the deadline is not expired', () => {
-                beforeEach('set future deadline', async () => {
-                  deadline = (await currentTimestamp()).add(MINUTE)
-                  signature = await sign(swapSigner, deadline)
+              const sign = async (signer: SignerWithAddress, deadline: BigNumber): Promise<string> => {
+                return signer.signMessage(
+                  ethers.utils.arrayify(
+                    ethers.utils.solidityKeccak256(
+                      ['address', 'address', 'bool', 'uint256', 'uint256', 'uint256', 'uint256', 'bytes'],
+                      [
+                        token.address,
+                        mimic.wrappedNativeToken.address,
+                        false,
+                        amountIn,
+                        minAmountOut,
+                        expectedAmountOut,
+                        deadline,
+                        data,
+                      ]
+                    )
+                  )
+                )
+              }
+
+              context('when the message is sign by the swap signer', () => {
+                beforeEach('set swap signer', async () => {
+                  const setSwapSignerRole = action.interface.getSighash('setSwapSigner')
+                  await action.connect(owner).authorize(owner.address, setSwapSignerRole)
+                  await action.connect(owner).setSwapSigner(swapSigner.address)
                 })
 
-                context('when the fee claim succeeds', () => {
-                  beforeEach('mock succeeds', async () => {
-                    await feeClaimer.mockFail(false)
+                context('when the deadline is not expired', () => {
+                  beforeEach('set future deadline', async () => {
+                    deadline = (await currentTimestamp()).add(MINUTE)
+                    signature = await sign(swapSigner, deadline)
                   })
 
-                  it('calls the call primitive', async () => {
-                    const tx = await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
+                  context('when the fee claim succeeds', () => {
+                    beforeEach('mock succeeds', async () => {
+                      await feeClaimer.mockFail(false)
+                    })
 
-                    const callData = feeClaimer.interface.encodeFunctionData('withdrawSomeERC20', [
-                      token.address,
-                      amountIn,
-                      wallet.address,
-                    ])
+                    it('calls the call primitive', async () => {
+                      console.log('min bn', minAmountOut.toString())
+                      const tx = await action.call(
+                        token.address,
+                        amountIn,
+                        minAmountOut,
+                        expectedAmountOut,
+                        deadline,
+                        data,
+                        signature
+                      )
 
-                    await assertIndirectEvent(tx, wallet.interface, 'Call', {
-                      target: feeClaimer,
-                      callData,
-                      value: 0,
-                      data: '0x',
+                      const callData = feeClaimer.interface.encodeFunctionData('withdrawSomeERC20', [
+                        token.address,
+                        amountIn,
+                        wallet.address,
+                      ])
+
+                      await assertIndirectEvent(tx, wallet.interface, 'Call', {
+                        target: feeClaimer,
+                        callData,
+                        value: 0,
+                        data: '0x',
+                      })
+                    })
+
+                    it('calls swap primitive', async () => {
+                      const tx = await action.call(
+                        token.address,
+                        amountIn,
+                        minAmountOut,
+                        expectedAmountOut,
+                        deadline,
+                        data,
+                        signature
+                      )
+
+                      await assertIndirectEvent(tx, wallet.interface, 'Swap', {
+                        tokenIn: token,
+                        tokenOut: mimic.wrappedNativeToken,
+                        amountIn,
+                        minAmountOut,
+                        data,
+                      })
+                    })
+
+                    it('transfers the token in from the fee claimer to the swap connector', async () => {
+                      const previousWalletBalance = await token.balanceOf(wallet.address)
+                      const previousFeeClaimerBalance = await token.balanceOf(feeClaimer.address)
+                      const previousDexBalance = await token.balanceOf(await mimic.swapConnector.dex())
+
+                      await action.call(
+                        token.address,
+                        amountIn,
+                        minAmountOut,
+                        expectedAmountOut,
+                        deadline,
+                        data,
+                        signature
+                      )
+
+                      const currentWalletBalance = await token.balanceOf(wallet.address)
+                      expect(currentWalletBalance).to.be.eq(previousWalletBalance)
+
+                      const currentFeeClaimerBalance = await token.balanceOf(feeClaimer.address)
+                      expect(currentFeeClaimerBalance).to.be.eq(previousFeeClaimerBalance.sub(amountIn))
+
+                      const currentDexBalance = await token.balanceOf(await mimic.swapConnector.dex())
+                      expect(currentDexBalance).to.be.eq(previousDexBalance.add(amountIn))
+                    })
+
+                    it('transfers the token out from the swap connector to the wallet', async () => {
+                      const previousWalletBalance = await mimic.wrappedNativeToken.balanceOf(wallet.address)
+                      const previousFeeClaimerBalance = await mimic.wrappedNativeToken.balanceOf(feeClaimer.address)
+                      const previousFeeCollectorBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                      const previousDexBalance = await mimic.wrappedNativeToken.balanceOf(
+                        await mimic.swapConnector.dex()
+                      )
+
+                      await action.call(
+                        token.address,
+                        amountIn,
+                        minAmountOut,
+                        expectedAmountOut,
+                        deadline,
+                        data,
+                        signature
+                      )
+
+                      const currentFeeCollectorBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                      const gasPaid = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+                      const currentWalletBalance = await mimic.wrappedNativeToken.balanceOf(wallet.address)
+                      expect(currentWalletBalance).to.be.eq(previousWalletBalance.add(minAmountOut).sub(gasPaid))
+
+                      const currentFeeClaimerBalance = await mimic.wrappedNativeToken.balanceOf(feeClaimer.address)
+                      expect(currentFeeClaimerBalance).to.be.eq(previousFeeClaimerBalance)
+
+                      const currentDexBalance = await mimic.wrappedNativeToken.balanceOf(
+                        await mimic.swapConnector.dex()
+                      )
+                      expect(currentDexBalance).to.be.eq(previousDexBalance.sub(minAmountOut))
+                    })
+
+                    it('emits an Executed event', async () => {
+                      const tx = await action.call(
+                        token.address,
+                        amountIn,
+                        minAmountOut,
+                        expectedAmountOut,
+                        deadline,
+                        data,
+                        signature
+                      )
+
+                      await assertEvent(tx, 'Executed')
+                    })
+
+                    it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
+                      const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
+                      const tx = await action.call(
+                        token.address,
+                        amountIn,
+                        minAmountOut,
+                        expectedAmountOut,
+                        deadline,
+                        data,
+                        signature
+                      )
+
+                      const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                      if (refunds) await assertRelayedBaseCost(tx, currentBalance.sub(previousBalance))
+                      else expect(currentBalance).to.be.equal(previousBalance)
                     })
                   })
 
-                  it('calls swap primitive', async () => {
-                    const tx = await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
-
-                    await assertIndirectEvent(tx, wallet.interface, 'Swap', {
-                      tokenIn: token,
-                      tokenOut: mimic.wrappedNativeToken,
-                      amountIn,
-                      minAmountOut,
-                      data,
+                  context('when the fee claim fails', () => {
+                    beforeEach('mock fail', async () => {
+                      await feeClaimer.mockFail(true)
                     })
-                  })
 
-                  it('transfers the token in from the fee claimer to the swap connector', async () => {
-                    const previousWalletBalance = await token.balanceOf(wallet.address)
-                    const previousFeeClaimerBalance = await token.balanceOf(feeClaimer.address)
-                    const previousDexBalance = await token.balanceOf(await mimic.swapConnector.dex())
-
-                    await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
-
-                    const currentWalletBalance = await token.balanceOf(wallet.address)
-                    expect(currentWalletBalance).to.be.eq(previousWalletBalance)
-
-                    const currentFeeClaimerBalance = await token.balanceOf(feeClaimer.address)
-                    expect(currentFeeClaimerBalance).to.be.eq(previousFeeClaimerBalance.sub(amountIn))
-
-                    const currentDexBalance = await token.balanceOf(await mimic.swapConnector.dex())
-                    expect(currentDexBalance).to.be.eq(previousDexBalance.add(amountIn))
-                  })
-
-                  it('transfers the token out from the swap connector to the wallet', async () => {
-                    const previousWalletBalance = await mimic.wrappedNativeToken.balanceOf(wallet.address)
-                    const previousFeeClaimerBalance = await mimic.wrappedNativeToken.balanceOf(feeClaimer.address)
-                    const previousFeeCollectorBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-                    const previousDexBalance = await mimic.wrappedNativeToken.balanceOf(await mimic.swapConnector.dex())
-
-                    await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
-
-                    const currentFeeCollectorBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-                    const gasPaid = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
-                    const currentWalletBalance = await mimic.wrappedNativeToken.balanceOf(wallet.address)
-                    expect(currentWalletBalance).to.be.eq(previousWalletBalance.add(minAmountOut).sub(gasPaid))
-
-                    const currentFeeClaimerBalance = await mimic.wrappedNativeToken.balanceOf(feeClaimer.address)
-                    expect(currentFeeClaimerBalance).to.be.eq(previousFeeClaimerBalance)
-
-                    const currentDexBalance = await mimic.wrappedNativeToken.balanceOf(await mimic.swapConnector.dex())
-                    expect(currentDexBalance).to.be.eq(previousDexBalance.sub(minAmountOut))
-                  })
-
-                  it('emits an Executed event', async () => {
-                    const tx = await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
-
-                    await assertEvent(tx, 'Executed')
-                  })
-
-                  it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-                    const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-
-                    const tx = await action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
-
-                    const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-                    if (refunds) await assertRelayedBaseCost(tx, currentBalance.sub(previousBalance))
-                    else expect(currentBalance).to.be.equal(previousBalance)
+                    it('reverts', async () => {
+                      await expect(
+                        action.call(token.address, amountIn, minAmountOut, expectedAmountOut, deadline, data, signature)
+                      ).to.be.revertedWith('FEE_CLAIMER_WITHDRAW_FAILED')
+                    })
                   })
                 })
 
-                context('when the fee claim fails', () => {
-                  beforeEach('mock fail', async () => {
-                    await feeClaimer.mockFail(true)
+                context('when the deadline is expired', () => {
+                  beforeEach('set past deadline', async () => {
+                    deadline = (await currentTimestamp()).sub(MINUTE)
+                    signature = await sign(swapSigner, deadline)
                   })
 
                   it('reverts', async () => {
                     await expect(
-                      action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
-                    ).to.be.revertedWith('FEE_CLAIMER_WITHDRAW_FAILED')
+                      action.call(token.address, amountIn, minAmountOut, expectedAmountOut, deadline, data, signature)
+                    ).to.be.revertedWith('DEADLINE_EXPIRED')
                   })
                 })
               })
 
-              context('when the deadline is expired', () => {
-                beforeEach('set past deadline', async () => {
-                  deadline = (await currentTimestamp()).sub(MINUTE)
+              context('when the message is not sign by the swap signer', () => {
+                const deadline = bn(0)
+
+                beforeEach('set signature', async () => {
                   signature = await sign(swapSigner, deadline)
                 })
 
                 it('reverts', async () => {
                   await expect(
-                    action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
-                  ).to.be.revertedWith('DEADLINE_EXPIRED')
+                    action.call(token.address, amountIn, minAmountOut, expectedAmountOut, deadline, data, signature)
+                  ).to.be.revertedWith('INVALID_SWAP_SIGNATURE')
                 })
               })
             })
 
-            context('when the message is not sign by the swap signer', () => {
-              const deadline = bn(0)
+            context('when the slippage is not acceptable', () => {
+              const maxSlippage = fp(slippage).sub(1)
 
-              beforeEach('set signature', async () => {
-                signature = await sign(swapSigner, deadline)
+              beforeEach('set slippage', async () => {
+                const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
+                await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
+                await action.connect(owner).setMaxSlippage(maxSlippage)
               })
 
               it('reverts', async () => {
                 await expect(
-                  action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
-                ).to.be.revertedWith('INVALID_SWAP_SIGNATURE')
+                  action.call(token.address, amountIn, minAmountOut, expectedAmountOut, deadline, data, signature)
+                ).to.be.revertedWith('CLAIMER_SLIPPAGE_TOO_BIG')
               })
             })
           })
@@ -336,7 +472,7 @@ describe('ERC20Claimer', () => {
 
             it('reverts', async () => {
               await expect(
-                action.call(token.address, amountIn, minAmountOut, deadline, data, signature)
+                action.call(token.address, amountIn, minAmountOut, expectedAmountOut, deadline, data, signature)
               ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
             })
           })
@@ -344,7 +480,7 @@ describe('ERC20Claimer', () => {
 
         context('when the token to collect is the wrapped native token', () => {
           it('reverts', async () => {
-            await expect(action.call(mimic.wrappedNativeToken.address, 0, 0, 0, '0x', '0x')).to.be.revertedWith(
+            await expect(action.call(mimic.wrappedNativeToken.address, 0, 0, 0, 0, '0x', '0x')).to.be.revertedWith(
               'ERC20_CLAIMER_INVALID_TOKEN'
             )
           })
@@ -352,7 +488,7 @@ describe('ERC20Claimer', () => {
 
         context('when the token to collect is the native token', () => {
           it('reverts', async () => {
-            await expect(action.call(NATIVE_TOKEN_ADDRESS, 0, 0, 0, '0x', '0x')).to.be.revertedWith(
+            await expect(action.call(NATIVE_TOKEN_ADDRESS, 0, 0, 0, 0, '0x', '0x')).to.be.revertedWith(
               'ERC20_CLAIMER_INVALID_TOKEN'
             )
           })
@@ -380,7 +516,7 @@ describe('ERC20Claimer', () => {
 
     context('when the sender is authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(ZERO_ADDRESS, 0, 0, 0, '0x', '0x')).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.call(ZERO_ADDRESS, 0, 0, 0, 0, '0x', '0x')).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })

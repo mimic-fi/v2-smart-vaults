@@ -64,6 +64,7 @@ export default {
       admin: accounts.owner,
       managers: accounts.managers,
       swapSigner: accounts.swapSigner,
+      maxSlippage: fp(0.05),
       feeClaimerParams: {
         feeClaimer: undefined,
         tokenThresholdActionParams: {
