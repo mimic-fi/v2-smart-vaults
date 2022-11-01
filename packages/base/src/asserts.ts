@@ -26,7 +26,11 @@ export async function assertPermissions(target: Contract, assertions: Permission
   }
 }
 
-export async function assertRelayedBaseCost(tx: ContractTransaction, redeemedCost: BigNumber): Promise<void> {
+export async function assertRelayedBaseCost(
+  tx: ContractTransaction,
+  redeemedCost: BigNumber,
+  tolerance = 0.05
+): Promise<void> {
   const { gasUsed, effectiveGasPrice } = await tx.wait()
   const redeemedGas = redeemedCost.div(effectiveGasPrice)
 
@@ -43,11 +47,11 @@ export async function assertRelayedBaseCost(tx: ContractTransaction, redeemedCos
     const extraGas = redeemedGas.sub(gasUsed)
     const ratio = decimal(redeemedGas).div(decimal(gasUsed)).toNumber() - 1
     const message = `Redeemed ${extraGas} extra gas units (+${(ratio * 100).toPrecision(4)} %)`
-    if (ratio <= 0.05) console.log(message)
+    if (ratio <= tolerance) console.log(message)
     else {
       const min = gasUsed.sub(redeemedGas.sub(BASE_GAS))
-      const max = pct(gasUsed, 1.05).sub(redeemedGas.sub(BASE_GAS))
-      expect(ratio).to.be.lte(0.05, `${message}. Set it between ${min} and ${max}`)
+      const max = pct(gasUsed, 1 + tolerance).sub(redeemedGas.sub(BASE_GAS))
+      expect(ratio).to.be.lte(tolerance, `${message}. Set it between ${min} and ${max}`)
     }
   }
 }

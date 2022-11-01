@@ -215,6 +215,7 @@ describe('SmartVault', () => {
             'setRelayer',
             'setMaxSlippage',
             'setSwapSigner',
+            'setIgnoreTokenSwaps',
             'setFeeClaimer',
             'setThreshold',
             'call',
@@ -237,6 +238,7 @@ describe('SmartVault', () => {
       expect(await erc20Claimer.maxSlippage()).to.be.equal(fp(0.05))
       expect(await erc20Claimer.swapSigner()).to.be.equal(swapSigner)
       expect(await erc20Claimer.feeClaimer()).to.be.equal(feeClaimer.address)
+      expect(await erc20Claimer.isTokenSwapIgnored('0xcafe001067cdef266afb7eb5a286dcfd277f3de5')).to.be.true
     })
 
     it('sets the expected token threshold params', async () => {
