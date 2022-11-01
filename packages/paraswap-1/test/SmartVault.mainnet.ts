@@ -171,7 +171,7 @@ describe('SmartVault', () => {
       const usdc = await instanceAt('IERC20Metadata', USDC)
       const weth = await instanceAt('IERC20Metadata', WETH)
       const { minAmountOut: price } = await getSwapData(wallet, weth, usdc, fp(1), 0.001)
-      assertAlmostEqual(await wallet.getPrice(WETH, USDC), price, 0.02)
+      assertAlmostEqual(await wallet.getPrice(WETH, USDC), price, 0.05)
     })
   })
 
