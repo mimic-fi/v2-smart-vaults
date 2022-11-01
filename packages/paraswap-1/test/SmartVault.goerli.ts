@@ -89,7 +89,7 @@ describe('SmartVault', () => {
             'setPriceFeeds',
             'setPriceOracle',
             'setSwapConnector',
-            'setSwapFee',
+            'setWithdrawFee',
             'setPerformanceFee',
           ],
         },
