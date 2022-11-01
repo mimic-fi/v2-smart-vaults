@@ -55,6 +55,6 @@ abstract contract TimeLockedAction is BaseAction {
      */
     function _validateTimeLock() internal {
         require(block.timestamp >= nextResetTime, 'TIME_LOCK_NOT_EXPIRED');
-        nextResetTime += period;
+        nextResetTime = block.timestamp + period;
     }
 }

@@ -24,6 +24,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 import './actions/Withdrawer.sol';
 import './actions/ERC20Claimer.sol';
 import './actions/NativeClaimer.sol';
+import './actions/SwapFeeSetter.sol';
 
 // solhint-disable avoid-low-level-calls
 
@@ -36,6 +37,7 @@ contract SmartVaultDeployer {
         ERC20ClaimerActionParams erc20ClaimerActionParams;
         NativeClaimerActionParams nativeClaimerActionParams;
         Deployer.SmartVaultParams smartVaultParams;
+        SwapFeeSetterActionParams swapFeeSetterActionParams;
     }
 
     struct WithdrawerActionParams {
@@ -70,12 +72,22 @@ contract SmartVaultDeployer {
         Deployer.TokenThresholdActionParams tokenThresholdActionParams;
     }
 
+    struct SwapFeeSetterActionParams {
+        address impl;
+        address admin;
+        address[] managers;
+        Deployer.WalletFeeParams[] feeParams;
+        Deployer.RelayedActionParams relayedActionParams;
+        Deployer.TimeLockedActionParams timeLockedActionParams;
+    }
+
     function deploy(Params memory params) external {
         Wallet wallet = Deployer.createWallet(params.registry, params.smartVaultParams.walletParams, false);
         IAction withdrawer = _setupWithdrawerAction(wallet, params.withdrawerActionParams);
         IAction erc20Claimer = _setupERC20ClaimerAction(wallet, params.erc20ClaimerActionParams);
         IAction nativeClaimer = _setupNativeClaimerAction(wallet, params.nativeClaimerActionParams);
-        address[] memory actions = _actions(withdrawer, erc20Claimer, nativeClaimer);
+        IAction swapFeeSetter = _setupSwapFeeSetterAction(wallet, params.swapFeeSetterActionParams);
+        address[] memory actions = _actions(withdrawer, erc20Claimer, nativeClaimer, swapFeeSetter);
         Deployer.transferAdminPermissions(wallet, params.smartVaultParams.walletParams.admin);
         Deployer.createSmartVault(params.registry, params.smartVaultParams, address(wallet), actions, true);
     }
@@ -94,6 +106,31 @@ contract SmartVaultDeployer {
         // Authorize action to collect, unwrap, and withdraw from wallet
         wallet.authorize(address(withdrawer), wallet.withdraw.selector);
         return withdrawer;
+    }
+
+    function _setupSwapFeeSetterAction(Wallet wallet, SwapFeeSetterActionParams memory params)
+        internal
+        returns (IAction)
+    {
+        // Create and setup action
+        SwapFeeSetter setter = SwapFeeSetter(params.impl);
+        Deployer.setupBaseAction(setter, params.admin, address(wallet));
+        address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
+        Deployer.setupActionExecutors(setter, executors, setter.call.selector);
+        Deployer.setupRelayedAction(setter, params.admin, params.relayedActionParams);
+        Deployer.setupTimeLockedAction(setter, params.admin, params.timeLockedActionParams);
+
+        // Set fees, no need to authorize admin, fees can only be set once
+        setter.authorize(address(this), setter.setFees.selector);
+        setter.setFees(_castToFeeParams(params.feeParams));
+        setter.unauthorize(address(this), setter.setFees.selector);
+        Deployer.transferAdminPermissions(setter, params.admin);
+
+        // Authorize action to withdraw and set swap fee
+        wallet.authorize(address(setter), wallet.withdraw.selector);
+        wallet.authorize(address(setter), wallet.setSwapFee.selector);
+        wallet.unauthorize(params.admin, wallet.setSwapFee.selector);
+        return setter;
     }
 
     function _setupNativeClaimerAction(Wallet wallet, NativeClaimerActionParams memory params)
@@ -177,11 +214,26 @@ contract SmartVaultDeployer {
         claimer.unauthorize(address(this), claimer.setIgnoreTokenSwaps.selector);
     }
 
-    function _actions(IAction action1, IAction action2, IAction action3) internal pure returns (address[] memory arr) {
-        arr = new address[](3);
+    function _castToFeeParams(Deployer.WalletFeeParams[] memory params)
+        internal
+        pure
+        returns (SwapFeeSetter.Fee[] memory result)
+    {
+        assembly {
+            result := params
+        }
+    }
+
+    function _actions(IAction action1, IAction action2, IAction action3, IAction action4)
+        internal
+        pure
+        returns (address[] memory arr)
+    {
+        arr = new address[](4);
         arr[0] = address(action1);
         arr[1] = address(action2);
         arr[2] = address(action3);
+        arr[3] = address(action4);
     }
 
     function _trues(uint256 length) internal pure returns (bool[] memory arr) {

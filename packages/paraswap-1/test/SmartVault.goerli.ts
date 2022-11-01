@@ -1,4 +1,5 @@
 import {
+  advanceTime,
   bn,
   fp,
   getForkedNetwork,
@@ -20,8 +21,8 @@ import hre, { ethers } from 'hardhat'
 const WETH = '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6'
 
 describe('SmartVault', () => {
-  let smartVault: Contract, wallet: Contract, mimic: { [key: string]: string }
-  let withdrawer: Contract, erc20Claimer: Contract, nativeClaimer: Contract, feeClaimer: Contract
+  let smartVault: Contract, wallet: Contract, feeClaimer: Contract, mimic: { [key: string]: string }
+  let withdrawer: Contract, erc20Claimer: Contract, nativeClaimer: Contract, swapFeeSetter: Contract
   let owner: string, swapSigner: string, relayers: string[], managers: string[], feeCollector: string
 
   before('load accounts', async () => {
@@ -41,6 +42,7 @@ describe('SmartVault', () => {
     withdrawer = await instanceAt('Withdrawer', output.Withdrawer)
     erc20Claimer = await instanceAt('ERC20Claimer', output.ERC20Claimer)
     nativeClaimer = await instanceAt('NativeClaimer', output.NativeClaimer)
+    swapFeeSetter = await instanceAt('SwapFeeSetter', output.SwapFeeSetter)
     feeClaimer = await instanceAt('IFeeClaimer', await nativeClaimer.feeClaimer())
   })
 
@@ -51,14 +53,17 @@ describe('SmartVault', () => {
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
+        { name: 'swapFeeSetter', account: swapFeeSetter, roles: [] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },
       ])
     })
 
     it('whitelists the actions', async () => {
+      expect(await smartVault.isActionWhitelisted(withdrawer.address)).to.be.true
       expect(await smartVault.isActionWhitelisted(erc20Claimer.address)).to.be.true
       expect(await smartVault.isActionWhitelisted(nativeClaimer.address)).to.be.true
+      expect(await smartVault.isActionWhitelisted(swapFeeSetter.address)).to.be.true
     })
   })
 
@@ -84,15 +89,15 @@ describe('SmartVault', () => {
             'setPriceFeeds',
             'setPriceOracle',
             'setSwapConnector',
-            'setSwapFee',
-            'setPerformanceFee',
             'setWithdrawFee',
+            'setPerformanceFee',
           ],
         },
         { name: 'feeCollector', account: feeCollector, roles: ['setFeeCollector'] },
         { name: 'withdrawer', account: withdrawer, roles: ['withdraw'] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: ['call', 'swap', 'withdraw'] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: ['call', 'wrap', 'withdraw'] },
+        { name: 'swapFeeSetter', account: swapFeeSetter, roles: ['setSwapFee', 'withdraw'] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },
       ])
@@ -158,6 +163,7 @@ describe('SmartVault', () => {
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
+        { name: 'swapFeeSetter', account: swapFeeSetter, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
       ])
@@ -218,6 +224,7 @@ describe('SmartVault', () => {
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
+        { name: 'swapFeeSetter', account: swapFeeSetter, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
       ])
@@ -278,6 +285,7 @@ describe('SmartVault', () => {
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
+        { name: 'swapFeeSetter', account: swapFeeSetter, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
       ])
@@ -362,6 +370,119 @@ describe('SmartVault', () => {
         const currentWalletBalance = await weth.balanceOf(wallet.address)
         const expectedWrappedBalance = fp(0.3).sub(relayedCost)
         expect(currentWalletBalance).to.be.equal(previousWalletBalance.add(expectedWrappedBalance))
+      })
+    })
+  })
+
+  describe('swap fee setter', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(swapFeeSetter, [
+        {
+          name: 'owner',
+          account: owner,
+          roles: ['authorize', 'unauthorize', 'setWallet', 'setRelayer', 'setLimits', 'setTimeLock', 'call'],
+        },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
+        { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
+        { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
+        { name: 'swapFeeSetter', account: swapFeeSetter, roles: [] },
+        { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
+      ])
+    })
+
+    it('has the proper wallet set', async () => {
+      expect(await swapFeeSetter.wallet()).to.be.equal(wallet.address)
+    })
+
+    it('sets the expected gas limits', async () => {
+      expect(await swapFeeSetter.gasPriceLimit()).to.be.equal(bn(100e9))
+      expect(await swapFeeSetter.totalCostLimit()).to.be.equal(0)
+      expect(await swapFeeSetter.payingGasToken()).to.be.equal(WETH)
+    })
+
+    it('sets the expected fees', async () => {
+      const fee0 = await swapFeeSetter.fees(0)
+      expect(fee0.pct).to.be.equal(fp(0.05))
+      expect(fee0.cap).to.be.equal(fp(100))
+      expect(fee0.token).to.be.equal(WETH)
+      expect(fee0.period).to.be.equal(YEAR)
+
+      const fee1 = await swapFeeSetter.fees(1)
+      expect(fee1.pct).to.be.equal(fp(0.1))
+      expect(fee1.cap).to.be.equal(fp(200))
+      expect(fee1.token).to.be.equal(WETH)
+      expect(fee1.period).to.be.equal(YEAR)
+
+      const fee2 = await swapFeeSetter.fees(2)
+      expect(fee2.pct).to.be.equal(fp(0.15))
+      expect(fee2.cap).to.be.equal(fp(300))
+      expect(fee2.token).to.be.equal(WETH)
+      expect(fee2.period).to.be.equal(YEAR)
+    })
+
+    it('sets the expected time-lock', async () => {
+      expect(await swapFeeSetter.period()).to.be.equal(MONTH)
+      expect(await swapFeeSetter.nextResetTime()).not.to.be.eq(0)
+    })
+
+    it('whitelists the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await swapFeeSetter.isRelayer(relayer)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await swapFeeSetter.isRelayer(manager)).to.be.false
+      }
+    })
+
+    describe('call', async () => {
+      let bot: SignerWithAddress, weth: Contract
+
+      before('load accounts', async () => {
+        bot = await impersonate(relayers[0], fp(10))
+        weth = await instanceAt(
+          '@mimic-fi/v2-wallet/artifacts/contracts/IWrappedNativeToken.sol/IWrappedNativeToken',
+          WETH
+        )
+      })
+
+      it('can set multiple swap fees', async () => {
+        await weth.connect(bot).deposit({ value: fp(1) })
+        await weth.connect(bot).transfer(wallet.address, fp(1))
+
+        await swapFeeSetter.connect(bot).call()
+        const swapFee0 = await wallet.swapFee()
+        expect(swapFee0.pct).to.be.equal(fp(0.05))
+        expect(swapFee0.cap).to.be.equal(fp(100))
+        expect(swapFee0.token).to.be.equal(WETH)
+        expect(swapFee0.period).to.be.equal(YEAR)
+
+        await expect(swapFeeSetter.connect(bot).call()).to.be.revertedWith('TIME_LOCK_NOT_EXPIRED')
+        await advanceTime(MONTH)
+
+        await swapFeeSetter.connect(bot).call()
+        const swapFee1 = await wallet.swapFee()
+        expect(swapFee1.pct).to.be.equal(fp(0.1))
+        expect(swapFee1.cap).to.be.equal(fp(200))
+        expect(swapFee1.token).to.be.equal(WETH)
+        expect(swapFee1.period).to.be.equal(YEAR)
+
+        await expect(swapFeeSetter.connect(bot).call()).to.be.revertedWith('TIME_LOCK_NOT_EXPIRED')
+        await advanceTime(MONTH)
+
+        await swapFeeSetter.connect(bot).call()
+        const swapFee2 = await wallet.swapFee()
+        expect(swapFee2.pct).to.be.equal(fp(0.15))
+        expect(swapFee2.cap).to.be.equal(fp(300))
+        expect(swapFee2.token).to.be.equal(WETH)
+        expect(swapFee2.period).to.be.equal(YEAR)
+
+        await expect(swapFeeSetter.connect(bot).call()).to.be.revertedWith('FEE_CONFIGS_ALREADY_EXECUTED')
+        await advanceTime(MONTH)
+        await expect(swapFeeSetter.connect(bot).call()).to.be.revertedWith('FEE_CONFIGS_ALREADY_EXECUTED')
       })
     })
   })

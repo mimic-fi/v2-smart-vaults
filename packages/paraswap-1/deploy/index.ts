@@ -28,6 +28,10 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   writeOutput('Withdrawer', withdrawer.address)
   params.withdrawerActionParams.impl = withdrawer.address
 
+  const swapFeeSetter = await deploy('SwapFeeSetter', [deployer.address, mimic.Registry])
+  writeOutput('SwapFeeSetter', swapFeeSetter.address)
+  params.swapFeeSetterActionParams.impl = swapFeeSetter.address
+
   const tx = await deployer.deploy(params)
   const registry = await instanceAt('IRegistry', mimic.Registry)
   const event = await assertIndirectEvent(tx, registry.interface, 'Cloned', { implementation: mimic.SmartVault })
