@@ -322,14 +322,14 @@ describe('ERC20Claimer', () => {
 
                       it('calls the call primitive', async () => {
                         const tx = await action.call(
-                        token.address,
-                        amountIn,
-                        minAmountOut,
-                        expectedAmountOut,
-                        deadline,
-                        data,
-                        signature
-                      )
+                          token.address,
+                          amountIn,
+                          minAmountOut,
+                          expectedAmountOut,
+                          deadline,
+                          data,
+                          signature
+                        )
 
                         const callData = feeClaimer.interface.encodeFunctionData('withdrawSomeERC20', [
                           token.address,
