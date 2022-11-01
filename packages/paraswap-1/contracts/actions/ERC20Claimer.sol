@@ -62,7 +62,7 @@ contract ERC20Claimer is BaseClaimer {
 
     function call(
         address tokenIn,
-        uint256 amountIn,
+        uint256 amountToClaim,
         uint256 minAmountOut,
         uint256 expectedAmountOut,
         uint256 deadline,
@@ -71,7 +71,7 @@ contract ERC20Claimer is BaseClaimer {
     ) external auth {
         (isRelayer[msg.sender] ? _relayedCall : _call)(
             tokenIn,
-            amountIn,
+            amountToClaim,
             minAmountOut,
             expectedAmountOut,
             deadline,
@@ -82,19 +82,19 @@ contract ERC20Claimer is BaseClaimer {
 
     function _relayedCall(
         address tokenIn,
-        uint256 amountIn,
+        uint256 amountToClaim,
         uint256 minAmountOut,
         uint256 expectedAmountOut,
         uint256 deadline,
         bytes memory data,
         bytes memory sig
     ) internal redeemGas {
-        _call(tokenIn, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
+        _call(tokenIn, amountToClaim, minAmountOut, expectedAmountOut, deadline, data, sig);
     }
 
     function _call(
         address tokenIn,
-        uint256 amountIn,
+        uint256 amountToClaim,
         uint256 minAmountOut,
         uint256 expectedAmountOut,
         uint256 deadline,
@@ -103,10 +103,12 @@ contract ERC20Claimer is BaseClaimer {
     ) internal {
         address wrappedNativeToken = wallet.wrappedNativeToken();
         require(tokenIn != wrappedNativeToken && tokenIn != Denominations.NATIVE_TOKEN, 'ERC20_CLAIMER_INVALID_TOKEN');
+
+        // Min amount already includes both the current balance and the amount to be claimed
         _validateThreshold(wrappedNativeToken, minAmountOut);
 
-        bytes memory claim = abi.encodeWithSelector(IFeeClaimer.withdrawSomeERC20.selector, tokenIn, amountIn, wallet);
-        _claim(claim);
+        uint256 amountIn = amountToClaim + IERC20(tokenIn).balanceOf(address(wallet));
+        _claim(abi.encodeWithSelector(IFeeClaimer.withdrawSomeERC20.selector, tokenIn, amountToClaim, wallet));
 
         if (!isTokenSwapIgnored[tokenIn]) {
             _validateSlippage(minAmountOut, expectedAmountOut);
@@ -122,7 +124,6 @@ contract ERC20Claimer is BaseClaimer {
                 data
             );
         }
-
         emit Executed();
     }
 
