@@ -116,13 +116,13 @@ describe('SmartVault', () => {
       expect(swapFee.period).to.be.equal(YEAR)
     })
 
-    it('sets no swap fee', async () => {
-      const swapFee = await wallet.swapFee()
+    it('sets no withdraw fee', async () => {
+      const withdrawFee = await wallet.withdrawFee()
 
-      expect(swapFee.pct).to.be.equal(0)
-      expect(swapFee.cap).to.be.equal(0)
-      expect(swapFee.token).to.be.equal(ZERO_ADDRESS)
-      expect(swapFee.period).to.be.equal(0)
+      expect(withdrawFee.pct).to.be.equal(0)
+      expect(withdrawFee.cap).to.be.equal(0)
+      expect(withdrawFee.token).to.be.equal(ZERO_ADDRESS)
+      expect(withdrawFee.period).to.be.equal(0)
     })
 
     it('sets no performance fee', async () => {
