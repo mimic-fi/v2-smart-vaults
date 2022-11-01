@@ -68,6 +68,7 @@ export default {
       managers: accounts.managers,
       swapSigner: accounts.swapSigner,
       maxSlippage: fp(0.03),
+      tokenSwapIgnores: ['0xcafe001067cdef266afb7eb5a286dcfd277f3de5'], // PSP
       feeClaimerParams: {
         feeClaimer: accounts.feeClaimer,
         tokenThresholdActionParams: {

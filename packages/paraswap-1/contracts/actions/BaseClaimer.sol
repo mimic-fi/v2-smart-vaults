@@ -26,8 +26,6 @@ import '../interfaces/IFeeClaimer.sol';
 // solhint-disable avoid-low-level-calls
 
 abstract contract BaseClaimer is BaseAction, TokenThresholdAction, RelayedAction {
-    using FixedPoint for uint256;
-
     address public feeClaimer;
 
     event FeeClaimerSet(address indexed feeClaimer);

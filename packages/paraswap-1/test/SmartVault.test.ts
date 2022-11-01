@@ -81,6 +81,7 @@ describe('SmartVault', () => {
         managers: managers.map((m) => m.address),
         maxSlippage: fp(0.1),
         swapSigner: owner.address,
+        tokenSwapIgnores: [mimic.wrappedNativeToken.address],
         feeClaimerParams: {
           feeClaimer: feeClaimer.address,
           tokenThresholdActionParams: {
@@ -293,6 +294,7 @@ describe('SmartVault', () => {
             'setRelayer',
             'setSwapSigner',
             'setMaxSlippage',
+            'setIgnoreTokenSwaps',
             'setFeeClaimer',
             'setThreshold',
             'call',
@@ -316,6 +318,7 @@ describe('SmartVault', () => {
       expect(await erc20Claimer.maxSlippage()).to.be.equal(fp(0.1))
       expect(await erc20Claimer.swapSigner()).to.be.equal(owner.address)
       expect(await erc20Claimer.feeClaimer()).to.be.equal(feeClaimer.address)
+      expect(await erc20Claimer.isTokenSwapIgnored(mimic.wrappedNativeToken.address)).to.be.true
     })
 
     it('sets the expected token threshold params', async () => {
