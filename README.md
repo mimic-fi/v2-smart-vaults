@@ -9,7 +9,7 @@
     <img src="https://github.com/mimic-fi/v2-smart-vaults/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
   <a href="https://discord.mimic.fi">
-    <img alt="Discord" src="https://img.shields.io/discord/690584551239581708">
+    <img alt="Discord" src="https://img.shields.io/discord/989984112397922325">
   </a>
   <a href="./LICENSE">
     <img src="https://img.shields.io/badge/license-GLP_3.0-green">
