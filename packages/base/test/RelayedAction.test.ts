@@ -13,11 +13,11 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
-import { createAction, createTokenMock, createWallet, Mimic, setupMimic } from '..'
+import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '..'
 import { createPriceFeedMock } from '../src/samples'
 
 describe('RelayedAction', () => {
-  let action: Contract, wallet: Contract, mimic: Mimic
+  let action: Contract, smartVault: Contract, mimic: Mimic
   let owner: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
 
   before('set up signers', async () => {
@@ -27,19 +27,19 @@ describe('RelayedAction', () => {
 
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
-    wallet = await createWallet(mimic, owner)
-    action = await createAction('RelayedActionMock', mimic, owner, wallet)
+    smartVault = await createSmartVault(mimic, owner)
+    action = await createAction('RelayedActionMock', mimic, owner, smartVault)
   })
 
   beforeEach('authorize action', async () => {
-    const withdrawRole = wallet.interface.getSighash('withdraw')
-    await wallet.connect(owner).authorize(action.address, withdrawRole)
+    const withdrawRole = smartVault.interface.getSighash('withdraw')
+    await smartVault.connect(owner).authorize(action.address, withdrawRole)
   })
 
   beforeEach('set fee collector', async () => {
-    const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
-    await wallet.connect(owner).authorize(owner.address, setFeeCollectorRole)
-    await wallet.connect(owner).setFeeCollector(feeCollector.address)
+    const setFeeCollectorRole = smartVault.interface.getSighash('setFeeCollector')
+    await smartVault.connect(owner).authorize(owner.address, setFeeCollectorRole)
+    await smartVault.connect(owner).setFeeCollector(feeCollector.address)
   })
 
   describe('setPermissiveMode', () => {
@@ -257,14 +257,14 @@ describe('RelayedAction', () => {
         context('when the tx gas price is under the limit', () => {
           const gasPrice = gasPriceLimit - 1
 
-          beforeEach('fund wallet', async () => {
-            await owner.sendTransaction({ to: wallet.address, value: fp(1) })
+          beforeEach('fund smart vault', async () => {
+            await owner.sendTransaction({ to: smartVault.address, value: fp(1) })
           })
 
-          it('redeems the expected cost to the wallet fee collector', async () => {
+          it('redeems the expected cost to the fee collector', async () => {
             const tx = await action.call({ gasPrice })
 
-            const { args } = await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+            const { args } = await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
               token: payingGasToken,
               recipient: feeCollector,
               data: REDEEM_GAS_NOTE,
@@ -292,8 +292,8 @@ describe('RelayedAction', () => {
 
         beforeEach('measure real gas cost', async () => {
           await action.connect(owner).setLimits(gasPriceLimit, fp(100), NATIVE_TOKEN_ADDRESS)
-          await owner.sendTransaction({ to: wallet.address, value: fp(1) })
-          const { args } = await assertIndirectEvent(await action.call(), wallet.interface, 'Withdraw')
+          await owner.sendTransaction({ to: smartVault.address, value: fp(1) })
+          const { args } = await assertIndirectEvent(await action.call(), smartVault.interface, 'Withdraw')
           realGasCostEth = args.withdrawn
         })
 
@@ -306,9 +306,9 @@ describe('RelayedAction', () => {
               await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
             })
 
-            context('when the wallet has enough funds', () => {
-              beforeEach('ensure wallet balance', async () => {
-                const balance = await ethers.provider.getBalance(wallet.address)
+            context('when the smart vault has enough funds', () => {
+              beforeEach('ensure smart vault balance', async () => {
+                const balance = await ethers.provider.getBalance(smartVault.address)
                 expect(balance).to.be.gt(realGasCostEth)
               })
 
@@ -319,10 +319,10 @@ describe('RelayedAction', () => {
                   await action.connect(owner).setPermissiveMode(true)
                 })
 
-                it('redeems the expected cost to the wallet fee collector', async () => {
+                it('redeems the expected cost to the fee collector', async () => {
                   const tx = await action.call()
 
-                  const { args } = await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+                  const { args } = await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
                     token: payingGasToken,
                     recipient: feeCollector,
                     data: REDEEM_GAS_NOTE,
@@ -340,10 +340,10 @@ describe('RelayedAction', () => {
                   await action.connect(owner).setPermissiveMode(false)
                 })
 
-                it('redeems the expected cost to the wallet fee collector', async () => {
+                it('redeems the expected cost to the fee collector', async () => {
                   const tx = await action.call()
 
-                  const { args } = await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+                  const { args } = await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
                     token: payingGasToken,
                     recipient: feeCollector,
                     data: REDEEM_GAS_NOTE,
@@ -355,12 +355,12 @@ describe('RelayedAction', () => {
               })
             })
 
-            context('when the wallet has does not have enough funds', () => {
-              beforeEach('empty wallet', async () => {
-                const balance = await ethers.provider.getBalance(wallet.address)
-                const withdrawRole = wallet.interface.getSighash('withdraw')
-                await wallet.connect(owner).authorize(owner.address, withdrawRole)
-                await wallet.connect(owner).withdraw(payingGasToken, balance, owner.address, '0x')
+            context('when the smart vault has does not have enough funds', () => {
+              beforeEach('empty smart vault', async () => {
+                const balance = await ethers.provider.getBalance(smartVault.address)
+                const withdrawRole = smartVault.interface.getSighash('withdraw')
+                await smartVault.connect(owner).authorize(owner.address, withdrawRole)
+                await smartVault.connect(owner).withdraw(payingGasToken, balance, owner.address, '0x')
               })
 
               context('when the permissive mode is on', () => {
@@ -372,7 +372,7 @@ describe('RelayedAction', () => {
 
                 it('does not revert nor redeems any cost', async () => {
                   const tx = await action.call()
-                  await assertNoIndirectEvent(tx, wallet.interface, 'Withdraw')
+                  await assertNoIndirectEvent(tx, smartVault.interface, 'Withdraw')
                 })
               })
 
@@ -415,15 +415,15 @@ describe('RelayedAction', () => {
               await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
             })
 
-            beforeEach('fund wallet', async () => {
+            beforeEach('fund smart vault', async () => {
               await mimic.wrappedNativeToken.connect(owner).deposit({ value: fp(1) })
-              await mimic.wrappedNativeToken.connect(owner).transfer(wallet.address, fp(1))
+              await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, fp(1))
             })
 
-            it('redeems the expected cost to the wallet fee collector', async () => {
+            it('redeems the expected cost to the fee collector', async () => {
               const tx = await action.call()
 
-              const { args } = await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+              const { args } = await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
                 token: payingGasToken,
                 recipient: feeCollector,
                 data: REDEEM_GAS_NOTE,
@@ -453,27 +453,27 @@ describe('RelayedAction', () => {
           beforeEach('set paying token and mock price feed', async () => {
             payingGasToken = await createTokenMock()
             const feed = await createPriceFeedMock(rate)
-            const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
-            await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
-            await wallet
+            const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+            await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+            await smartVault
               .connect(owner)
               .setPriceFeed(mimic.wrappedNativeToken.address, payingGasToken.address, feed.address)
           })
 
           context('when total gas cost limit is above the actual cost', () => {
-            beforeEach('setLimits', async () => {
+            beforeEach('set limits', async () => {
               const totalCostLimit = realGasCostEth.add(gasCostError).mul(rate).div(fp(1))
               await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
             })
 
-            beforeEach('fund wallet', async () => {
-              await payingGasToken.mint(wallet.address, fp(2))
+            beforeEach('fund smart vault', async () => {
+              await payingGasToken.mint(smartVault.address, fp(2))
             })
 
-            it('redeems the expected cost to the wallet fee collector', async () => {
+            it('redeems the expected cost to the fee collector', async () => {
               const tx = await action.call()
 
-              const { args } = await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+              const { args } = await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
                 token: payingGasToken,
                 recipient: feeCollector,
                 data: REDEEM_GAS_NOTE,

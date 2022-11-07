@@ -1,11 +1,17 @@
 import { assertEvent, assertIndirectEvent, fp, getSigners } from '@mimic-fi/v2-helpers'
-import { assertRelayedBaseCost, createAction, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import {
+  assertRelayedBaseCost,
+  createAction,
+  createSmartVault,
+  Mimic,
+  setupMimic,
+} from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('Withdrawer', () => {
-  let action: Contract, wallet: Contract, mimic: Mimic
+  let action: Contract, smartVault: Contract, mimic: Mimic
   let owner: SignerWithAddress, recipient: SignerWithAddress, feeCollector: SignerWithAddress
 
   before('set up signers', async () => {
@@ -15,27 +21,27 @@ describe('Withdrawer', () => {
 
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
-    wallet = await createWallet(mimic, owner)
-    action = await createAction('Withdrawer', mimic, owner, wallet)
+    smartVault = await createSmartVault(mimic, owner)
+    action = await createAction('Withdrawer', mimic, owner, smartVault)
   })
 
   beforeEach('authorize action', async () => {
-    const withdrawRole = wallet.interface.getSighash('withdraw')
-    await wallet.connect(owner).authorize(action.address, withdrawRole)
+    const withdrawRole = smartVault.interface.getSighash('withdraw')
+    await smartVault.connect(owner).authorize(action.address, withdrawRole)
   })
 
   beforeEach('set fee collector', async () => {
-    const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
-    await wallet.connect(owner).authorize(owner.address, setFeeCollectorRole)
-    await wallet.connect(owner).setFeeCollector(feeCollector.address)
+    const setFeeCollectorRole = smartVault.interface.getSighash('setFeeCollector')
+    await smartVault.connect(owner).authorize(owner.address, setFeeCollectorRole)
+    await smartVault.connect(owner).setFeeCollector(feeCollector.address)
   })
 
   describe('call', () => {
     const balance = fp(2)
 
-    beforeEach('fund wallet', async () => {
+    beforeEach('fund smart vault', async () => {
       await mimic.wrappedNativeToken.connect(owner).deposit({ value: balance })
-      await mimic.wrappedNativeToken.connect(owner).transfer(wallet.address, balance)
+      await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, balance)
     })
 
     beforeEach('set recipient', async () => {
@@ -67,7 +73,7 @@ describe('Withdrawer', () => {
             const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
             const refund = currentBalance.sub(previousBalance)
 
-            await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+            await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
               token: mimic.wrappedNativeToken,
               recipient,
               withdrawn: balance.sub(refund),

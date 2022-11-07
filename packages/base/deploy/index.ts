@@ -14,11 +14,7 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   const registry = await deploy(ARTIFACTS.REGISTRY, [admin.address])
   writeOutput('Registry', registry.address)
 
-  const wallet = await deploy(ARTIFACTS.WALLET, [input.wrappedNativeToken, registry.address])
-  await registry.connect(admin).register(await wallet.NAMESPACE(), wallet.address, false)
-  writeOutput('Wallet', wallet.address)
-
-  const smartVault = await deploy(ARTIFACTS.SMART_VAULT, [registry.address])
+  const smartVault = await deploy(ARTIFACTS.SMART_VAULT, [input.wrappedNativeToken, registry.address])
   await registry.connect(admin).register(await smartVault.NAMESPACE(), smartVault.address, false)
   writeOutput('SmartVault', smartVault.address)
 

@@ -14,10 +14,10 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
+import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 
@@ -76,26 +76,27 @@ contract SmartVaultDeployer {
         address impl;
         address admin;
         address[] managers;
-        Deployer.WalletFeeParams[] feeParams;
+        Deployer.SmartVaultFeeParams[] feeParams;
         Deployer.RelayedActionParams relayedActionParams;
         Deployer.TimeLockedActionParams timeLockedActionParams;
     }
 
     function deploy(Params memory params) external {
-        Wallet wallet = Deployer.createWallet(params.registry, params.smartVaultParams.walletParams, false);
-        IAction withdrawer = _setupWithdrawerAction(wallet, params.withdrawerActionParams);
-        IAction erc20Claimer = _setupERC20ClaimerAction(wallet, params.erc20ClaimerActionParams);
-        IAction nativeClaimer = _setupNativeClaimerAction(wallet, params.nativeClaimerActionParams);
-        IAction swapFeeSetter = _setupSwapFeeSetterAction(wallet, params.swapFeeSetterActionParams);
-        address[] memory actions = _actions(withdrawer, erc20Claimer, nativeClaimer, swapFeeSetter);
-        Deployer.transferAdminPermissions(wallet, params.smartVaultParams.walletParams.admin);
-        Deployer.createSmartVault(params.registry, params.smartVaultParams, address(wallet), actions, true);
+        SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
+        _setupWithdrawerAction(smartVault, params.withdrawerActionParams);
+        _setupERC20ClaimerAction(smartVault, params.erc20ClaimerActionParams);
+        _setupNativeClaimerAction(smartVault, params.nativeClaimerActionParams);
+        _setupSwapFeeSetterAction(smartVault, params.swapFeeSetterActionParams);
+        Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
     }
 
-    function _setupWithdrawerAction(Wallet wallet, WithdrawerActionParams memory params) internal returns (IAction) {
+    function _setupWithdrawerAction(SmartVault smartVault, WithdrawerActionParams memory params)
+        internal
+        returns (IAction)
+    {
         // Create and setup action
         Withdrawer withdrawer = Withdrawer(params.impl);
-        Deployer.setupBaseAction(withdrawer, params.admin, address(wallet));
+        Deployer.setupBaseAction(withdrawer, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         Deployer.setupActionExecutors(withdrawer, executors, withdrawer.call.selector);
         Deployer.setupRelayedAction(withdrawer, params.admin, params.relayedActionParams);
@@ -103,18 +104,18 @@ contract SmartVaultDeployer {
         Deployer.setupWithdrawalAction(withdrawer, params.admin, params.withdrawalActionParams);
         Deployer.transferAdminPermissions(withdrawer, params.admin);
 
-        // Authorize action to collect, unwrap, and withdraw from wallet
-        wallet.authorize(address(withdrawer), wallet.withdraw.selector);
+        // Authorize action to collect, unwrap, and withdraw from Smart Vault
+        smartVault.authorize(address(withdrawer), smartVault.withdraw.selector);
         return withdrawer;
     }
 
-    function _setupSwapFeeSetterAction(Wallet wallet, SwapFeeSetterActionParams memory params)
+    function _setupSwapFeeSetterAction(SmartVault smartVault, SwapFeeSetterActionParams memory params)
         internal
         returns (IAction)
     {
         // Create and setup action
         SwapFeeSetter setter = SwapFeeSetter(params.impl);
-        Deployer.setupBaseAction(setter, params.admin, address(wallet));
+        Deployer.setupBaseAction(setter, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         Deployer.setupActionExecutors(setter, executors, setter.call.selector);
         Deployer.setupRelayedAction(setter, params.admin, params.relayedActionParams);
@@ -127,19 +128,19 @@ contract SmartVaultDeployer {
         Deployer.transferAdminPermissions(setter, params.admin);
 
         // Authorize action to withdraw and set swap fee
-        wallet.authorize(address(setter), wallet.withdraw.selector);
-        wallet.authorize(address(setter), wallet.setSwapFee.selector);
-        wallet.unauthorize(params.admin, wallet.setSwapFee.selector);
+        smartVault.authorize(address(setter), smartVault.withdraw.selector);
+        smartVault.authorize(address(setter), smartVault.setSwapFee.selector);
+        smartVault.unauthorize(params.admin, smartVault.setSwapFee.selector);
         return setter;
     }
 
-    function _setupNativeClaimerAction(Wallet wallet, NativeClaimerActionParams memory params)
+    function _setupNativeClaimerAction(SmartVault smartVault, NativeClaimerActionParams memory params)
         internal
         returns (IAction)
     {
         // Create and setup action
         NativeClaimer claimer = NativeClaimer(params.impl);
-        Deployer.setupBaseAction(claimer, params.admin, address(wallet));
+        Deployer.setupBaseAction(claimer, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(
             params.admin,
             params.managers,
@@ -151,19 +152,19 @@ contract SmartVaultDeployer {
         Deployer.transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and wrap
-        wallet.authorize(address(claimer), wallet.call.selector);
-        wallet.authorize(address(claimer), wallet.wrap.selector);
-        wallet.authorize(address(claimer), wallet.withdraw.selector);
+        smartVault.authorize(address(claimer), smartVault.call.selector);
+        smartVault.authorize(address(claimer), smartVault.wrap.selector);
+        smartVault.authorize(address(claimer), smartVault.withdraw.selector);
         return claimer;
     }
 
-    function _setupERC20ClaimerAction(Wallet wallet, ERC20ClaimerActionParams memory params)
+    function _setupERC20ClaimerAction(SmartVault smartVault, ERC20ClaimerActionParams memory params)
         internal
         returns (IAction)
     {
         // Create and setup action
         ERC20Claimer claimer = ERC20Claimer(params.impl);
-        Deployer.setupBaseAction(claimer, params.admin, address(wallet));
+        Deployer.setupBaseAction(claimer, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(
             params.admin,
             params.managers,
@@ -178,9 +179,9 @@ contract SmartVaultDeployer {
         Deployer.transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and swap
-        wallet.authorize(address(claimer), wallet.call.selector);
-        wallet.authorize(address(claimer), wallet.swap.selector);
-        wallet.authorize(address(claimer), wallet.withdraw.selector);
+        smartVault.authorize(address(claimer), smartVault.call.selector);
+        smartVault.authorize(address(claimer), smartVault.swap.selector);
+        smartVault.authorize(address(claimer), smartVault.withdraw.selector);
         return claimer;
     }
 
@@ -214,7 +215,7 @@ contract SmartVaultDeployer {
         claimer.unauthorize(address(this), claimer.setIgnoreTokenSwaps.selector);
     }
 
-    function _castToFeeParams(Deployer.WalletFeeParams[] memory params)
+    function _castToFeeParams(Deployer.SmartVaultFeeParams[] memory params)
         internal
         pure
         returns (SwapFeeSetter.Fee[] memory result)
@@ -222,18 +223,6 @@ contract SmartVaultDeployer {
         assembly {
             result := params
         }
-    }
-
-    function _actions(IAction action1, IAction action2, IAction action3, IAction action4)
-        internal
-        pure
-        returns (address[] memory arr)
-    {
-        arr = new address[](4);
-        arr[0] = address(action1);
-        arr[1] = address(action2);
-        arr[2] = address(action3);
-        arr[3] = address(action4);
     }
 
     function _trues(uint256 length) internal pure returns (bool[] memory arr) {

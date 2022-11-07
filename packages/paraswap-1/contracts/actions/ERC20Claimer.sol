@@ -101,25 +101,25 @@ contract ERC20Claimer is BaseClaimer {
         bytes memory data,
         bytes memory sig
     ) internal {
-        address wrappedNativeToken = wallet.wrappedNativeToken();
+        address wrappedNativeToken = smartVault.wrappedNativeToken();
         require(tokenIn != wrappedNativeToken && tokenIn != Denominations.NATIVE_TOKEN, 'ERC20_CLAIMER_INVALID_TOKEN');
 
         // Min amount already includes both the current balance and the amount to be claimed
         _validateThreshold(wrappedNativeToken, minAmountOut);
 
-        uint256 amountIn = amountToClaim + IERC20(tokenIn).balanceOf(address(wallet));
-        _claim(abi.encodeWithSelector(IFeeClaimer.withdrawSomeERC20.selector, tokenIn, amountToClaim, wallet));
+        uint256 amountIn = amountToClaim + IERC20(tokenIn).balanceOf(address(smartVault));
+        _claim(abi.encodeWithSelector(IFeeClaimer.withdrawSomeERC20.selector, tokenIn, amountToClaim, smartVault));
 
         if (!isTokenSwapIgnored[tokenIn]) {
             _validateSlippage(minAmountOut, expectedAmountOut);
             _validateSig(tokenIn, wrappedNativeToken, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
 
-            wallet.swap(
+            smartVault.swap(
                 uint8(ISwapConnector.Source.ParaswapV5),
                 tokenIn,
                 wrappedNativeToken,
                 amountIn,
-                IWallet.SwapLimit.MinAmountOut,
+                ISmartVault.SwapLimit.MinAmountOut,
                 minAmountOut,
                 data
             );

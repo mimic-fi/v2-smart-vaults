@@ -19,7 +19,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TimeLockedAction.sol';
 
 contract SwapFeeSetter is BaseAction, RelayedAction, TimeLockedAction {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 80e3;
+    uint256 public constant override BASE_GAS = 75e3;
 
     struct Fee {
         uint256 pct;
@@ -57,7 +57,7 @@ contract SwapFeeSetter is BaseAction, RelayedAction, TimeLockedAction {
         _validateTimeLock();
 
         Fee memory fee = fees[nextFeeIndex++];
-        wallet.setSwapFee(fee.pct, fee.cap, fee.token, fee.period);
+        smartVault.setSwapFee(fee.pct, fee.cap, fee.token, fee.period);
         emit Executed();
     }
 }

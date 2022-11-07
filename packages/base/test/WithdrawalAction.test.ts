@@ -3,10 +3,10 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { createAction, createTokenMock, createWallet, Mimic, setupMimic } from '..'
+import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '..'
 
 describe('WithdrawalAction', () => {
-  let action: Contract, wallet: Contract, mimic: Mimic
+  let action: Contract, smartVault: Contract, mimic: Mimic
   let owner: SignerWithAddress, other: SignerWithAddress
 
   before('set up signers', async () => {
@@ -16,13 +16,13 @@ describe('WithdrawalAction', () => {
 
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
-    wallet = await createWallet(mimic, owner)
-    action = await createAction('WithdrawalActionMock', mimic, owner, wallet)
+    smartVault = await createSmartVault(mimic, owner)
+    action = await createAction('WithdrawalActionMock', mimic, owner, smartVault)
   })
 
   beforeEach('authorize action', async () => {
-    const withdrawRole = wallet.interface.getSighash('withdraw')
-    await wallet.connect(owner).authorize(action.address, withdrawRole)
+    const withdrawRole = smartVault.interface.getSighash('withdraw')
+    await smartVault.connect(owner).authorize(action.address, withdrawRole)
   })
 
   describe('setRecipient', () => {
@@ -79,9 +79,9 @@ describe('WithdrawalAction', () => {
     let token: Contract
     let recipient: SignerWithAddress
 
-    beforeEach('deploy token and fund wallet', async () => {
+    beforeEach('deploy token and fund smart vault', async () => {
       token = await createTokenMock()
-      await token.mint(wallet.address, amount)
+      await token.mint(smartVault.address, amount)
     })
 
     beforeEach('set recipient', async () => {
@@ -91,12 +91,12 @@ describe('WithdrawalAction', () => {
       await action.connect(owner).setRecipient(recipient.address)
     })
 
-    it('can request to withdraw all funds of a token from the wallet', async () => {
-      await token.mint(wallet.address, amount)
+    it('can request to withdraw all funds of a token from the smart vault', async () => {
+      await token.mint(smartVault.address, amount)
 
       const tx = await action.withdrawAll(token.address)
 
-      await assertIndirectEvent(tx, wallet.interface, 'Withdraw', {
+      await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
         token,
         withdrawn: amount.mul(2),
         recipient,
@@ -104,10 +104,15 @@ describe('WithdrawalAction', () => {
       })
     })
 
-    it('can request to withdraw the requested amount of a token from the wallet', async () => {
+    it('can request to withdraw the requested amount of a token from the smart vault', async () => {
       const tx = await action.withdraw(token.address, amount)
 
-      await assertIndirectEvent(tx, wallet.interface, 'Withdraw', { token, withdrawn: amount, recipient, data: '0x' })
+      await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
+        token,
+        withdrawn: amount,
+        recipient,
+        data: '0x',
+      })
     })
   })
 })

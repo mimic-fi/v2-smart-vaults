@@ -12,32 +12,32 @@ export async function createPriceFeedMock(price: BigNumberish): Promise<Contract
   return deploy(MOCKS.PRICE_FEED, [price])
 }
 
-export async function createWallet(mimic: Mimic, admin: SignerWithAddress): Promise<Contract> {
-  const initializeData = mimic.wallet.interface.encodeFunctionData('initialize', [admin.address])
-  const tx = await mimic.registry.clone(mimic.wallet.address, initializeData)
-  const event = await assertEvent(tx, 'Cloned', { implementation: mimic.wallet })
-  const wallet = await instanceAt(ARTIFACTS.WALLET, event.args.instance)
+export async function createSmartVault(mimic: Mimic, admin: SignerWithAddress): Promise<Contract> {
+  const initializeData = mimic.smartVault.interface.encodeFunctionData('initialize', [admin.address])
+  const tx = await mimic.registry.clone(mimic.smartVault.address, initializeData)
+  const event = await assertEvent(tx, 'Cloned', { implementation: mimic.smartVault })
+  const smartVault = await instanceAt(ARTIFACTS.SMART_VAULT, event.args.instance)
 
-  const setPriceOracleRole = wallet.interface.getSighash('setPriceOracle')
-  await wallet.connect(admin).authorize(admin.address, setPriceOracleRole)
-  await wallet.connect(admin).setPriceOracle(mimic.priceOracle.address)
+  const setPriceOracleRole = smartVault.interface.getSighash('setPriceOracle')
+  await smartVault.connect(admin).authorize(admin.address, setPriceOracleRole)
+  await smartVault.connect(admin).setPriceOracle(mimic.priceOracle.address)
 
-  const setSwapConnector = wallet.interface.getSighash('setSwapConnector')
-  await wallet.connect(admin).authorize(admin.address, setSwapConnector)
-  await wallet.connect(admin).setSwapConnector(mimic.swapConnector.address)
+  const setSwapConnector = smartVault.interface.getSighash('setSwapConnector')
+  await smartVault.connect(admin).authorize(admin.address, setSwapConnector)
+  await smartVault.connect(admin).setSwapConnector(mimic.swapConnector.address)
 
-  return wallet
+  return smartVault
 }
 
 export async function createAction(
   contractName: string,
   mimic: Mimic,
   admin: SignerWithAddress,
-  wallet: Contract
+  smartVault: Contract
 ): Promise<Contract> {
   const action = await deploy(contractName, [admin.address, mimic.registry.address])
-  const setWalletRole = action.interface.getSighash('setWallet')
-  await action.connect(admin).authorize(admin.address, setWalletRole)
-  await action.connect(admin).setWallet(wallet.address)
+  const setSmartVaultRole = action.interface.getSighash('setSmartVault')
+  await action.connect(admin).authorize(admin.address, setSmartVaultRole)
+  await action.connect(admin).setSmartVault(smartVault.address)
   return action
 }

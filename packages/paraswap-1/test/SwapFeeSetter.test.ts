@@ -1,11 +1,17 @@
 import { advanceTime, assertEvent, fp, getSigners, MONTH, NATIVE_TOKEN_ADDRESS } from '@mimic-fi/v2-helpers'
-import { assertRelayedBaseCost, createAction, createWallet, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import {
+  assertRelayedBaseCost,
+  createAction,
+  createSmartVault,
+  Mimic,
+  setupMimic,
+} from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('SwapFeeSetter', () => {
-  let action: Contract, wallet: Contract, mimic: Mimic
+  let action: Contract, smartVault: Contract, mimic: Mimic
   let owner: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
 
   before('set up signers', async () => {
@@ -15,21 +21,21 @@ describe('SwapFeeSetter', () => {
 
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
-    wallet = await createWallet(mimic, owner)
-    action = await createAction('SwapFeeSetter', mimic, owner, wallet)
+    smartVault = await createSmartVault(mimic, owner)
+    action = await createAction('SwapFeeSetter', mimic, owner, smartVault)
   })
 
   beforeEach('authorize action', async () => {
-    const withdrawRole = wallet.interface.getSighash('withdraw')
-    await wallet.connect(owner).authorize(action.address, withdrawRole)
-    const setSwapFeeRole = wallet.interface.getSighash('setSwapFee')
-    await wallet.connect(owner).authorize(action.address, setSwapFeeRole)
+    const withdrawRole = smartVault.interface.getSighash('withdraw')
+    await smartVault.connect(owner).authorize(action.address, withdrawRole)
+    const setSwapFeeRole = smartVault.interface.getSighash('setSwapFee')
+    await smartVault.connect(owner).authorize(action.address, setSwapFeeRole)
   })
 
   beforeEach('set fee collector', async () => {
-    const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
-    await wallet.connect(owner).authorize(owner.address, setFeeCollectorRole)
-    await wallet.connect(owner).setFeeCollector(feeCollector.address)
+    const setFeeCollectorRole = smartVault.interface.getSighash('setFeeCollector')
+    await smartVault.connect(owner).authorize(owner.address, setFeeCollectorRole)
+    await smartVault.connect(owner).setFeeCollector(feeCollector.address)
   })
 
   describe('setFees', () => {
@@ -141,7 +147,7 @@ describe('SwapFeeSetter', () => {
               it('sets the swap fee', async () => {
                 await action.call()
 
-                const swapFee0 = await wallet.swapFee()
+                const swapFee0 = await smartVault.swapFee()
                 expect(swapFee0.pct).to.be.equal(fees[0].pct)
                 expect(swapFee0.cap).to.be.equal(fees[0].cap)
                 expect(swapFee0.token).to.be.equal(fees[0].token)
@@ -151,7 +157,7 @@ describe('SwapFeeSetter', () => {
                 await advanceTime(timeLock)
                 await action.call()
 
-                const swapFee1 = await wallet.swapFee()
+                const swapFee1 = await smartVault.swapFee()
                 expect(swapFee1.pct).to.be.equal(fees[1].pct)
                 expect(swapFee1.cap).to.be.equal(fees[1].cap)
                 expect(swapFee1.token).to.be.equal(fees[1].token)
@@ -211,9 +217,9 @@ describe('SwapFeeSetter', () => {
             await action.connect(owner).setLimits(fp(100), 0, mimic.wrappedNativeToken.address)
           })
 
-          beforeEach('fund wallet', async () => {
+          beforeEach('fund smart vault', async () => {
             await mimic.wrappedNativeToken.connect(owner).deposit({ value: fp(10) })
-            await mimic.wrappedNativeToken.connect(owner).transfer(wallet.address, fp(10))
+            await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, fp(10))
           })
 
           itPerformsTheExpectedCall(true)

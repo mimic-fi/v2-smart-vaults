@@ -21,7 +21,7 @@ import './BaseAction.sol';
 /**
  * @title TokenThresholdAction
  * @dev Action that offers a token threshold limit. It can be used for minimum swap amounts, or minimum withdrawal
- * amounts, etc. This type of action does not require any specific permission on the wallet.
+ * amounts, etc. This type of action does not require any specific permission on the Smart Vault.
  */
 abstract contract TokenThresholdAction is BaseAction {
     using FixedPoint for uint256;
@@ -48,7 +48,7 @@ abstract contract TokenThresholdAction is BaseAction {
      * @param amount Amount of tokens to validate the threshold
      */
     function _validateThreshold(address token, uint256 amount) internal view {
-        uint256 price = wallet.getPrice(token, thresholdToken);
+        uint256 price = smartVault.getPrice(token, thresholdToken);
         // Result balance is rounded down to make sure we always match at least the threshold
         require(amount.mulDown(price) >= thresholdAmount, 'MIN_THRESHOLD_NOT_MET');
     }

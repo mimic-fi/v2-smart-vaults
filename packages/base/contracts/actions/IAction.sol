@@ -14,7 +14,7 @@
 
 pragma solidity >=0.8.0;
 
-import '@mimic-fi/v2-wallet/contracts/IWallet.sol';
+import '@mimic-fi/v2-smart-vault/contracts/ISmartVault.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
 /**
@@ -28,7 +28,7 @@ interface IAction is IAuthorizer {
     event Executed();
 
     /**
-     * @dev Tells the address of the Mimic Wallet tied to it, it cannot be changed
+     * @dev Tells the address of the Smart Vault tied to it, it cannot be changed
      */
-    function wallet() external view returns (IWallet);
+    function smartVault() external view returns (ISmartVault);
 }

@@ -21,7 +21,7 @@ import './BaseAction.sol';
 /**
  * @title Withdrawal action
  * @dev Action that offers a recipient address where funds can be withdrawn. This type of action at least require
- * having withdraw permissions from the Mimic Wallet tied to it.
+ * having withdraw permissions from the Smart Vault tied to it.
  */
 abstract contract WithdrawalAction is BaseAction {
     // Address where tokens will be transferred to
@@ -43,20 +43,20 @@ abstract contract WithdrawalAction is BaseAction {
     }
 
     /**
-     * @dev Internal function to withdraw all the available balance of a token from the wallet to the recipient
+     * @dev Internal function to withdraw all the available balance of a token from the Smart Vault to the recipient
      * @param token Address of the token to be withdrawn
      */
     function _withdraw(address token) internal {
-        uint256 balance = IERC20(token).balanceOf(address(wallet));
+        uint256 balance = IERC20(token).balanceOf(address(smartVault));
         _withdraw(token, balance);
     }
 
     /**
-     * @dev Internal function to withdraw a specific amount of a token from the wallet to the recipient
+     * @dev Internal function to withdraw a specific amount of a token from the Smart Vault to the recipient
      * @param token Address of the token to be withdrawn
      * @param amount Amount of tokens to be withdrawn
      */
     function _withdraw(address token, uint256 amount) internal {
-        wallet.withdraw(token, amount, recipient, new bytes(0));
+        smartVault.withdraw(token, amount, recipient, new bytes(0));
     }
 }

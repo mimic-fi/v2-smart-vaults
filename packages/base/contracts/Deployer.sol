@@ -14,7 +14,6 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
@@ -32,15 +31,6 @@ import './actions/TokenThresholdAction.sol';
 library Deployer {
     using UncheckedMath for uint256;
 
-    // Internal constant meaning no strategy attached for a wallet
-    address internal constant NO_STRATEGY = address(0);
-
-    // Internal constant meaning no price oracle attached for a wallet
-    address internal constant NO_PRICE_ORACLE = address(0);
-
-    // Namespace to use by this deployer to fetch IWallet implementations from the Mimic Registry
-    bytes32 private constant WALLET_NAMESPACE = keccak256('WALLET');
-
     // Namespace to use by this deployer to fetch ISmartVault implementations from the Mimic Registry
     bytes32 private constant SMART_VAULT_NAMESPACE = keccak256('SMART_VAULT');
 
@@ -57,60 +47,48 @@ library Deployer {
      * @dev Smart vault params
      * @param impl Address of the Smart Vault implementation to be used
      * @param admin Address that will be granted with admin rights for the deployed Smart Vault
-     * @param walletParams Wallet params to be set for the Smart Vault's Wallet
-     */
-    struct SmartVaultParams {
-        address impl;
-        address admin;
-        WalletParams walletParams;
-    }
-
-    /**
-     * @dev Wallet params
-     * @param impl Address of the Wallet implementation to be used
-     * @param admin Address that will be granted with admin rights for the deployed Wallet
-     * @param swapConnector Optional Swap Connector to set for the Mimic Wallet
-     * @param strategies List of strategies to be allowed for the Mimic Wallet
-     * @param priceOracle Optional Price Oracle to set for the Mimic Wallet
-     * @param priceFeedParams List of price feeds to be set for the Mimic Wallet
+     * @param swapConnector Optional Swap Connector to set for the Smart Vault
+     * @param strategies List of strategies to be allowed for the Smart Vault
+     * @param priceOracle Optional Price Oracle to set for the Smart Vault
+     * @param priceFeedParams List of price feeds to be set for the Smart Vault
      * @param feeCollector Address to be set as the fee collector
      * @param swapFee Swap fee params
      * @param withdrawFee Withdraw fee params
      * @param performanceFee Performance fee params
      */
-    struct WalletParams {
+    struct SmartVaultParams {
         address impl;
         address admin;
         address[] strategies;
         address swapConnector;
         address priceOracle;
-        WalletPriceFeedParams[] priceFeedParams;
+        PriceFeedParams[] priceFeedParams;
         address feeCollector;
-        WalletFeeParams swapFee;
-        WalletFeeParams withdrawFee;
-        WalletFeeParams performanceFee;
+        SmartVaultFeeParams swapFee;
+        SmartVaultFeeParams withdrawFee;
+        SmartVaultFeeParams performanceFee;
     }
 
     /**
-     * @dev Wallet price feed params
+     * @dev Smart Vault price feed params
      * @param base Base token of the price feed
      * @param quote Quote token of the price feed
      * @param feed Address of the price feed
      */
-    struct WalletPriceFeedParams {
+    struct PriceFeedParams {
         address base;
         address quote;
         address feed;
     }
 
     /**
-     * @dev Wallet fee configuration parameters
+     * @dev Smart Vault fee configuration parameters
      * @param pct Percentage expressed using 16 decimals (1e18 = 100%)
      * @param cap Maximum amount of fees to be charged per period
      * @param token Address of the token to express the cap amount
      * @param period Period length in seconds
      */
-    struct WalletFeeParams {
+    struct SmartVaultFeeParams {
         uint256 pct;
         uint256 cap;
         address token;
@@ -159,162 +137,125 @@ library Deployer {
 
     /**
      * @dev Create a new Smart Vault instance
-     * @param registry Address of the registry to validate the Smart Vault implementation against
+     * @param registry Address of the registry to validate the Smart Vault implementation
      * @param params Params to customize the Smart Vault to be deployed
-     * @param wallet Address of the wallet to be set in the Smart Vault to be deployed
-     * @param actions List of actions to be set in the Smart Vault to be deployed
-     * @param transferPermissions Whether or not admin permissions on the Smart Vault should be transfer to the admin
-     * right after creating the Smart Vault. Sometimes this is not desired if further customization might take in place.
+     * @param transferPermissions Whether the Smart Vault admin permissions should be transfer to the admin right after
+     * creating the Smart Vault. Sometimes this is not desired if further customization might take in place.
      */
-    function createSmartVault(
-        IRegistry registry,
-        SmartVaultParams memory params,
-        address wallet,
-        address[] memory actions,
-        bool transferPermissions
-    ) external returns (SmartVault smartVault) {
-        // Clone requested smart vault implementation and initialize
+    function createSmartVault(IRegistry registry, SmartVaultParams memory params, bool transferPermissions)
+        external
+        returns (SmartVault smartVault)
+    {
+        // Clone requested Smart Vault implementation and initialize
         require(registry.isActive(SMART_VAULT_NAMESPACE, params.impl), 'BAD_SMART_VAULT_IMPLEMENTATION');
         bytes memory initializeData = abi.encodeWithSelector(SmartVault.initialize.selector, address(this));
-        smartVault = SmartVault(registry.clone(params.impl, initializeData));
-
-        // Set wallet
-        smartVault.authorize(address(this), smartVault.setWallet.selector);
-        smartVault.setWallet(wallet);
-        smartVault.unauthorize(address(this), smartVault.setWallet.selector);
-
-        // Set actions
-        smartVault.authorize(address(this), smartVault.setAction.selector);
-        for (uint256 i = 0; i < actions.length; i = i.uncheckedAdd(1)) smartVault.setAction(actions[i], true);
-        smartVault.unauthorize(address(this), smartVault.setAction.selector);
-
-        // Authorize admin
-        smartVault.authorize(params.admin, smartVault.setWallet.selector);
-        smartVault.authorize(params.admin, smartVault.setAction.selector);
-        if (transferPermissions) transferAdminPermissions(smartVault, params.admin);
-    }
-
-    /**
-     * @dev Create a new Wallet instance
-     * @param registry Address of the registry to validate the Wallet implementation against
-     * @param params Params to customize the Wallet to be deployed
-     * @param transferPermissions Whether or not admin permissions on the Wallet should be transfer to the admin right
-     * after creating the Wallet. Sometimes this is not desired if further customization might take in place.
-     */
-    function createWallet(IRegistry registry, WalletParams memory params, bool transferPermissions)
-        external
-        returns (Wallet wallet)
-    {
-        // Clone requested wallet implementation and initialize
-        require(registry.isActive(WALLET_NAMESPACE, params.impl), 'BAD_WALLET_IMPLEMENTATION');
-        bytes memory initializeData = abi.encodeWithSelector(Wallet.initialize.selector, address(this));
-        wallet = Wallet(payable(registry.clone(params.impl, initializeData)));
+        smartVault = SmartVault(payable(registry.clone(params.impl, initializeData)));
 
         // Authorize admin to perform any action except setting the fee collector, see below
-        wallet.authorize(params.admin, wallet.collect.selector);
-        wallet.authorize(params.admin, wallet.withdraw.selector);
-        wallet.authorize(params.admin, wallet.wrap.selector);
-        wallet.authorize(params.admin, wallet.unwrap.selector);
-        wallet.authorize(params.admin, wallet.claim.selector);
-        wallet.authorize(params.admin, wallet.join.selector);
-        wallet.authorize(params.admin, wallet.exit.selector);
-        wallet.authorize(params.admin, wallet.swap.selector);
-        wallet.authorize(params.admin, wallet.setStrategy.selector);
-        wallet.authorize(params.admin, wallet.setPriceFeed.selector);
-        wallet.authorize(params.admin, wallet.setPriceFeeds.selector);
-        wallet.authorize(params.admin, wallet.setPriceOracle.selector);
-        wallet.authorize(params.admin, wallet.setSwapConnector.selector);
-        wallet.authorize(params.admin, wallet.setWithdrawFee.selector);
-        wallet.authorize(params.admin, wallet.setPerformanceFee.selector);
-        wallet.authorize(params.admin, wallet.setSwapFee.selector);
+        smartVault.authorize(params.admin, smartVault.collect.selector);
+        smartVault.authorize(params.admin, smartVault.withdraw.selector);
+        smartVault.authorize(params.admin, smartVault.wrap.selector);
+        smartVault.authorize(params.admin, smartVault.unwrap.selector);
+        smartVault.authorize(params.admin, smartVault.claim.selector);
+        smartVault.authorize(params.admin, smartVault.join.selector);
+        smartVault.authorize(params.admin, smartVault.exit.selector);
+        smartVault.authorize(params.admin, smartVault.swap.selector);
+        smartVault.authorize(params.admin, smartVault.setStrategy.selector);
+        smartVault.authorize(params.admin, smartVault.setPriceFeed.selector);
+        smartVault.authorize(params.admin, smartVault.setPriceFeeds.selector);
+        smartVault.authorize(params.admin, smartVault.setPriceOracle.selector);
+        smartVault.authorize(params.admin, smartVault.setSwapConnector.selector);
+        smartVault.authorize(params.admin, smartVault.setWithdrawFee.selector);
+        smartVault.authorize(params.admin, smartVault.setPerformanceFee.selector);
+        smartVault.authorize(params.admin, smartVault.setSwapFee.selector);
 
         // Set price feeds if any
         if (params.priceFeedParams.length > 0) {
-            wallet.authorize(address(this), wallet.setPriceFeed.selector);
+            smartVault.authorize(address(this), smartVault.setPriceFeed.selector);
             for (uint256 i = 0; i < params.priceFeedParams.length; i = i.uncheckedAdd(1)) {
-                WalletPriceFeedParams memory feedParams = params.priceFeedParams[i];
-                wallet.setPriceFeed(feedParams.base, feedParams.quote, feedParams.feed);
+                PriceFeedParams memory feedParams = params.priceFeedParams[i];
+                smartVault.setPriceFeed(feedParams.base, feedParams.quote, feedParams.feed);
             }
-            wallet.unauthorize(address(this), wallet.setPriceFeed.selector);
+            smartVault.unauthorize(address(this), smartVault.setPriceFeed.selector);
         }
 
         // Set price oracle if given
         if (params.priceOracle != address(0)) {
             require(registry.isActive(PRICE_ORACLE_NAMESPACE, params.priceOracle), 'BAD_PRICE_ORACLE_DEPENDENCY');
-            wallet.authorize(address(this), wallet.setPriceOracle.selector);
-            wallet.setPriceOracle(params.priceOracle);
-            wallet.unauthorize(address(this), wallet.setPriceOracle.selector);
+            smartVault.authorize(address(this), smartVault.setPriceOracle.selector);
+            smartVault.setPriceOracle(params.priceOracle);
+            smartVault.unauthorize(address(this), smartVault.setPriceOracle.selector);
         }
 
         // Set strategies if any
         if (params.strategies.length > 0) {
-            wallet.authorize(address(this), wallet.setStrategy.selector);
+            smartVault.authorize(address(this), smartVault.setStrategy.selector);
             for (uint256 i = 0; i < params.strategies.length; i = i.uncheckedAdd(1)) {
                 require(registry.isActive(STRATEGY_NAMESPACE, params.strategies[i]), 'BAD_STRATEGY_DEPENDENCY');
-                wallet.setStrategy(params.strategies[i], true);
+                smartVault.setStrategy(params.strategies[i], true);
             }
-            wallet.unauthorize(address(this), wallet.setStrategy.selector);
+            smartVault.unauthorize(address(this), smartVault.setStrategy.selector);
         }
 
         // Set swap connector if given
         if (params.swapConnector != address(0)) {
             require(registry.isActive(SWAP_CONNECTOR_NAMESPACE, params.swapConnector), 'BAD_SWAP_CONNECTOR_DEPENDENCY');
-            wallet.authorize(address(this), wallet.setSwapConnector.selector);
-            wallet.setSwapConnector(params.swapConnector);
-            wallet.unauthorize(address(this), wallet.setSwapConnector.selector);
+            smartVault.authorize(address(this), smartVault.setSwapConnector.selector);
+            smartVault.setSwapConnector(params.swapConnector);
+            smartVault.unauthorize(address(this), smartVault.setSwapConnector.selector);
         }
 
         // Set fee collector if given, if not make sure no fee amounts were requested too
         // If there is a fee collector, authorize that address to change it, otherwise authorize the requested admin
         if (params.feeCollector != address(0)) {
-            wallet.authorize(params.feeCollector, wallet.setFeeCollector.selector);
-            wallet.authorize(address(this), wallet.setFeeCollector.selector);
-            wallet.setFeeCollector(params.feeCollector);
-            wallet.unauthorize(address(this), wallet.setFeeCollector.selector);
+            smartVault.authorize(params.feeCollector, smartVault.setFeeCollector.selector);
+            smartVault.authorize(address(this), smartVault.setFeeCollector.selector);
+            smartVault.setFeeCollector(params.feeCollector);
+            smartVault.unauthorize(address(this), smartVault.setFeeCollector.selector);
         } else {
             bool noFees = params.withdrawFee.pct == 0 && params.swapFee.pct == 0 && params.performanceFee.pct == 0;
-            require(noFees, 'WALLET_FEES_WITHOUT_COLLECTOR');
-            wallet.authorize(params.admin, wallet.setFeeCollector.selector);
+            require(noFees, 'SMART_VAULT_FEES_NO_COLLECTOR');
+            smartVault.authorize(params.admin, smartVault.setFeeCollector.selector);
         }
 
         // Set withdraw fee if not zero
-        WalletFeeParams memory withdrawFee = params.withdrawFee;
+        SmartVaultFeeParams memory withdrawFee = params.withdrawFee;
         if (withdrawFee.pct != 0) {
-            wallet.authorize(address(this), wallet.setWithdrawFee.selector);
-            wallet.setWithdrawFee(withdrawFee.pct, withdrawFee.cap, withdrawFee.token, withdrawFee.period);
-            wallet.unauthorize(address(this), wallet.setWithdrawFee.selector);
+            smartVault.authorize(address(this), smartVault.setWithdrawFee.selector);
+            smartVault.setWithdrawFee(withdrawFee.pct, withdrawFee.cap, withdrawFee.token, withdrawFee.period);
+            smartVault.unauthorize(address(this), smartVault.setWithdrawFee.selector);
         }
 
         // Set swap fee if not zero
-        WalletFeeParams memory swapFee = params.swapFee;
+        SmartVaultFeeParams memory swapFee = params.swapFee;
         if (swapFee.pct != 0) {
-            wallet.authorize(address(this), wallet.setSwapFee.selector);
-            wallet.setSwapFee(swapFee.pct, swapFee.cap, swapFee.token, swapFee.period);
-            wallet.unauthorize(address(this), wallet.setSwapFee.selector);
+            smartVault.authorize(address(this), smartVault.setSwapFee.selector);
+            smartVault.setSwapFee(swapFee.pct, swapFee.cap, swapFee.token, swapFee.period);
+            smartVault.unauthorize(address(this), smartVault.setSwapFee.selector);
         }
 
         // Set performance fee if not zero
-        WalletFeeParams memory perfFee = params.performanceFee;
+        SmartVaultFeeParams memory perfFee = params.performanceFee;
         if (perfFee.pct != 0) {
-            wallet.authorize(address(this), wallet.setPerformanceFee.selector);
-            wallet.setPerformanceFee(perfFee.pct, perfFee.cap, perfFee.token, perfFee.period);
-            wallet.unauthorize(address(this), wallet.setPerformanceFee.selector);
+            smartVault.authorize(address(this), smartVault.setPerformanceFee.selector);
+            smartVault.setPerformanceFee(perfFee.pct, perfFee.cap, perfFee.token, perfFee.period);
+            smartVault.unauthorize(address(this), smartVault.setPerformanceFee.selector);
         }
 
-        if (transferPermissions) transferAdminPermissions(wallet, params.admin);
+        if (transferPermissions) transferAdminPermissions(smartVault, params.admin);
     }
 
     /**
      * @dev Set up a base action
      * @param action Base action to be set up
      * @param admin Address that will be granted with admin rights for the Base Action
-     * @param wallet Address of the wallet to be set in the Base Action
+     * @param smartVault Address of the Smart Vault to be set in the Base Action
      */
-    function setupBaseAction(BaseAction action, address admin, address wallet) external {
-        action.authorize(admin, action.setWallet.selector);
-        action.authorize(address(this), action.setWallet.selector);
-        action.setWallet(wallet);
-        action.unauthorize(address(this), action.setWallet.selector);
+    function setupBaseAction(BaseAction action, address admin, address smartVault) external {
+        action.authorize(admin, action.setSmartVault.selector);
+        action.authorize(address(this), action.setSmartVault.selector);
+        action.setSmartVault(smartVault);
+        action.unauthorize(address(this), action.setSmartVault.selector);
     }
 
     /**
