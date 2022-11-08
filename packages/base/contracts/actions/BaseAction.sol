@@ -14,7 +14,7 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-wallet/contracts/IWallet.sol';
+import '@mimic-fi/v2-smart-vault/contracts/ISmartVault.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/BaseAuthorizedImplementation.sol';
 
@@ -22,18 +22,18 @@ import './IAction.sol';
 
 /**
  * @title BaseAction
- * @dev Simple action implementation with a Wallet reference and using the Authorizer mixin
+ * @dev Simple action implementation with a Smart Vault reference and using the Authorizer mixin
  */
 contract BaseAction is IAction, BaseAuthorizedImplementation {
     bytes32 public constant override NAMESPACE = keccak256('ACTION');
 
-    // Mimic Wallet reference
-    IWallet public override wallet;
+    // Smart Vault reference
+    ISmartVault public override smartVault;
 
     /**
-     * @dev Emitted every time a new wallet is set
+     * @dev Emitted every time a new smart vault is set
      */
-    event WalletSet(address indexed wallet);
+    event SmartVaultSet(address indexed smartVault);
 
     /**
      * @dev Creates a new BaseAction
@@ -45,13 +45,13 @@ contract BaseAction is IAction, BaseAuthorizedImplementation {
     }
 
     /**
-     * @dev Sets the Mimic Wallet tied to the Action. Sender must be authorized. It can be set only once.
-     * @param newWallet Address of the wallet to be set
+     * @dev Sets the Smart Vault tied to the Action. Sender must be authorized. It can be set only once.
+     * @param newSmartVault Address of the smart vault to be set
      */
-    function setWallet(address newWallet) external auth {
-        require(address(wallet) == address(0), 'WALLET_ALREADY_SET');
-        _validateDependency(address(wallet), newWallet);
-        wallet = IWallet(newWallet);
-        emit WalletSet(newWallet);
+    function setSmartVault(address newSmartVault) external auth {
+        require(address(smartVault) == address(0), 'SMART_VAULT_ALREADY_SET');
+        _validateStatefulDependency(newSmartVault);
+        smartVault = ISmartVault(newSmartVault);
+        emit SmartVaultSet(newSmartVault);
     }
 }

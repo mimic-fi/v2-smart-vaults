@@ -17,9 +17,5 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   const tx = await deployer.deploy(params)
   const registry = await instanceAt('IRegistry', mimic.Registry)
   const event = await assertIndirectEvent(tx, registry.interface, 'Cloned', { implementation: mimic.SmartVault })
-  const smartVault = await instanceAt('SmartVault', event.args.instance)
-  writeOutput('SmartVault', smartVault.address)
-
-  const wallet = await smartVault.wallet()
-  writeOutput('Wallet', wallet)
+  writeOutput('SmartVault', event.args.instance)
 }

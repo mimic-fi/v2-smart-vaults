@@ -12,11 +12,11 @@ const accounts = {
 }
 
 const mimic = {
-  Deployer: '0x9d085d66dA25A4854Dd769b3780CeAB2cB7CfB94',
-  Registry: '0x089849373fe735FDe9CAb7a7591cc2630919131b',
-  Wallet: '0x24E4A0d5368a1844F621ee00AF9f56d5Bcfc15FF',
-  SmartVault: '0xDe370a1a422d15E045B06E27B184BBd0Debad159',
-  PriceOracle: '0x4c983EE7055048deAD3C3a44a369c5d7E1803467',
+  Deployer: '0xB772E8820aa23DdBABB445380BFD67a10A6047bA',
+  Registry: '0x578D1B18433650a2c0CA5aea6456AE0F5aD465dc',
+  SmartVault: '0xcAAD3df06e9Ccb30e5dD07A79336A50dE1561FB5',
+  PriceOracle: '0x62dcBAf369B3c5371cFDAf169479Aee6B458a6a3',
+  SwapConnector: '0x3a0dd8D2495bCFF8130aAA00A952A7E1D2e86F39',
 }
 
 export default {
@@ -27,18 +27,14 @@ export default {
     smartVaultParams: {
       impl: mimic.SmartVault,
       admin: accounts.owner,
-      walletParams: {
-        impl: mimic.Wallet,
-        admin: accounts.owner,
-        feeCollector: accounts.feeCollector,
-        strategies: [],
-        priceFeedParams: [],
-        priceOracle: mimic.PriceOracle,
-        swapConnector: ZERO_ADDRESS,
-        swapFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-        withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-        performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-      },
+      feeCollector: accounts.feeCollector,
+      strategies: [],
+      priceFeedParams: [],
+      priceOracle: mimic.PriceOracle,
+      swapConnector: ZERO_ADDRESS,
+      swapFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+      withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+      performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
     },
     wrapperActionParams: {
       impl: undefined,

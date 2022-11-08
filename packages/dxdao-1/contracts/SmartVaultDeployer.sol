@@ -14,9 +14,9 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-wallet/contracts/Wallet.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
+import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 
@@ -41,16 +41,15 @@ contract SmartVaultDeployer {
     }
 
     function deploy(Params memory params) external {
-        Wallet wallet = Deployer.createWallet(params.registry, params.smartVaultParams.walletParams, false);
-        IAction wrapper = _setupWrapperAction(wallet, params.wrapperActionParams);
-        Deployer.transferAdminPermissions(wallet, params.smartVaultParams.walletParams.admin);
-        Deployer.createSmartVault(params.registry, params.smartVaultParams, address(wallet), _actions(wrapper), true);
+        SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
+        _setupWrapperAction(smartVault, params.wrapperActionParams);
+        Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
     }
 
-    function _setupWrapperAction(Wallet wallet, WrapperActionParams memory params) internal returns (IAction) {
+    function _setupWrapperAction(SmartVault smartVault, WrapperActionParams memory params) internal returns (IAction) {
         // Create and setup action
         Wrapper wrapper = Wrapper(params.impl);
-        Deployer.setupBaseAction(wrapper, params.admin, address(wallet));
+        Deployer.setupBaseAction(wrapper, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         Deployer.setupActionExecutors(wrapper, executors, wrapper.call.selector);
         Deployer.setupRelayedAction(wrapper, params.admin, params.relayedActionParams);
@@ -58,14 +57,9 @@ contract SmartVaultDeployer {
         Deployer.setupWithdrawalAction(wrapper, params.admin, params.withdrawalActionParams);
         Deployer.transferAdminPermissions(wrapper, params.admin);
 
-        // Authorize action to wrap and withdraw from wallet
-        wallet.authorize(address(wrapper), wallet.wrap.selector);
-        wallet.authorize(address(wrapper), wallet.withdraw.selector);
+        // Authorize action to wrap and withdraw from Smart Vault
+        smartVault.authorize(address(wrapper), smartVault.wrap.selector);
+        smartVault.authorize(address(wrapper), smartVault.withdraw.selector);
         return wrapper;
-    }
-
-    function _actions(IAction action) internal pure returns (address[] memory arr) {
-        arr = new address[](1);
-        arr[0] = address(action);
     }
 }

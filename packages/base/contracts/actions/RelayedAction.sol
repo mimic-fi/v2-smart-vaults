@@ -24,7 +24,7 @@ import './BaseAction.sol';
 /**
  * @title RelayedAction
  * @dev Action that offers a relayed mechanism to allow reimbursing tx costs after execution in any ERC20 token.
- * This type of action at least require having withdraw permissions from the Mimic Wallet tied to it.
+ * This type of action at least require having withdraw permissions from the Smart Vault tied to it.
  */
 abstract contract RelayedAction is BaseAction {
     using FixedPoint for uint256;
@@ -39,7 +39,7 @@ abstract contract RelayedAction is BaseAction {
     // Internal variable used to allow a better developer experience to reimburse tx gas cost
     uint256 internal _initialGas;
 
-    // Allows relaying transactions even if there is not enough balance in the wallet to pay for the tx gas cost
+    // Allows relaying transactions even if there is not enough balance in the Smart Vault to pay for the tx gas cost
     bool public isPermissiveModeActive;
 
     // Gas price limit, if surpassed it wont relay the transaction
@@ -134,33 +134,33 @@ abstract contract RelayedAction is BaseAction {
         uint256 totalCostToken = totalCostNative.mulDown(_getPayingGasTokenPrice(payingToken));
         require(limit == 0 || totalCostToken <= limit, 'TX_COST_ABOVE_LIMIT');
 
-        if (_shouldTryRedeemFromWallet(payingToken, totalCostToken)) {
-            wallet.withdraw(payingToken, totalCostToken, wallet.feeCollector(), REDEEM_GAS_NOTE);
+        if (_shouldTryRedeemFromSmartVault(payingToken, totalCostToken)) {
+            smartVault.withdraw(payingToken, totalCostToken, smartVault.feeCollector(), REDEEM_GAS_NOTE);
         }
 
         delete _initialGas;
     }
 
     /**
-     * @dev Internal function to fetch the paying gas token rate from the wallet's price oracle
+     * @dev Internal function to fetch the paying gas token rate from the Smart Vault's price oracle
      */
     function _getPayingGasTokenPrice(address payingToken) private view returns (uint256) {
-        address wrappedNativeToken = wallet.wrappedNativeToken();
+        address wrappedNativeToken = smartVault.wrappedNativeToken();
         bool isUsingNativeToken = payingToken == Denominations.NATIVE_TOKEN || payingToken == wrappedNativeToken;
-        return isUsingNativeToken ? FixedPoint.ONE : wallet.getPrice(wrappedNativeToken, payingToken);
+        return isUsingNativeToken ? FixedPoint.ONE : smartVault.getPrice(wrappedNativeToken, payingToken);
     }
 
     /**
-     * @dev Internal function to tell if the relayed action should try to redeem the gas cost from the wallet
+     * @dev Internal function to tell if the relayed action should try to redeem the gas cost from the Smart Vault
      * @param token Address of the token to pay the relayed gas cost
      * @param amount Amount of tokens to pay for the relayed gas cost
      */
-    function _shouldTryRedeemFromWallet(address token, uint256 amount) private view returns (bool) {
+    function _shouldTryRedeemFromSmartVault(address token, uint256 amount) private view returns (bool) {
         if (!isPermissiveModeActive) return true;
 
         uint256 balance = (token == Denominations.NATIVE_TOKEN)
-            ? address(wallet).balance
-            : IERC20(token).balanceOf(address(wallet));
+            ? address(smartVault).balance
+            : IERC20(token).balanceOf(address(smartVault));
 
         return balance >= amount;
     }

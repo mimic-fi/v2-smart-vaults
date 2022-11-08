@@ -15,7 +15,7 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('SmartVault', () => {
-  let smartVault: Contract, wallet: Contract, mimic: Mimic
+  let smartVault: Contract, mimic: Mimic
   let withdrawer: Contract, erc20Claimer: Contract, nativeClaimer: Contract, swapFeeSetter: Contract
   let other: SignerWithAddress,
     owner: SignerWithAddress,
@@ -47,18 +47,14 @@ describe('SmartVault', () => {
       smartVaultParams: {
         impl: mimic.smartVault.address,
         admin: owner.address,
-        walletParams: {
-          impl: mimic.wallet.address,
-          admin: owner.address,
-          feeCollector: mimic.admin.address,
-          strategies: [],
-          priceFeedParams: [],
-          priceOracle: mimic.priceOracle.address,
-          swapConnector: mimic.swapConnector.address,
-          swapFee: { pct: fp(0.1), cap: fp(1), token: mimic.wrappedNativeToken.address, period: 60 },
-          withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-          performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-        },
+        feeCollector: mimic.admin.address,
+        strategies: [],
+        priceFeedParams: [],
+        priceOracle: mimic.priceOracle.address,
+        swapConnector: mimic.swapConnector.address,
+        swapFee: { pct: fp(0.1), cap: fp(1), token: mimic.wrappedNativeToken.address, period: 60 },
+        withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+        performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
       },
       withdrawerActionParams: {
         impl: withdrawer.address,
@@ -141,34 +137,11 @@ describe('SmartVault', () => {
     })
 
     smartVault = await instanceAt('SmartVault', args.instance)
-    wallet = await instanceAt('Wallet', await smartVault.wallet())
   })
 
   describe('smart vault', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(smartVault, [
-        { name: 'owner', account: owner, roles: ['authorize', 'unauthorize', 'setWallet', 'setAction'] },
-        { name: 'withdrawer', account: withdrawer, roles: [] },
-        { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
-        { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
-        { name: 'mimic', account: mimic.admin, roles: [] },
-        { name: 'other', account: other, roles: [] },
-        { name: 'managers', account: managers, roles: [] },
-        { name: 'relayers', account: relayers, roles: [] },
-      ])
-    })
-
-    it('whitelists the actions', async () => {
-      expect(await smartVault.isActionWhitelisted(withdrawer.address)).to.be.true
-      expect(await smartVault.isActionWhitelisted(erc20Claimer.address)).to.be.true
-      expect(await smartVault.isActionWhitelisted(nativeClaimer.address)).to.be.true
-      expect(await smartVault.isActionWhitelisted(swapFeeSetter.address)).to.be.true
-    })
-  })
-
-  describe('wallet', () => {
-    it('has set its permissions correctly', async () => {
-      await assertPermissions(wallet, [
         {
           name: 'owner',
           account: owner,
@@ -204,11 +177,11 @@ describe('SmartVault', () => {
     })
 
     it('sets a fee collector', async () => {
-      expect(await wallet.feeCollector()).to.be.equal(mimic.admin.address)
+      expect(await smartVault.feeCollector()).to.be.equal(mimic.admin.address)
     })
 
     it('sets a swap fee', async () => {
-      const swapFee = await wallet.swapFee()
+      const swapFee = await smartVault.swapFee()
 
       expect(swapFee.pct).to.be.equal(fp(0.1))
       expect(swapFee.cap).to.be.equal(fp(1))
@@ -217,7 +190,7 @@ describe('SmartVault', () => {
     })
 
     it('sets no withdraw fee', async () => {
-      const withdrawFee = await wallet.withdrawFee()
+      const withdrawFee = await smartVault.withdrawFee()
 
       expect(withdrawFee.pct).to.be.equal(0)
       expect(withdrawFee.cap).to.be.equal(0)
@@ -226,7 +199,7 @@ describe('SmartVault', () => {
     })
 
     it('sets no performance fee', async () => {
-      const performanceFee = await wallet.performanceFee()
+      const performanceFee = await smartVault.performanceFee()
 
       expect(performanceFee.pct).to.be.equal(0)
       expect(performanceFee.cap).to.be.equal(0)
@@ -235,11 +208,11 @@ describe('SmartVault', () => {
     })
 
     it('sets a price oracle', async () => {
-      expect(await wallet.priceOracle()).to.be.equal(mimic.priceOracle.address)
+      expect(await smartVault.priceOracle()).to.be.equal(mimic.priceOracle.address)
     })
 
     it('sets a swap connector', async () => {
-      expect(await wallet.swapConnector()).to.be.equal(mimic.swapConnector.address)
+      expect(await smartVault.swapConnector()).to.be.equal(mimic.swapConnector.address)
     })
   })
 
@@ -252,7 +225,7 @@ describe('SmartVault', () => {
           roles: [
             'authorize',
             'unauthorize',
-            'setWallet',
+            'setSmartVault',
             'setLimits',
             'setRelayer',
             'setTimeLock',
@@ -271,8 +244,8 @@ describe('SmartVault', () => {
       ])
     })
 
-    it('has the proper wallet set', async () => {
-      expect(await withdrawer.wallet()).to.be.equal(wallet.address)
+    it('has the proper smart vault set', async () => {
+      expect(await withdrawer.smartVault()).to.be.equal(smartVault.address)
     })
 
     it('sets the owner as the recipient', async () => {
@@ -312,7 +285,7 @@ describe('SmartVault', () => {
           roles: [
             'authorize',
             'unauthorize',
-            'setWallet',
+            'setSmartVault',
             'setLimits',
             'setRelayer',
             'setSwapSigner',
@@ -334,8 +307,8 @@ describe('SmartVault', () => {
       ])
     })
 
-    it('has the proper wallet set', async () => {
-      expect(await erc20Claimer.wallet()).to.be.equal(wallet.address)
+    it('has the proper smart vault set', async () => {
+      expect(await erc20Claimer.smartVault()).to.be.equal(smartVault.address)
     })
 
     it('sets the expected fee claimer params', async () => {
@@ -378,7 +351,7 @@ describe('SmartVault', () => {
           roles: [
             'authorize',
             'unauthorize',
-            'setWallet',
+            'setSmartVault',
             'setLimits',
             'setRelayer',
             'setFeeClaimer',
@@ -397,8 +370,8 @@ describe('SmartVault', () => {
       ])
     })
 
-    it('has the proper wallet set', async () => {
-      expect(await nativeClaimer.wallet()).to.be.equal(wallet.address)
+    it('has the proper smart vault set', async () => {
+      expect(await nativeClaimer.smartVault()).to.be.equal(smartVault.address)
     })
 
     it('sets the expected gas limits', async () => {
@@ -435,7 +408,7 @@ describe('SmartVault', () => {
         {
           name: 'owner',
           account: owner,
-          roles: ['authorize', 'unauthorize', 'setWallet', 'setRelayer', 'setLimits', 'setTimeLock', 'call'],
+          roles: ['authorize', 'unauthorize', 'setSmartVault', 'setRelayer', 'setLimits', 'setTimeLock', 'call'],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
@@ -448,8 +421,8 @@ describe('SmartVault', () => {
       ])
     })
 
-    it('has the proper wallet set', async () => {
-      expect(await swapFeeSetter.wallet()).to.be.equal(wallet.address)
+    it('has the proper smart vault set', async () => {
+      expect(await swapFeeSetter.smartVault()).to.be.equal(smartVault.address)
     })
 
     it('sets the expected time-lock', async () => {

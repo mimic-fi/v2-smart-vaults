@@ -18,7 +18,7 @@ import './BaseClaimer.sol';
 
 contract NativeClaimer is BaseClaimer {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 63e3;
+    uint256 public constant override BASE_GAS = 60e3;
 
     constructor(address admin, address registry) BaseClaimer(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
@@ -33,15 +33,15 @@ contract NativeClaimer is BaseClaimer {
     }
 
     function _call(address token) internal {
-        address wrappedNativeToken = wallet.wrappedNativeToken();
+        address wrappedNativeToken = smartVault.wrappedNativeToken();
         require(token == Denominations.NATIVE_TOKEN || token == wrappedNativeToken, 'NATIVE_CLAIMER_INVALID_TOKEN');
 
-        uint256 balance = IFeeClaimer(feeClaimer).getBalance(token, address(wallet));
+        uint256 balance = IFeeClaimer(feeClaimer).getBalance(token, address(smartVault));
         _validateThreshold(wrappedNativeToken, balance);
 
-        bytes memory claimData = abi.encodeWithSelector(IFeeClaimer.withdrawAllERC20.selector, token, wallet);
+        bytes memory claimData = abi.encodeWithSelector(IFeeClaimer.withdrawAllERC20.selector, token, smartVault);
         _claim(claimData);
-        if (token != wrappedNativeToken) wallet.wrap(balance, new bytes(0));
+        if (token != wrappedNativeToken) smartVault.wrap(balance, new bytes(0));
         emit Executed();
     }
 }

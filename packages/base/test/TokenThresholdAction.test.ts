@@ -3,11 +3,11 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { createAction, createWallet, Mimic, setupMimic } from '..'
+import { createAction, createSmartVault, Mimic, setupMimic } from '..'
 import { createPriceFeedMock, createTokenMock } from '../src/samples'
 
 describe('TokenThresholdAction', () => {
-  let action: Contract, wallet: Contract, mimic: Mimic
+  let action: Contract, smartVault: Contract, mimic: Mimic
   let owner: SignerWithAddress, other: SignerWithAddress
 
   before('set up signers', async () => {
@@ -17,8 +17,8 @@ describe('TokenThresholdAction', () => {
 
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
-    wallet = await createWallet(mimic, owner)
-    action = await createAction('TokenThresholdActionMock', mimic, owner, wallet)
+    smartVault = await createSmartVault(mimic, owner)
+    action = await createAction('TokenThresholdActionMock', mimic, owner, smartVault)
   })
 
   describe('setThreshold', () => {
@@ -76,9 +76,9 @@ describe('TokenThresholdAction', () => {
 
     beforeEach('mock price feed', async () => {
       const feed = await createPriceFeedMock(fp(rate))
-      const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
-      await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
-      await wallet.connect(owner).setPriceFeed(token.address, thresholdToken.address, feed.address)
+      const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+      await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+      await smartVault.connect(owner).setPriceFeed(token.address, thresholdToken.address, feed.address)
     })
 
     context('when the given amount is lower than the set limit', () => {

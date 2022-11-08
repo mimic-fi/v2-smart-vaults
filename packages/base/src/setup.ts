@@ -5,7 +5,6 @@ import { Contract } from 'ethers'
 export type Mimic = {
   deployer: Contract
   registry: Contract
-  wallet: Contract
   smartVault: Contract
   priceOracle: Contract
   swapConnector: Contract
@@ -24,7 +23,6 @@ export const MOCKS = {
 
 export const ARTIFACTS = {
   REGISTRY: '@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry',
-  WALLET: '@mimic-fi/v2-wallet/artifacts/contracts/Wallet.sol/Wallet',
   SMART_VAULT: '@mimic-fi/v2-smart-vault/artifacts/contracts/SmartVault.sol/SmartVault',
   PRICE_ORACLE: '@mimic-fi/v2-price-oracle/artifacts/contracts/oracle/PriceOracle.sol/PriceOracle',
   SWAP_CONNECTOR: '@mimic-fi/v2-swap-connector/artifacts/contracts/SwapConnector.sol/SwapConnector',
@@ -41,10 +39,7 @@ export async function setupMimic(mocked: boolean): Promise<Mimic> {
 
   const wrappedNativeToken = await deploy(MOCKS.WRAPPED_NATIVE_TOKEN)
 
-  const wallet = await deploy(ARTIFACTS.WALLET, [wrappedNativeToken.address, registry.address])
-  await registry.connect(admin).register(await wallet.NAMESPACE(), wallet.address, false)
-
-  const smartVault = await deploy(ARTIFACTS.SMART_VAULT, [registry.address])
+  const smartVault = await deploy(ARTIFACTS.SMART_VAULT, [wrappedNativeToken.address, registry.address])
   await registry.connect(admin).register(await smartVault.NAMESPACE(), smartVault.address, false)
 
   const priceOracle = await deploy(ARTIFACTS.PRICE_ORACLE, [wrappedNativeToken.address, registry.address])
@@ -55,5 +50,5 @@ export async function setupMimic(mocked: boolean): Promise<Mimic> {
     : deploy(ARTIFACTS.SWAP_CONNECTOR, [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, registry.address]))
   await registry.connect(admin).register(await swapConnector.NAMESPACE(), swapConnector.address, true)
 
-  return { deployer, registry, wallet, smartVault, priceOracle, swapConnector, wrappedNativeToken, admin }
+  return { deployer, registry, smartVault, priceOracle, swapConnector, wrappedNativeToken, admin }
 }

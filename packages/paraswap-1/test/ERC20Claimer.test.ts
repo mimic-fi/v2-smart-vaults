@@ -16,8 +16,8 @@ import {
   assertRelayedBaseCost,
   createAction,
   createPriceFeedMock,
+  createSmartVault,
   createTokenMock,
-  createWallet,
   Mimic,
   setupMimic,
 } from '@mimic-fi/v2-smart-vaults-base'
@@ -27,7 +27,7 @@ import { BigNumber, Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
 describe('ERC20Claimer', () => {
-  let action: Contract, wallet: Contract, mimic: Mimic, wrappedNativeToken: Contract
+  let action: Contract, smartVault: Contract, mimic: Mimic, wrappedNativeToken: Contract
   let owner: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress, swapSigner: SignerWithAddress
 
   before('set up signers', async () => {
@@ -37,8 +37,8 @@ describe('ERC20Claimer', () => {
 
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
-    wallet = await createWallet(mimic, owner)
-    action = await createAction('ERC20Claimer', mimic, owner, wallet)
+    smartVault = await createSmartVault(mimic, owner)
+    action = await createAction('ERC20Claimer', mimic, owner, smartVault)
     wrappedNativeToken = mimic.wrappedNativeToken
   })
 
@@ -208,18 +208,18 @@ describe('ERC20Claimer', () => {
     const thresholdRate = 2
 
     beforeEach('authorize action', async () => {
-      const callRole = wallet.interface.getSighash('call')
-      await wallet.connect(owner).authorize(action.address, callRole)
-      const swapRole = wallet.interface.getSighash('swap')
-      await wallet.connect(owner).authorize(action.address, swapRole)
-      const withdrawRole = wallet.interface.getSighash('withdraw')
-      await wallet.connect(owner).authorize(action.address, withdrawRole)
+      const callRole = smartVault.interface.getSighash('call')
+      await smartVault.connect(owner).authorize(action.address, callRole)
+      const swapRole = smartVault.interface.getSighash('swap')
+      await smartVault.connect(owner).authorize(action.address, swapRole)
+      const withdrawRole = smartVault.interface.getSighash('withdraw')
+      await smartVault.connect(owner).authorize(action.address, withdrawRole)
     })
 
     beforeEach('set fee collector', async () => {
-      const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
-      await wallet.connect(owner).authorize(owner.address, setFeeCollectorRole)
-      await wallet.connect(owner).setFeeCollector(feeCollector.address)
+      const setFeeCollectorRole = smartVault.interface.getSighash('setFeeCollector')
+      await smartVault.connect(owner).authorize(owner.address, setFeeCollectorRole)
+      await smartVault.connect(owner).setFeeCollector(feeCollector.address)
     })
 
     beforeEach('deploy fee claimer', async () => {
@@ -242,9 +242,9 @@ describe('ERC20Claimer', () => {
       await action.connect(owner).authorize(owner.address, setThresholdRole)
 
       const feed = await createPriceFeedMock(fp(thresholdRate))
-      const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
-      await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
-      await wallet.connect(owner).setPriceFeed(wrappedNativeToken.address, thresholdToken.address, feed.address)
+      const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+      await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+      await smartVault.connect(owner).setPriceFeed(wrappedNativeToken.address, thresholdToken.address, feed.address)
     })
 
     beforeEach('fund fee claimer', async () => {
@@ -252,8 +252,8 @@ describe('ERC20Claimer', () => {
       await token.mint(feeClaimer.address, amountToClaim)
     })
 
-    beforeEach('mint tokens to wallet', async () => {
-      await token.mint(wallet.address, currentBalance)
+    beforeEach('mint tokens to smart vault', async () => {
+      await token.mint(smartVault.address, currentBalance)
     })
 
     context('when the sender is authorized', () => {
@@ -340,10 +340,10 @@ describe('ERC20Claimer', () => {
                         const callData = feeClaimer.interface.encodeFunctionData('withdrawSomeERC20', [
                           token.address,
                           amountToClaim,
-                          wallet.address,
+                          smartVault.address,
                         ])
 
-                        await assertIndirectEvent(tx, wallet.interface, 'Call', {
+                        await assertIndirectEvent(tx, smartVault.interface, 'Call', {
                           target: feeClaimer,
                           callData,
                           value: 0,
@@ -362,7 +362,7 @@ describe('ERC20Claimer', () => {
                           signature
                         )
 
-                        await assertIndirectEvent(tx, wallet.interface, 'Swap', {
+                        await assertIndirectEvent(tx, smartVault.interface, 'Swap', {
                           tokenIn: token,
                           tokenOut: wrappedNativeToken,
                           amountIn,
@@ -372,7 +372,7 @@ describe('ERC20Claimer', () => {
                       })
 
                       it('transfers the token in from the fee claimer to the swap connector', async () => {
-                        const previousWalletBalance = await token.balanceOf(wallet.address)
+                        const previousSmartVaultBalance = await token.balanceOf(smartVault.address)
                         const previousFeeClaimerBalance = await token.balanceOf(feeClaimer.address)
                         const previousDexBalance = await token.balanceOf(await mimic.swapConnector.dex())
 
@@ -386,8 +386,8 @@ describe('ERC20Claimer', () => {
                           signature
                         )
 
-                        const currentWalletBalance = await token.balanceOf(wallet.address)
-                        expect(currentWalletBalance).to.be.eq(previousWalletBalance.sub(currentBalance))
+                        const currentSmartVaultBalance = await token.balanceOf(smartVault.address)
+                        expect(currentSmartVaultBalance).to.be.eq(previousSmartVaultBalance.sub(currentBalance))
 
                         const currentFeeClaimerBalance = await token.balanceOf(feeClaimer.address)
                         expect(currentFeeClaimerBalance).to.be.eq(previousFeeClaimerBalance.sub(amountToClaim))
@@ -396,8 +396,8 @@ describe('ERC20Claimer', () => {
                         expect(currentDexBalance).to.be.eq(previousDexBalance.add(amountIn))
                       })
 
-                      it('transfers the token out from the swap connector to the wallet', async () => {
-                        const previousWalletBalance = await wrappedNativeToken.balanceOf(wallet.address)
+                      it('transfers the token out from the swap connector to the smart vault', async () => {
+                        const previousSmartVaultBalance = await wrappedNativeToken.balanceOf(smartVault.address)
                         const previousFeeClaimerBalance = await wrappedNativeToken.balanceOf(feeClaimer.address)
                         const previousFeeCollectorBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
                         const previousDexBalance = await wrappedNativeToken.balanceOf(await mimic.swapConnector.dex())
@@ -414,8 +414,10 @@ describe('ERC20Claimer', () => {
 
                         const currentFeeCollectorBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
                         const gasPaid = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
-                        const currentWalletBalance = await wrappedNativeToken.balanceOf(wallet.address)
-                        expect(currentWalletBalance).to.be.eq(previousWalletBalance.add(minAmountOut).sub(gasPaid))
+                        const currentSmartVaultBalance = await wrappedNativeToken.balanceOf(smartVault.address)
+                        expect(currentSmartVaultBalance).to.be.eq(
+                          previousSmartVaultBalance.add(minAmountOut).sub(gasPaid)
+                        )
 
                         const currentFeeClaimerBalance = await wrappedNativeToken.balanceOf(feeClaimer.address)
                         expect(currentFeeClaimerBalance).to.be.eq(previousFeeClaimerBalance)
@@ -531,9 +533,9 @@ describe('ERC20Claimer', () => {
                 })
 
                 if (refunds) {
-                  beforeEach('fund wallet to redeem relayed tx', async () => {
+                  beforeEach('fund smart vault to redeem relayed tx', async () => {
                     await wrappedNativeToken.connect(owner).deposit({ value: fp(1) })
-                    await wrappedNativeToken.connect(owner).transfer(wallet.address, fp(1))
+                    await wrappedNativeToken.connect(owner).transfer(smartVault.address, fp(1))
                   })
                 }
 
@@ -548,10 +550,10 @@ describe('ERC20Claimer', () => {
                     const callData = feeClaimer.interface.encodeFunctionData('withdrawSomeERC20', [
                       token.address,
                       amountToClaim,
-                      wallet.address,
+                      smartVault.address,
                     ])
 
-                    await assertIndirectEvent(tx, wallet.interface, 'Call', {
+                    await assertIndirectEvent(tx, smartVault.interface, 'Call', {
                       target: feeClaimer,
                       callData,
                       value: 0,
@@ -561,7 +563,7 @@ describe('ERC20Claimer', () => {
 
                   it('does not call swap primitive', async () => {
                     const tx = await action.call(token.address, amountToClaim, minAmountOut, 0, 0, '0x', '0x')
-                    await assertNoIndirectEvent(tx, wallet.interface, 'Swap')
+                    await assertNoIndirectEvent(tx, smartVault.interface, 'Swap')
                   })
 
                   it('emits an Executed event', async () => {

@@ -9,7 +9,7 @@ const WETH = '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6'
 
 describe('Registry', () => {
   let registry: Contract, admin: SignerWithAddress
-  let smartVault: Contract, wallet: Contract, priceOracle: Contract, swapConnector: Contract
+  let smartVault: Contract, priceOracle: Contract, swapConnector: Contract
 
   before('impersonate admin', async () => {
     const input = await deployment.readInput(getForkedNetwork(hre))
@@ -19,7 +19,6 @@ describe('Registry', () => {
   before('deploy smart vault', async () => {
     const output = await deployment.deploy(getForkedNetwork(hre), 'test')
     registry = await instanceAt('IRegistry', output.Registry)
-    wallet = await instanceAt('IWallet', output.Wallet)
     smartVault = await instanceAt('ISmartVault', output.SmartVault)
     priceOracle = await instanceAt('IPriceOracle', output.PriceOracle)
     swapConnector = await instanceAt('ISwapConnector', output.SwapConnector)
@@ -39,22 +38,13 @@ describe('Registry', () => {
     expect(await registry.isAuthorized(admin.address, unauthorizeRole)).to.be.true
   })
 
-  it('registers the wallet correctly', async () => {
-    const data = await registry.implementationData(wallet.address)
-    expect(data.stateless).to.be.false
-    expect(data.deprecated).to.be.false
-    expect(data.namespace).to.be.equal(await wallet.NAMESPACE())
-
-    expect(await wallet.wrappedNativeToken()).to.be.equal(WETH)
-    expect(await wallet.registry()).to.be.equal(registry.address)
-  })
-
   it('registers the smart vault correctly', async () => {
     const data = await registry.implementationData(smartVault.address)
     expect(data.stateless).to.be.false
     expect(data.deprecated).to.be.false
     expect(data.namespace).to.be.equal(await smartVault.NAMESPACE())
 
+    expect(await smartVault.wrappedNativeToken()).to.be.equal(WETH)
     expect(await smartVault.registry()).to.be.equal(registry.address)
   })
 

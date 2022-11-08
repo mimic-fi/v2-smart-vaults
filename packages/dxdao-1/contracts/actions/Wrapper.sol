@@ -32,7 +32,7 @@ contract Wrapper is BaseAction, TokenThresholdAction, RelayedAction, WithdrawalA
 
     function call() external auth {
         isRelayer[msg.sender] ? _relayedCall() : _call();
-        _withdraw(wallet.wrappedNativeToken());
+        _withdraw(smartVault.wrappedNativeToken());
     }
 
     function _relayedCall() internal redeemGas {
@@ -40,9 +40,9 @@ contract Wrapper is BaseAction, TokenThresholdAction, RelayedAction, WithdrawalA
     }
 
     function _call() internal {
-        uint256 balance = address(wallet).balance;
-        _validateThreshold(wallet.wrappedNativeToken(), balance);
-        wallet.wrap(balance, new bytes(0));
+        uint256 balance = address(smartVault).balance;
+        _validateThreshold(smartVault.wrappedNativeToken(), balance);
+        smartVault.wrap(balance, new bytes(0));
         emit Executed();
     }
 }

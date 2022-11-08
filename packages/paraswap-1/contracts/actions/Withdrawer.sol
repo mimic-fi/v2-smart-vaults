@@ -29,7 +29,7 @@ contract Withdrawer is BaseAction, RelayedAction, TimeLockedAction, WithdrawalAc
 
     function call() external auth {
         isRelayer[msg.sender] ? _relayedCall() : _call();
-        _withdraw(wallet.wrappedNativeToken());
+        _withdraw(smartVault.wrappedNativeToken());
     }
 
     function _relayedCall() internal redeemGas {

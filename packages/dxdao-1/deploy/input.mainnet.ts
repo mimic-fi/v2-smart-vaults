@@ -16,7 +16,6 @@ const accounts = {
 const mimic = {
   Deployer: undefined,
   Registry: undefined,
-  Wallet: undefined,
   SmartVault: undefined,
   PriceOracle: undefined,
 }
@@ -29,18 +28,14 @@ export default {
     smartVaultParams: {
       impl: mimic.SmartVault,
       admin: accounts.owner,
-      walletParams: {
-        impl: mimic.Wallet,
-        admin: accounts.owner,
-        feeCollector: accounts.feeCollector,
-        strategies: [],
-        priceFeedParams: [{ base: USDC, quote: WETH, feed: CHAINLINK_ORACLE_USDC_ETH }],
-        priceOracle: mimic.PriceOracle,
-        swapConnector: ZERO_ADDRESS,
-        swapFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-        withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-        performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-      },
+      feeCollector: accounts.feeCollector,
+      strategies: [],
+      priceFeedParams: [{ base: USDC, quote: WETH, feed: CHAINLINK_ORACLE_USDC_ETH }],
+      priceOracle: mimic.PriceOracle,
+      swapConnector: ZERO_ADDRESS,
+      swapFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+      withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+      performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
     },
     wrapperActionParams: {
       impl: undefined,

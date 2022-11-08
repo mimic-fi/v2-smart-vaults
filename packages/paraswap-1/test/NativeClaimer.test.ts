@@ -12,8 +12,8 @@ import {
   assertRelayedBaseCost,
   createAction,
   createPriceFeedMock,
+  createSmartVault,
   createTokenMock,
-  createWallet,
   Mimic,
   setupMimic,
 } from '@mimic-fi/v2-smart-vaults-base'
@@ -22,7 +22,7 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('NativeClaimer', () => {
-  let action: Contract, wallet: Contract, mimic: Mimic
+  let action: Contract, smartVault: Contract, mimic: Mimic
   let owner: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
 
   before('set up signers', async () => {
@@ -32,8 +32,8 @@ describe('NativeClaimer', () => {
 
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
-    wallet = await createWallet(mimic, owner)
-    action = await createAction('NativeClaimer', mimic, owner, wallet)
+    smartVault = await createSmartVault(mimic, owner)
+    action = await createAction('NativeClaimer', mimic, owner, smartVault)
   })
 
   describe('setFeeClaimer', () => {
@@ -74,18 +74,18 @@ describe('NativeClaimer', () => {
     const thresholdRate = 2
 
     beforeEach('authorize action', async () => {
-      const callRole = wallet.interface.getSighash('call')
-      await wallet.connect(owner).authorize(action.address, callRole)
-      const wrapRole = wallet.interface.getSighash('wrap')
-      await wallet.connect(owner).authorize(action.address, wrapRole)
-      const withdrawRole = wallet.interface.getSighash('withdraw')
-      await wallet.connect(owner).authorize(action.address, withdrawRole)
+      const callRole = smartVault.interface.getSighash('call')
+      await smartVault.connect(owner).authorize(action.address, callRole)
+      const wrapRole = smartVault.interface.getSighash('wrap')
+      await smartVault.connect(owner).authorize(action.address, wrapRole)
+      const withdrawRole = smartVault.interface.getSighash('withdraw')
+      await smartVault.connect(owner).authorize(action.address, withdrawRole)
     })
 
     beforeEach('set fee collector', async () => {
-      const setFeeCollectorRole = wallet.interface.getSighash('setFeeCollector')
-      await wallet.connect(owner).authorize(owner.address, setFeeCollectorRole)
-      await wallet.connect(owner).setFeeCollector(feeCollector.address)
+      const setFeeCollectorRole = smartVault.interface.getSighash('setFeeCollector')
+      await smartVault.connect(owner).authorize(owner.address, setFeeCollectorRole)
+      await smartVault.connect(owner).setFeeCollector(feeCollector.address)
     })
 
     beforeEach('deploy fee claimer', async () => {
@@ -101,9 +101,9 @@ describe('NativeClaimer', () => {
       await action.connect(owner).authorize(owner.address, setThresholdRole)
 
       const feed = await createPriceFeedMock(fp(thresholdRate))
-      const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
-      await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
-      await wallet.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, thresholdToken, feed.address)
+      const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+      await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+      await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, thresholdToken, feed.address)
     })
 
     context('when the sender is authorized', () => {
@@ -118,8 +118,8 @@ describe('NativeClaimer', () => {
           it('calls the call primitive', async () => {
             const tx = await action.call(token)
 
-            const callData = feeClaimer.interface.encodeFunctionData('withdrawAllERC20', [token, wallet.address])
-            await assertIndirectEvent(tx, wallet.interface, 'Call', {
+            const callData = feeClaimer.interface.encodeFunctionData('withdrawAllERC20', [token, smartVault.address])
+            await assertIndirectEvent(tx, smartVault.interface, 'Call', {
               target: feeClaimer,
               callData,
               value: 0,
@@ -176,7 +176,7 @@ describe('NativeClaimer', () => {
               it('calls the wrap primitive', async () => {
                 const tx = await action.call(token)
 
-                await assertIndirectEvent(tx, wallet.interface, 'Wrap', { wrapped: balance, data: '0x' })
+                await assertIndirectEvent(tx, smartVault.interface, 'Wrap', { wrapped: balance, data: '0x' })
               })
             })
 
@@ -210,9 +210,9 @@ describe('NativeClaimer', () => {
           beforeEach('set token', async () => {
             token = mimic.wrappedNativeToken.address
             const feed = await createPriceFeedMock(fp(2))
-            const setPriceFeedRole = wallet.interface.getSighash('setPriceFeed')
-            await wallet.connect(owner).authorize(owner.address, setPriceFeedRole)
-            await wallet.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, thresholdToken, feed.address)
+            const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+            await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+            await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, thresholdToken, feed.address)
           })
 
           beforeEach('fund fee claimer', async () => {
@@ -239,7 +239,7 @@ describe('NativeClaimer', () => {
               it('does not call the wrap primitive', async () => {
                 const tx = await action.call(token)
 
-                await assertNoIndirectEvent(tx, wallet.interface, 'Wrap')
+                await assertNoIndirectEvent(tx, smartVault.interface, 'Wrap')
               })
             })
 
