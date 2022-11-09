@@ -12,11 +12,11 @@ const accounts = {
 }
 
 const mimic = {
-  Deployer: '0xB772E8820aa23DdBABB445380BFD67a10A6047bA',
-  Registry: '0x578D1B18433650a2c0CA5aea6456AE0F5aD465dc',
-  SmartVault: '0xcAAD3df06e9Ccb30e5dD07A79336A50dE1561FB5',
-  PriceOracle: '0x62dcBAf369B3c5371cFDAf169479Aee6B458a6a3',
-  SwapConnector: '0x3a0dd8D2495bCFF8130aAA00A952A7E1D2e86F39',
+  Deployer: '0xaFeEc1db69e67a151bB9faA0DEf16aF01e9d2875',
+  Registry: '0x5aaE001Ffb7a2982f01D17C0daAe9A1D67b5a2d3',
+  SmartVault: '0x8FA8ff7457d7641358B94eD1069f9A3Da8650D68',
+  PriceOracle: '0x712a6cF347d91227dcaD9796D43f1AeA8B675de2',
+  SwapConnector: '0x1B2Cf71fec3ECF8B8e99093842B82ae2E5385072',
 }
 
 export default {
