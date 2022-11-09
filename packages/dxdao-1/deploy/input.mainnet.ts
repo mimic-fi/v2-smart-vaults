@@ -18,9 +18,11 @@ const mimic = {
   Registry: undefined,
   SmartVault: undefined,
   PriceOracle: undefined,
+  Create3Factory: undefined,
 }
 
 export default {
+  namespace: 'mimic-v2.dxdao-sv1',
   accounts,
   mimic,
   params: {

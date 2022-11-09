@@ -1,4 +1,5 @@
-import { assertIndirectEvent, deploy, instanceAt } from '@mimic-fi/v2-helpers'
+import { assertIndirectEvent, instanceAt } from '@mimic-fi/v2-helpers'
+import { ARTIFACTS, deployment } from '@mimic-fi/v2-smart-vaults-base'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
@@ -7,10 +8,16 @@ import { assertIndirectEvent, deploy, instanceAt } from '@mimic-fi/v2-helpers'
 export default async (input: any, writeOutput: (key: string, value: string) => void): Promise<void> => {
   const { params, mimic } = input
 
-  const deployer = await deploy('SmartVaultDeployer', [], undefined, { Deployer: mimic.Deployer })
+  const create3Factory = await instanceAt(ARTIFACTS.CREATE3_FACTORY, mimic.Create3Factory)
+  const deployer = await deployment.create3(input.namespace, create3Factory, 'SmartVaultDeployer', [], undefined, {
+    Deployer: mimic.Deployer,
+  })
   writeOutput('Deployer', deployer.address)
 
-  const wrapper = await deploy('Wrapper', [deployer.address, mimic.Registry])
+  const wrapper = await deployment.create3(input.namespace, create3Factory, 'Wrapper', [
+    deployer.address,
+    mimic.Registry,
+  ])
   writeOutput('Wrapper', wrapper.address)
   params.wrapperActionParams.impl = wrapper.address
 
