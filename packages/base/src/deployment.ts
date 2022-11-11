@@ -1,3 +1,6 @@
+import { getCreationCode, getSigner, instanceAt, Libraries } from '@mimic-fi/v2-helpers'
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
+import { Contract, ethers } from 'ethers'
 import fs from 'fs'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import path from 'path'
@@ -24,6 +27,21 @@ export async function deploy(
   const input = readInput(network, rootDir)
   await script(input, writeOutput(outputFileName, rootDir))
   return readOutput(outputFileName, rootDir)
+}
+
+export async function create3(
+  namespace: string,
+  create3Factory: Contract,
+  contractName: string,
+  args: Array<any> = [],
+  from?: SignerWithAddress,
+  libraries?: Libraries
+): Promise<Contract> {
+  if (!from) from = await getSigner()
+  const creationCode = getCreationCode(contractName, args, libraries)
+  const salt = ethers.utils.solidityKeccak256(['string'], [`${namespace}.${contractName}`])
+  await (await create3Factory.connect(from).create3(salt, creationCode)).wait()
+  return instanceAt(contractName, await create3Factory.addressOf(salt))
 }
 
 export function readInput(network: string, rootDir?: string): { [key: string]: any } {

@@ -1,4 +1,5 @@
-import { assertIndirectEvent, deploy, instanceAt } from '@mimic-fi/v2-helpers'
+import { assertIndirectEvent, instanceAt } from '@mimic-fi/v2-helpers'
+import { ARTIFACTS, deployment } from '@mimic-fi/v2-smart-vaults-base'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
@@ -7,28 +8,43 @@ import { assertIndirectEvent, deploy, instanceAt } from '@mimic-fi/v2-helpers'
 export default async (input: any, writeOutput: (key: string, value: string) => void): Promise<void> => {
   const { params, mimic } = input
 
-  const deployer = await deploy('SmartVaultDeployer', [], undefined, { Deployer: mimic.Deployer })
+  const create3Factory = await instanceAt(ARTIFACTS.CREATE3_FACTORY, mimic.Create3Factory)
+  const deployer = await deployment.create3(input.namespace, create3Factory, 'SmartVaultDeployer', [], undefined, {
+    Deployer: mimic.Deployer,
+  })
   writeOutput('Deployer', deployer.address)
 
   const feeClaimer = input.accounts.feeClaimer
     ? await instanceAt('IFeeClaimer', input.accounts.feeClaimer)
-    : await deploy('FeeClaimerMock')
+    : await deployment.create3(input.namespace, create3Factory, 'FeeClaimerMock')
 
-  const erc20Claimer = await deploy('ERC20Claimer', [deployer.address, mimic.Registry])
+  const erc20Claimer = await deployment.create3(input.namespace, create3Factory, 'ERC20Claimer', [
+    deployer.address,
+    mimic.Registry,
+  ])
   writeOutput('ERC20Claimer', erc20Claimer.address)
   params.erc20ClaimerActionParams.impl = erc20Claimer.address
   params.erc20ClaimerActionParams.feeClaimerParams.feeClaimer = feeClaimer.address
 
-  const nativeClaimer = await deploy('NativeClaimer', [deployer.address, mimic.Registry])
+  const nativeClaimer = await deployment.create3(input.namespace, create3Factory, 'NativeClaimer', [
+    deployer.address,
+    mimic.Registry,
+  ])
   writeOutput('NativeClaimer', nativeClaimer.address)
   params.nativeClaimerActionParams.impl = nativeClaimer.address
   params.nativeClaimerActionParams.feeClaimerParams.feeClaimer = feeClaimer.address
 
-  const withdrawer = await deploy('Withdrawer', [deployer.address, mimic.Registry])
+  const withdrawer = await deployment.create3(input.namespace, create3Factory, 'Withdrawer', [
+    deployer.address,
+    mimic.Registry,
+  ])
   writeOutput('Withdrawer', withdrawer.address)
   params.withdrawerActionParams.impl = withdrawer.address
 
-  const swapFeeSetter = await deploy('SwapFeeSetter', [deployer.address, mimic.Registry])
+  const swapFeeSetter = await deployment.create3(input.namespace, create3Factory, 'SwapFeeSetter', [
+    deployer.address,
+    mimic.Registry,
+  ])
   writeOutput('SwapFeeSetter', swapFeeSetter.address)
   params.swapFeeSetterActionParams.impl = swapFeeSetter.address
 

@@ -21,9 +21,11 @@ const mimic = {
   SmartVault: undefined,
   PriceOracle: undefined,
   SwapConnector: undefined,
+  Create3Factory: undefined,
 }
 
 export default {
+  namespace: 'mimic-v2.paraswap-sv1',
   accounts,
   mimic,
   params: {

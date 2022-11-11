@@ -1,5 +1,6 @@
 import { deploy, getSigner } from '@mimic-fi/v2-helpers'
 
+import { create3 } from '../src/deployment'
 import { ARTIFACTS } from '../src/setup'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -7,22 +8,29 @@ import { ARTIFACTS } from '../src/setup'
 /* eslint-disable no-unused-vars */
 
 export default async (input: any, writeOutput: (key: string, value: string) => void): Promise<void> => {
-  const deployer = await deploy('Deployer')
+  const admin = await getSigner(input.admin)
+  const create3Factory = await deploy(ARTIFACTS.CREATE3_FACTORY)
+  writeOutput('Create3Factory', create3Factory.address)
+
+  const deployer = await create3(input.namespace, create3Factory, ARTIFACTS.DEPLOYER)
   writeOutput('Deployer', deployer.address)
 
-  const admin = await getSigner(input.admin)
-  const registry = await deploy(ARTIFACTS.REGISTRY, [admin.address])
+  const registry = await create3(input.namespace, create3Factory, ARTIFACTS.REGISTRY, [admin.address])
   writeOutput('Registry', registry.address)
 
+  // TODO: Smart Vault implementation does not fit due to block gas limit
   const smartVault = await deploy(ARTIFACTS.SMART_VAULT, [input.wrappedNativeToken, registry.address])
   await registry.connect(admin).register(await smartVault.NAMESPACE(), smartVault.address, false)
   writeOutput('SmartVault', smartVault.address)
 
-  const priceOracle = await deploy(ARTIFACTS.PRICE_ORACLE, [input.wrappedNativeToken, registry.address])
+  const priceOracle = await create3(input.namespace, create3Factory, ARTIFACTS.PRICE_ORACLE, [
+    input.wrappedNativeToken,
+    registry.address,
+  ])
   await registry.connect(admin).register(await priceOracle.NAMESPACE(), priceOracle.address, true)
   writeOutput('PriceOracle', priceOracle.address)
 
-  const swapConnector = await deploy(ARTIFACTS.SWAP_CONNECTOR, [
+  const swapConnector = await create3(input.namespace, create3Factory, ARTIFACTS.SWAP_CONNECTOR, [
     input.uniswapV3Router,
     input.uniswapV2Router,
     input.balancerV2Vault,
