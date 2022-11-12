@@ -16,12 +16,12 @@ const accounts = {
 }
 
 const mimic = {
-  Deployer: undefined,
-  Registry: undefined,
-  SmartVault: undefined,
-  PriceOracle: undefined,
-  SwapConnector: undefined,
-  Create3Factory: undefined,
+  Deployer: '0xc744f93c24BbA10080C7cF3C23eE6D50ef6DA37A',
+  Registry: '0x53D627B1a2993139b32d5dF209A94498d691f21A',
+  SmartVault: '0xee9ed4171C011eAaA2C17051081e3ce62E9e8D7e',
+  PriceOracle: '0x80d62Efd16386582422391bd7eFDb8398a5B7996',
+  SwapConnector: '0x4b50DDdF7B29287d5CD73BA6D57C33131D16a73f',
+  Create3Factory: '0x440c0e5F3bed5D9eB2e7Ba620225d86548c29D08',
 }
 
 export default {
@@ -51,7 +51,7 @@ export default {
       },
       relayedActionParams: {
         relayers: accounts.relayers,
-        gasPriceLimit: bn(100e9),
+        gasPriceLimit: bn(50e9),
         totalCostLimit: 0,
         payingGasToken: WETH,
       },
@@ -74,7 +74,7 @@ export default {
         },
         relayedActionParams: {
           relayers: accounts.relayers,
-          gasPriceLimit: bn(100e9),
+          gasPriceLimit: bn(50e9),
           totalCostLimit: 0,
           payingGasToken: WETH,
         },
@@ -92,7 +92,7 @@ export default {
         },
         relayedActionParams: {
           relayers: accounts.relayers,
-          gasPriceLimit: bn(100e9),
+          gasPriceLimit: bn(50e9),
           totalCostLimit: 0,
           payingGasToken: WETH,
         },
@@ -110,7 +110,7 @@ export default {
       ],
       relayedActionParams: {
         relayers: accounts.relayers,
-        gasPriceLimit: bn(100e9),
+        gasPriceLimit: bn(50e9),
         totalCostLimit: 0,
         payingGasToken: WETH,
       },

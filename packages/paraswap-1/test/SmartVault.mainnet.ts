@@ -19,7 +19,6 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import hre from 'hardhat'
-import path from 'path'
 
 /* eslint-disable no-secrets/no-secrets */
 
@@ -32,42 +31,24 @@ describe('SmartVault', () => {
   let withdrawer: Contract, erc20Claimer: Contract, nativeClaimer: Contract, swapFeeSetter: Contract
   let owner: string, swapSigner: string, relayers: string[], managers: string[], feeCollector: string
 
-  before('deploy mimic', async () => {
-    // TODO: this should be read from input once Mimic is deployed
-    const baseDir = path.join(process.cwd(), '../base')
-    const input = await deployment.readInput(getForkedNetwork(hre), baseDir)
-    await impersonate(input.admin, fp(100))
-    mimic = await deployment.deploy(getForkedNetwork(hre), 'test', baseDir)
-  })
-
   before('load accounts', async () => {
     const input = await deployment.readInput(getForkedNetwork(hre))
+    mimic = input.mimic
     owner = input.accounts.owner
     relayers = input.accounts.relayers
     managers = input.accounts.managers
     swapSigner = input.accounts.swapSigner
     feeCollector = input.accounts.feeCollector
-    feeClaimer = await instanceAt('IFeeClaimer', input.accounts.feeClaimer)
   })
 
   before('deploy smart vault', async () => {
-    // TODO: this should be executed directly using the deployment script once Mimic is deployed
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const script = require('../deploy/index.ts').default
-    const input = deployment.readInput(getForkedNetwork(hre))
-    input.mimic = mimic
-    input.params.registry = mimic.Registry
-    input.params.smartVaultParams.impl = mimic.SmartVault
-    input.params.smartVaultParams.priceOracle = mimic.PriceOracle
-    input.params.smartVaultParams.swapConnector = mimic.SwapConnector
-    await script(input, deployment.writeOutput('test'))
-    const output = deployment.readOutput('test')
-
+    const output = await deployment.deploy(getForkedNetwork(hre), 'test')
     smartVault = await instanceAt('SmartVault', output.SmartVault)
     withdrawer = await instanceAt('Withdrawer', output.Withdrawer)
     erc20Claimer = await instanceAt('ERC20Claimer', output.ERC20Claimer)
     nativeClaimer = await instanceAt('NativeClaimer', output.NativeClaimer)
     swapFeeSetter = await instanceAt('SwapFeeSetter', output.SwapFeeSetter)
+    feeClaimer = await instanceAt('IFeeClaimer', await nativeClaimer.feeClaimer())
   })
 
   describe('smart vault', () => {
@@ -195,7 +176,7 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected gas limits', async () => {
-      expect(await withdrawer.gasPriceLimit()).to.be.equal(bn(100e9))
+      expect(await withdrawer.gasPriceLimit()).to.be.equal(bn(50e9))
       expect(await withdrawer.totalCostLimit()).to.be.equal(0)
       expect(await withdrawer.payingGasToken()).to.be.equal(WETH)
     })
@@ -259,7 +240,7 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected gas limits', async () => {
-      expect(await erc20Claimer.gasPriceLimit()).to.be.equal(bn(100e9))
+      expect(await erc20Claimer.gasPriceLimit()).to.be.equal(bn(50e9))
       expect(await erc20Claimer.totalCostLimit()).to.be.equal(0)
       expect(await erc20Claimer.payingGasToken()).to.be.equal(WETH)
     })
@@ -348,7 +329,7 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected gas limits', async () => {
-      expect(await nativeClaimer.gasPriceLimit()).to.be.equal(bn(100e9))
+      expect(await nativeClaimer.gasPriceLimit()).to.be.equal(bn(50e9))
       expect(await nativeClaimer.totalCostLimit()).to.be.equal(0)
       expect(await nativeClaimer.payingGasToken()).to.be.equal(WETH)
     })
@@ -458,7 +439,7 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected gas limits', async () => {
-      expect(await swapFeeSetter.gasPriceLimit()).to.be.equal(bn(100e9))
+      expect(await swapFeeSetter.gasPriceLimit()).to.be.equal(bn(50e9))
       expect(await swapFeeSetter.totalCostLimit()).to.be.equal(0)
       expect(await swapFeeSetter.payingGasToken()).to.be.equal(WETH)
     })
