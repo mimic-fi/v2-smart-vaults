@@ -36,12 +36,12 @@ contract NativeClaimer is BaseClaimer {
         address wrappedNativeToken = smartVault.wrappedNativeToken();
         require(token == Denominations.NATIVE_TOKEN || token == wrappedNativeToken, 'NATIVE_CLAIMER_INVALID_TOKEN');
 
-        uint256 balance = IFeeClaimer(feeClaimer).getBalance(token, address(smartVault));
-        _validateThreshold(wrappedNativeToken, balance);
+        uint256 amountToClaim = IFeeClaimer(feeClaimer).getBalance(token, address(smartVault));
+        _validateThreshold(wrappedNativeToken, amountToClaim);
 
         bytes memory claimData = abi.encodeWithSelector(IFeeClaimer.withdrawAllERC20.selector, token, smartVault);
         _claim(claimData);
-        if (token != wrappedNativeToken) smartVault.wrap(balance, new bytes(0));
+        if (token != wrappedNativeToken) smartVault.wrap(address(smartVault).balance, new bytes(0));
         emit Executed();
     }
 }

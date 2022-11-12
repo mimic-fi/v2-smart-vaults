@@ -39,6 +39,18 @@ abstract contract BaseClaimer is BaseAction, TokenThresholdAction, RelayedAction
         emit FeeClaimerSet(newFeeClaimer);
     }
 
+    function claimableBalance(address token) public view returns (uint256) {
+        return IFeeClaimer(feeClaimer).getBalance(token, address(smartVault));
+    }
+
+    function totalBalance(address token) external view returns (uint256) {
+        uint256 feeClaimerBalance = claimableBalance(token);
+        uint256 smartVaultBalance = (token == Denominations.NATIVE_TOKEN)
+            ? address(smartVault).balance
+            : IERC20(token).balanceOf(address(smartVault));
+        return feeClaimerBalance + smartVaultBalance;
+    }
+
     function _claim(bytes memory withdrawData) internal {
         bytes memory withdrawResponse = smartVault.call(feeClaimer, withdrawData, 0, new bytes(0));
         require(abi.decode(withdrawResponse, (bool)), 'FEE_CLAIMER_WITHDRAW_FAILED');
