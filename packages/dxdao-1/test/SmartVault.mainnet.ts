@@ -3,7 +3,6 @@ import { assertPermissions, deployment } from '@mimic-fi/v2-smart-vaults-base'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import hre, { ethers } from 'hardhat'
-import path from 'path'
 
 /* eslint-disable no-secrets/no-secrets */
 
@@ -14,16 +13,9 @@ describe('SmartVault', () => {
   let smartVault: Contract, wrapper: Contract, registry: Contract
   let owner: string, relayers: string[], managers: string[], feeCollector: string, mimic: { [key: string]: string }
 
-  before('deploy mimic', async () => {
-    // TODO: this should be read from input once Mimic is deployed
-    const baseDir = path.join(process.cwd(), '../base')
-    const input = await deployment.readInput(getForkedNetwork(hre), baseDir)
-    await impersonate(input.admin, fp(100))
-    mimic = await deployment.deploy(getForkedNetwork(hre), 'test', baseDir)
-  })
-
   before('load accounts', async () => {
     const input = await deployment.readInput(getForkedNetwork(hre))
+    mimic = input.mimic
     owner = input.accounts.owner
     relayers = input.accounts.relayers
     managers = input.accounts.managers
@@ -32,17 +24,7 @@ describe('SmartVault', () => {
   })
 
   before('deploy smart vault', async () => {
-    // TODO: this should be executed directly using the deployment script once Mimic is deployed
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const script = require('../deploy/index.ts').default
-    const input = deployment.readInput(getForkedNetwork(hre))
-    input.mimic = mimic
-    input.params.registry = mimic.Registry
-    input.params.smartVaultParams.impl = mimic.SmartVault
-    input.params.smartVaultParams.priceOracle = mimic.PriceOracle
-    await script(input, deployment.writeOutput('test'))
-    const { Wrapper, SmartVault } = deployment.readOutput('test')
-
+    const { Wrapper, SmartVault } = await deployment.deploy(getForkedNetwork(hre), 'test')
     wrapper = await instanceAt('Wrapper', Wrapper)
     smartVault = await instanceAt('SmartVault', SmartVault)
   })
@@ -126,7 +108,7 @@ describe('SmartVault', () => {
 
     it('sets a price feed for WETH-USDC', async () => {
       expect(await smartVault.getPriceFeed(USDC, WETH)).not.to.be.equal(ZERO_ADDRESS)
-      expect(await smartVault.getPrice(WETH, USDC)).to.be.gt(bn(1300e6))
+      expect(await smartVault.getPrice(WETH, USDC)).to.be.gt(bn(1200e6))
     })
   })
 
@@ -168,7 +150,7 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected gas limits', async () => {
-      expect(await wrapper.gasPriceLimit()).to.be.equal(bn(100e9))
+      expect(await wrapper.gasPriceLimit()).to.be.equal(bn(50e9))
       expect(await wrapper.totalCostLimit()).to.be.equal(0)
       expect(await wrapper.payingGasToken()).to.be.equal(WETH)
     })

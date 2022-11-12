@@ -8,17 +8,17 @@ const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
 
 const accounts = {
   owner: '0x519b70055af55A007110B4Ff99b0eA33071c720a',
-  managers: [],
+  managers: ['0x8E900Cf9BD655e34bb610f0Ef365D8d476fD7337', '0x91628ddc3A6ff9B48A2f34fC315D243eB07a9501'],
   relayers: ['0xB3AfB6DB38a8E72905165c1fBB96772e63560790'],
   feeCollector: '0x27751A0Fe3bd6EBfeB04B359D97B0cf199f20D22',
 }
 
 const mimic = {
-  Deployer: undefined,
-  Registry: undefined,
-  SmartVault: undefined,
-  PriceOracle: undefined,
-  Create3Factory: undefined,
+  Deployer: '0xc744f93c24BbA10080C7cF3C23eE6D50ef6DA37A',
+  Registry: '0x53D627B1a2993139b32d5dF209A94498d691f21A',
+  SmartVault: '0xee9ed4171C011eAaA2C17051081e3ce62E9e8D7e',
+  PriceOracle: '0x80d62Efd16386582422391bd7eFDb8398a5B7996',
+  Create3Factory: '0x440c0e5F3bed5D9eB2e7Ba620225d86548c29D08',
 }
 
 export default {
@@ -45,7 +45,7 @@ export default {
       managers: accounts.managers,
       relayedActionParams: {
         relayers: accounts.relayers,
-        gasPriceLimit: bn(100e9),
+        gasPriceLimit: bn(50e9),
         totalCostLimit: 0,
         payingGasToken: WETH,
       },
