@@ -33,9 +33,9 @@ contract NativeClaimer is BaseClaimer {
     }
 
     function _call(address token) internal {
-        address wrappedNativeToken = smartVault.wrappedNativeToken();
-        require(token == Denominations.NATIVE_TOKEN || token == wrappedNativeToken, 'NATIVE_CLAIMER_INVALID_TOKEN');
+        require(_isWrappedOrNativeToken(token), 'NATIVE_CLAIMER_INVALID_TOKEN');
 
+        address wrappedNativeToken = smartVault.wrappedNativeToken();
         uint256 amountToClaim = IFeeClaimer(feeClaimer).getBalance(token, address(smartVault));
         _validateThreshold(wrappedNativeToken, amountToClaim);
 

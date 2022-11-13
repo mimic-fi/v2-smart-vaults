@@ -14,8 +14,6 @@
 
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
@@ -44,11 +42,7 @@ abstract contract BaseClaimer is BaseAction, TokenThresholdAction, RelayedAction
     }
 
     function totalBalance(address token) external view returns (uint256) {
-        uint256 feeClaimerBalance = claimableBalance(token);
-        uint256 smartVaultBalance = (token == Denominations.NATIVE_TOKEN)
-            ? address(smartVault).balance
-            : IERC20(token).balanceOf(address(smartVault));
-        return feeClaimerBalance + smartVaultBalance;
+        return claimableBalance(token) + _balanceOf(token);
     }
 
     function _claim(bytes memory withdrawData) internal {
