@@ -60,9 +60,13 @@ contract ERC20Claimer is BaseClaimer {
         }
     }
 
+    function canExecute(address token) public view override returns (bool) {
+        return !_isWrappedOrNativeToken(token) && totalBalance(token) > 0;
+    }
+
     function call(
         address tokenIn,
-        uint256 amountToClaim,
+        uint256 amountIn,
         uint256 minAmountOut,
         uint256 expectedAmountOut,
         uint256 deadline,
@@ -71,7 +75,7 @@ contract ERC20Claimer is BaseClaimer {
     ) external auth {
         (isRelayer[msg.sender] ? _relayedCall : _call)(
             tokenIn,
-            amountToClaim,
+            amountIn,
             minAmountOut,
             expectedAmountOut,
             deadline,
@@ -82,34 +86,33 @@ contract ERC20Claimer is BaseClaimer {
 
     function _relayedCall(
         address tokenIn,
-        uint256 amountToClaim,
+        uint256 amountIn,
         uint256 minAmountOut,
         uint256 expectedAmountOut,
         uint256 deadline,
         bytes memory data,
         bytes memory sig
     ) internal redeemGas {
-        _call(tokenIn, amountToClaim, minAmountOut, expectedAmountOut, deadline, data, sig);
+        _call(tokenIn, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
     }
 
     function _call(
         address tokenIn,
-        uint256 amountToClaim,
+        uint256 amountIn,
         uint256 minAmountOut,
         uint256 expectedAmountOut,
         uint256 deadline,
         bytes memory data,
         bytes memory sig
     ) internal {
-        address wrappedNativeToken = smartVault.wrappedNativeToken();
-        require(tokenIn != wrappedNativeToken && tokenIn != Denominations.NATIVE_TOKEN, 'ERC20_CLAIMER_INVALID_TOKEN');
+        require(!_isWrappedOrNativeToken(tokenIn), 'ERC20_CLAIMER_INVALID_TOKEN');
 
         // Min amount already includes both the current balance and the amount to be claimed
+        address wrappedNativeToken = smartVault.wrappedNativeToken();
         _validateThreshold(wrappedNativeToken, minAmountOut);
-        _claim(abi.encodeWithSelector(IFeeClaimer.withdrawSomeERC20.selector, tokenIn, amountToClaim, smartVault));
+        _claim(abi.encodeWithSelector(IFeeClaimer.withdrawAllERC20.selector, tokenIn, smartVault));
 
         if (!isTokenSwapIgnored[tokenIn]) {
-            uint256 amountIn = IERC20(tokenIn).balanceOf(address(smartVault));
             _validateSlippage(minAmountOut, expectedAmountOut);
             _validateSig(tokenIn, wrappedNativeToken, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
 

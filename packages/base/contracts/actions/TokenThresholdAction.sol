@@ -43,13 +43,22 @@ abstract contract TokenThresholdAction is BaseAction {
     }
 
     /**
+     * @dev Internal function to check the set threshold
+     * @param token Token address of the given amount to evaluate the threshold
+     * @param amount Amount of tokens to validate the threshold
+     */
+    function _passesThreshold(address token, uint256 amount) internal view returns (bool) {
+        uint256 price = smartVault.getPrice(token, thresholdToken);
+        // Result balance is rounded down to make sure we always match at least the threshold
+        return amount.mulDown(price) >= thresholdAmount;
+    }
+
+    /**
      * @dev Internal function to validate the set threshold
      * @param token Token address of the given amount to evaluate the threshold
      * @param amount Amount of tokens to validate the threshold
      */
     function _validateThreshold(address token, uint256 amount) internal view {
-        uint256 price = smartVault.getPrice(token, thresholdToken);
-        // Result balance is rounded down to make sure we always match at least the threshold
-        require(amount.mulDown(price) >= thresholdAmount, 'MIN_THRESHOLD_NOT_MET');
+        require(_passesThreshold(token, amount), 'MIN_THRESHOLD_NOT_MET');
     }
 }

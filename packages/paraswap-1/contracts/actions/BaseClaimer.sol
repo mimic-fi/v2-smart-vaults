@@ -37,11 +37,13 @@ abstract contract BaseClaimer is BaseAction, TokenThresholdAction, RelayedAction
         emit FeeClaimerSet(newFeeClaimer);
     }
 
+    function canExecute(address token) public view virtual returns (bool);
+
     function claimableBalance(address token) public view returns (uint256) {
         return IFeeClaimer(feeClaimer).getBalance(token, address(smartVault));
     }
 
-    function totalBalance(address token) external view returns (uint256) {
+    function totalBalance(address token) public view returns (uint256) {
         return claimableBalance(token) + _balanceOf(token);
     }
 
