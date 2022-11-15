@@ -7,6 +7,7 @@ const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
 
 const accounts = {
+  mimic: '0x495dD9E4784C207Ec9f4f426F204C73916d5b7A9',
   owner: '0x82109Cc00922A515D5FA14eE05a6880c6FAB5E19',
   managers: [],
   relayers: ['0xB3AfB6DB38a8E72905165c1fBB96772e63560790'],
@@ -29,6 +30,7 @@ export default {
   accounts,
   mimic,
   params: {
+    mimic: accounts.mimic,
     registry: mimic.Registry,
     smartVaultParams: {
       impl: mimic.SmartVault,
@@ -47,7 +49,7 @@ export default {
       admin: accounts.owner,
       managers: accounts.managers,
       withdrawalActionParams: {
-        recipient: accounts.owner,
+        recipient: accounts.mimic,
       },
       relayedActionParams: {
         relayers: accounts.relayers,

@@ -43,6 +43,7 @@ describe('SmartVault', () => {
     swapFeeSetter = await deploy('SwapFeeSetter', [deployer.address, mimic.registry.address])
 
     const tx = await deployer.deploy({
+      mimic: mimic.admin.address,
       registry: mimic.registry.address,
       smartVaultParams: {
         impl: mimic.smartVault.address,
@@ -61,7 +62,7 @@ describe('SmartVault', () => {
         admin: owner.address,
         managers: managers.map((m) => m.address),
         withdrawalActionParams: {
-          recipient: owner.address,
+          recipient: mimic.admin.address,
         },
         relayedActionParams: {
           relayers: relayers.map((m) => m.address),
@@ -165,7 +166,7 @@ describe('SmartVault', () => {
             'setPerformanceFee',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['setFeeCollector'] },
+        { name: 'mimic', account: mimic.admin, roles: ['setFeeCollector', 'authorize', 'unauthorize'] },
         { name: 'withdrawer', account: withdrawer, roles: ['withdraw'] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: ['call', 'swap', 'withdraw'] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: ['call', 'wrap', 'withdraw'] },
@@ -233,7 +234,7 @@ describe('SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: [] },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
@@ -249,7 +250,7 @@ describe('SmartVault', () => {
     })
 
     it('sets the owner as the recipient', async () => {
-      expect(await withdrawer.recipient()).to.be.equal(owner.address)
+      expect(await withdrawer.recipient()).to.be.equal(mimic.admin.address)
     })
 
     it('sets the expected time-lock', async () => {
@@ -296,7 +297,7 @@ describe('SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: [] },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
@@ -359,7 +360,7 @@ describe('SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: [] },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
@@ -410,7 +411,7 @@ describe('SmartVault', () => {
           account: owner,
           roles: ['authorize', 'unauthorize', 'setSmartVault', 'setRelayer', 'setLimits', 'setTimeLock', 'call'],
         },
-        { name: 'mimic', account: mimic.admin, roles: [] },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
