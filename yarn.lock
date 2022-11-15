@@ -566,6 +566,19 @@
     "@uniswap/v3-core" "^1.0.1"
     "@uniswap/v3-periphery" "^1.4.1"
 
+"@mimic-fi/v2-swap-connector@0.0.13":
+  version "0.0.13"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-swap-connector/-/v2-swap-connector-0.0.13.tgz#190bb4958ef139de995607b2ceea2a77fae307aa"
+  integrity sha512-DdWg1NCeAzst4AwDWcFFInsPN/1wijgLdxPYfsf89hBI66PnIT49nPHIsLJuUTyGR46eOt/z0aDQaNGwsSSlug==
+  dependencies:
+    "@mimic-fi/v2-helpers" "0.0.10"
+    "@mimic-fi/v2-registry" "0.0.7"
+    "@openzeppelin/contracts" "4.7.0"
+    "@uniswap/v2-core" "^1.0.1"
+    "@uniswap/v2-periphery" "^1.1.0-beta.0"
+    "@uniswap/v3-core" "^1.0.1"
+    "@uniswap/v3-periphery" "^1.4.1"
+
 "@noble/hashes@1.1.2", "@noble/hashes@~1.1.1":
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-1.1.2.tgz#e9e035b9b166ca0af657a7848eb2718f0f22f183"

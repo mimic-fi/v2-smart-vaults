@@ -31,8 +31,8 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   writeOutput('PriceOracle', priceOracle.address)
 
   const swapConnector = await create3(input.namespace, create3Factory, ARTIFACTS.SWAP_CONNECTOR, [
-    input.uniswapV3Router,
     input.uniswapV2Router,
+    input.uniswapV3Router,
     input.balancerV2Vault,
     input.paraswapV5Augustus,
     registry.address,
