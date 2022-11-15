@@ -5,6 +5,7 @@ import { bn, fp, MONTH, YEAR, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 const WETH = '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6'
 
 const accounts = {
+  mimic: '0x495dD9E4784C207Ec9f4f426F204C73916d5b7A9',
   owner: '0x82109Cc00922A515D5FA14eE05a6880c6FAB5E19',
   managers: [],
   relayers: ['0xB3AfB6DB38a8E72905165c1fBB96772e63560790'],
@@ -25,6 +26,7 @@ export default {
   accounts,
   mimic,
   params: {
+    mimic: accounts.mimic,
     registry: mimic.Registry,
     smartVaultParams: {
       impl: mimic.SmartVault,
@@ -43,7 +45,7 @@ export default {
       admin: accounts.owner,
       managers: accounts.managers,
       withdrawalActionParams: {
-        recipient: accounts.owner,
+        recipient: accounts.mimic,
       },
       relayedActionParams: {
         relayers: accounts.relayers,

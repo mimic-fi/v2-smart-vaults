@@ -34,6 +34,7 @@ describe('SmartVault', () => {
   before('load accounts', async () => {
     const input = await deployment.readInput(getForkedNetwork(hre))
     mimic = input.mimic
+    mimic.admin = input.accounts.mimic
     owner = input.accounts.owner
     relayers = input.accounts.relayers
     managers = input.accounts.managers
@@ -77,6 +78,7 @@ describe('SmartVault', () => {
             'setPerformanceFee',
           ],
         },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
         { name: 'feeCollector', account: feeCollector, roles: ['setFeeCollector'] },
         { name: 'withdrawer', account: withdrawer, roles: ['withdraw'] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: ['call', 'swap', 'withdraw'] },
@@ -153,6 +155,7 @@ describe('SmartVault', () => {
             'call',
           ],
         },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
@@ -167,7 +170,7 @@ describe('SmartVault', () => {
     })
 
     it('sets the owner as the recipient', async () => {
-      expect(await withdrawer.recipient()).to.be.equal(owner)
+      expect(await withdrawer.recipient()).to.be.equal(mimic.admin)
     })
 
     it('sets the expected time-lock', async () => {
@@ -214,6 +217,7 @@ describe('SmartVault', () => {
             'call',
           ],
         },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
@@ -257,7 +261,8 @@ describe('SmartVault', () => {
       }
     })
 
-    describe('call', async () => {
+    // TODO: swaps cannot be tested with a fixed block number since Paraswap API prices cannot be queried in the past
+    describe.skip('call', async () => {
       let bot: SignerWithAddress, usdc: Contract, weth: Contract
 
       before('load accounts', async () => {
@@ -315,6 +320,7 @@ describe('SmartVault', () => {
             'call',
           ],
         },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
@@ -425,6 +431,7 @@ describe('SmartVault', () => {
           account: owner,
           roles: ['authorize', 'unauthorize', 'setSmartVault', 'setRelayer', 'setLimits', 'setTimeLock', 'call'],
         },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },

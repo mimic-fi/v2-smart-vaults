@@ -32,6 +32,7 @@ contract SmartVaultDeployer {
     using UncheckedMath for uint256;
 
     struct Params {
+        address mimic;
         IRegistry registry;
         WithdrawerActionParams withdrawerActionParams;
         ERC20ClaimerActionParams erc20ClaimerActionParams;
@@ -83,14 +84,15 @@ contract SmartVaultDeployer {
 
     function deploy(Params memory params) external {
         SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
-        _setupWithdrawerAction(smartVault, params.withdrawerActionParams);
-        _setupERC20ClaimerAction(smartVault, params.erc20ClaimerActionParams);
-        _setupNativeClaimerAction(smartVault, params.nativeClaimerActionParams);
-        _setupSwapFeeSetterAction(smartVault, params.swapFeeSetterActionParams);
+        _setupWithdrawerAction(smartVault, params.withdrawerActionParams, params.mimic);
+        _setupERC20ClaimerAction(smartVault, params.erc20ClaimerActionParams, params.mimic);
+        _setupNativeClaimerAction(smartVault, params.nativeClaimerActionParams, params.mimic);
+        _setupSwapFeeSetterAction(smartVault, params.swapFeeSetterActionParams, params.mimic);
+        Deployer.grantAdminPermissions(smartVault, params.mimic);
         Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
     }
 
-    function _setupWithdrawerAction(SmartVault smartVault, WithdrawerActionParams memory params)
+    function _setupWithdrawerAction(SmartVault smartVault, WithdrawerActionParams memory params, address mimic)
         internal
         returns (IAction)
     {
@@ -102,6 +104,7 @@ contract SmartVaultDeployer {
         Deployer.setupRelayedAction(withdrawer, params.admin, params.relayedActionParams);
         Deployer.setupTimeLockedAction(withdrawer, params.admin, params.timeLockedActionParams);
         Deployer.setupWithdrawalAction(withdrawer, params.admin, params.withdrawalActionParams);
+        Deployer.grantAdminPermissions(withdrawer, mimic);
         Deployer.transferAdminPermissions(withdrawer, params.admin);
 
         // Authorize action to collect, unwrap, and withdraw from Smart Vault
@@ -109,7 +112,7 @@ contract SmartVaultDeployer {
         return withdrawer;
     }
 
-    function _setupSwapFeeSetterAction(SmartVault smartVault, SwapFeeSetterActionParams memory params)
+    function _setupSwapFeeSetterAction(SmartVault smartVault, SwapFeeSetterActionParams memory params, address mimic)
         internal
         returns (IAction)
     {
@@ -125,6 +128,7 @@ contract SmartVaultDeployer {
         setter.authorize(address(this), setter.setFees.selector);
         setter.setFees(_castToFeeParams(params.feeParams));
         setter.unauthorize(address(this), setter.setFees.selector);
+        Deployer.grantAdminPermissions(setter, mimic);
         Deployer.transferAdminPermissions(setter, params.admin);
 
         // Authorize action to withdraw and set swap fee
@@ -134,7 +138,7 @@ contract SmartVaultDeployer {
         return setter;
     }
 
-    function _setupNativeClaimerAction(SmartVault smartVault, NativeClaimerActionParams memory params)
+    function _setupNativeClaimerAction(SmartVault smartVault, NativeClaimerActionParams memory params, address mimic)
         internal
         returns (IAction)
     {
@@ -149,6 +153,7 @@ contract SmartVaultDeployer {
         Deployer.setupActionExecutors(claimer, executors, claimer.call.selector);
         Deployer.setupRelayedAction(claimer, params.admin, params.feeClaimerParams.relayedActionParams);
         _setupBaseClaimerAction(claimer, params.admin, params.feeClaimerParams);
+        Deployer.grantAdminPermissions(claimer, mimic);
         Deployer.transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and wrap
@@ -158,7 +163,7 @@ contract SmartVaultDeployer {
         return claimer;
     }
 
-    function _setupERC20ClaimerAction(SmartVault smartVault, ERC20ClaimerActionParams memory params)
+    function _setupERC20ClaimerAction(SmartVault smartVault, ERC20ClaimerActionParams memory params, address mimic)
         internal
         returns (IAction)
     {
@@ -176,6 +181,7 @@ contract SmartVaultDeployer {
         _setupSwapSignerAction(claimer, params.admin, params.swapSigner);
         _setupMaxSlippageAction(claimer, params.admin, params.maxSlippage);
         _setupTokenSwapIgnoresAction(claimer, params.admin, params.tokenSwapIgnores);
+        Deployer.grantAdminPermissions(claimer, mimic);
         Deployer.transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and swap
