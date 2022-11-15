@@ -1,4 +1,4 @@
-import { getForkedNetwork, impersonate, instanceAt } from '@mimic-fi/v2-helpers'
+import { fp, getForkedNetwork, impersonate, instanceAt } from '@mimic-fi/v2-helpers'
 import { deployment } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -13,7 +13,7 @@ describe('Registry', () => {
 
   before('impersonate admin', async () => {
     const input = await deployment.readInput(getForkedNetwork(hre))
-    admin = await impersonate(input.admin)
+    admin = await impersonate(input.admin, fp(10))
   })
 
   before('deploy smart vault', async () => {
