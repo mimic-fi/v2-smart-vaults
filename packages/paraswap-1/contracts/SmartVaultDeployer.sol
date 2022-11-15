@@ -36,8 +36,8 @@ contract SmartVaultDeployer {
         WithdrawerActionParams withdrawerActionParams;
         ERC20ClaimerActionParams erc20ClaimerActionParams;
         NativeClaimerActionParams nativeClaimerActionParams;
-        Deployer.SmartVaultParams smartVaultParams;
         SwapFeeSetterActionParams swapFeeSetterActionParams;
+        Deployer.SmartVaultParams smartVaultParams;
     }
 
     struct WithdrawerActionParams {

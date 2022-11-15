@@ -329,7 +329,7 @@ describe('ERC20Claimer', () => {
                       it('calls the call primitive', async () => {
                         const tx = await action.call(
                           token.address,
-                          amountToClaim,
+                          amountIn,
                           minAmountOut,
                           expectedAmountOut,
                           deadline,
@@ -337,9 +337,8 @@ describe('ERC20Claimer', () => {
                           signature
                         )
 
-                        const callData = feeClaimer.interface.encodeFunctionData('withdrawSomeERC20', [
+                        const callData = feeClaimer.interface.encodeFunctionData('withdrawAllERC20', [
                           token.address,
-                          amountToClaim,
                           smartVault.address,
                         ])
 
@@ -354,7 +353,7 @@ describe('ERC20Claimer', () => {
                       it('calls swap primitive', async () => {
                         const tx = await action.call(
                           token.address,
-                          amountToClaim,
+                          amountIn,
                           minAmountOut,
                           expectedAmountOut,
                           deadline,
@@ -378,7 +377,7 @@ describe('ERC20Claimer', () => {
 
                         await action.call(
                           token.address,
-                          amountToClaim,
+                          amountIn,
                           minAmountOut,
                           expectedAmountOut,
                           deadline,
@@ -404,7 +403,7 @@ describe('ERC20Claimer', () => {
 
                         await action.call(
                           token.address,
-                          amountToClaim,
+                          amountIn,
                           minAmountOut,
                           expectedAmountOut,
                           deadline,
@@ -429,7 +428,7 @@ describe('ERC20Claimer', () => {
                       it('emits an Executed event', async () => {
                         const tx = await action.call(
                           token.address,
-                          amountToClaim,
+                          amountIn,
                           minAmountOut,
                           expectedAmountOut,
                           deadline,
@@ -445,7 +444,7 @@ describe('ERC20Claimer', () => {
 
                         const tx = await action.call(
                           token.address,
-                          amountToClaim,
+                          amountIn,
                           minAmountOut,
                           expectedAmountOut,
                           deadline,
@@ -468,7 +467,7 @@ describe('ERC20Claimer', () => {
                         await expect(
                           action.call(
                             token.address,
-                            amountToClaim,
+                            amountIn,
                             minAmountOut,
                             expectedAmountOut,
                             deadline,
@@ -488,15 +487,7 @@ describe('ERC20Claimer', () => {
 
                     it('reverts', async () => {
                       await expect(
-                        action.call(
-                          token.address,
-                          amountToClaim,
-                          minAmountOut,
-                          expectedAmountOut,
-                          deadline,
-                          data,
-                          signature
-                        )
+                        action.call(token.address, amountIn, minAmountOut, expectedAmountOut, deadline, data, signature)
                       ).to.be.revertedWith('DEADLINE_EXPIRED')
                     })
                   })
@@ -511,15 +502,7 @@ describe('ERC20Claimer', () => {
 
                   it('reverts', async () => {
                     await expect(
-                      action.call(
-                        token.address,
-                        amountToClaim,
-                        minAmountOut,
-                        expectedAmountOut,
-                        deadline,
-                        data,
-                        signature
-                      )
+                      action.call(token.address, amountIn, minAmountOut, expectedAmountOut, deadline, data, signature)
                     ).to.be.revertedWith('INVALID_SWAP_SIGNATURE')
                   })
                 })
@@ -545,11 +528,10 @@ describe('ERC20Claimer', () => {
                   })
 
                   it('calls the call primitive', async () => {
-                    const tx = await action.call(token.address, amountToClaim, minAmountOut, 0, 0, '0x', '0x')
+                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
 
-                    const callData = feeClaimer.interface.encodeFunctionData('withdrawSomeERC20', [
+                    const callData = feeClaimer.interface.encodeFunctionData('withdrawAllERC20', [
                       token.address,
-                      amountToClaim,
                       smartVault.address,
                     ])
 
@@ -562,12 +544,12 @@ describe('ERC20Claimer', () => {
                   })
 
                   it('does not call swap primitive', async () => {
-                    const tx = await action.call(token.address, amountToClaim, minAmountOut, 0, 0, '0x', '0x')
+                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
                     await assertNoIndirectEvent(tx, smartVault.interface, 'Swap')
                   })
 
                   it('emits an Executed event', async () => {
-                    const tx = await action.call(token.address, amountToClaim, minAmountOut, 0, 0, '0x', '0x')
+                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
 
                     await assertEvent(tx, 'Executed')
                   })
@@ -575,7 +557,7 @@ describe('ERC20Claimer', () => {
                   it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
                     const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
 
-                    const tx = await action.call(token.address, amountToClaim, minAmountOut, 0, 0, '0x', '0x')
+                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
 
                     const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
                     if (!refunds) expect(currentBalance).to.be.equal(previousBalance)
@@ -596,7 +578,7 @@ describe('ERC20Claimer', () => {
 
                   it('reverts', async () => {
                     await expect(
-                      action.call(token.address, amountToClaim, minAmountOut, 0, 0, '0x', '0x')
+                      action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
                     ).to.be.revertedWith('FEE_CLAIMER_WITHDRAW_FAILED')
                   })
                 })
@@ -614,7 +596,7 @@ describe('ERC20Claimer', () => {
 
               it('reverts', async () => {
                 await expect(
-                  action.call(token.address, amountToClaim, minAmountOut, expectedAmountOut, deadline, data, signature)
+                  action.call(token.address, amountIn, minAmountOut, expectedAmountOut, deadline, data, signature)
                 ).to.be.revertedWith('CLAIMER_SLIPPAGE_TOO_BIG')
               })
             })
@@ -629,7 +611,7 @@ describe('ERC20Claimer', () => {
 
             it('reverts', async () => {
               await expect(
-                action.call(token.address, amountToClaim, minAmountOut, expectedAmountOut, deadline, data, signature)
+                action.call(token.address, amountIn, minAmountOut, expectedAmountOut, deadline, data, signature)
               ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
             })
           })

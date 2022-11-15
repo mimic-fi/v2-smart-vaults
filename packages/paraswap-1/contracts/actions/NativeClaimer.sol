@@ -24,6 +24,10 @@ contract NativeClaimer is BaseClaimer {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function canExecute(address token) public view override returns (bool) {
+        return _isWrappedOrNativeToken(token) && _passesThreshold(token);
+    }
+
     function call(address token) external auth {
         (isRelayer[msg.sender] ? _relayedCall : _call)(token);
     }
@@ -33,15 +37,18 @@ contract NativeClaimer is BaseClaimer {
     }
 
     function _call(address token) internal {
-        address wrappedNativeToken = smartVault.wrappedNativeToken();
-        require(token == Denominations.NATIVE_TOKEN || token == wrappedNativeToken, 'NATIVE_CLAIMER_INVALID_TOKEN');
+        require(_isWrappedOrNativeToken(token), 'NATIVE_CLAIMER_INVALID_TOKEN');
+        require(_passesThreshold(token), 'MIN_THRESHOLD_NOT_MET');
 
-        uint256 balance = IFeeClaimer(feeClaimer).getBalance(token, address(smartVault));
-        _validateThreshold(wrappedNativeToken, balance);
-
-        bytes memory claimData = abi.encodeWithSelector(IFeeClaimer.withdrawAllERC20.selector, token, smartVault);
-        _claim(claimData);
-        if (token != wrappedNativeToken) smartVault.wrap(balance, new bytes(0));
+        _claim(abi.encodeWithSelector(IFeeClaimer.withdrawAllERC20.selector, token, smartVault));
+        if (_isNativeToken(token)) smartVault.wrap(address(smartVault).balance, new bytes(0));
         emit Executed();
+    }
+
+    function _passesThreshold(address token) internal view returns (bool) {
+        address wrappedNativeToken = smartVault.wrappedNativeToken();
+        uint256 amountToClaim = IFeeClaimer(feeClaimer).getBalance(token, address(smartVault));
+        uint256 totalBalance = amountToClaim + (_isNativeToken(token) ? address(smartVault).balance : 0);
+        return _passesThreshold(wrappedNativeToken, totalBalance);
     }
 }

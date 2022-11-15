@@ -14,8 +14,11 @@
 
 pragma solidity ^0.8.0;
 
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+
 import '@mimic-fi/v2-smart-vault/contracts/ISmartVault.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/BaseAuthorizedImplementation.sol';
 
 import './IAction.sol';
@@ -53,5 +56,17 @@ contract BaseAction is IAction, BaseAuthorizedImplementation {
         _validateStatefulDependency(newSmartVault);
         smartVault = ISmartVault(newSmartVault);
         emit SmartVaultSet(newSmartVault);
+    }
+
+    function _balanceOf(address token) internal view returns (uint256) {
+        return _isNativeToken(token) ? address(smartVault).balance : IERC20(token).balanceOf(address(smartVault));
+    }
+
+    function _isNativeToken(address token) internal pure returns (bool) {
+        return token == Denominations.NATIVE_TOKEN;
+    }
+
+    function _isWrappedOrNativeToken(address token) internal view returns (bool) {
+        return _isNativeToken(token) || token == smartVault.wrappedNativeToken();
     }
 }

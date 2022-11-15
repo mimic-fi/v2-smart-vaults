@@ -144,10 +144,9 @@ abstract contract RelayedAction is BaseAction {
     /**
      * @dev Internal function to fetch the paying gas token rate from the Smart Vault's price oracle
      */
-    function _getPayingGasTokenPrice(address payingToken) private view returns (uint256) {
-        address wrappedNativeToken = smartVault.wrappedNativeToken();
-        bool isUsingNativeToken = payingToken == Denominations.NATIVE_TOKEN || payingToken == wrappedNativeToken;
-        return isUsingNativeToken ? FixedPoint.ONE : smartVault.getPrice(wrappedNativeToken, payingToken);
+    function _getPayingGasTokenPrice(address token) private view returns (uint256) {
+        bool isUsingNativeToken = _isWrappedOrNativeToken(token);
+        return isUsingNativeToken ? FixedPoint.ONE : smartVault.getPrice(smartVault.wrappedNativeToken(), token);
     }
 
     /**
@@ -157,11 +156,6 @@ abstract contract RelayedAction is BaseAction {
      */
     function _shouldTryRedeemFromSmartVault(address token, uint256 amount) private view returns (bool) {
         if (!isPermissiveModeActive) return true;
-
-        uint256 balance = (token == Denominations.NATIVE_TOKEN)
-            ? address(smartVault).balance
-            : IERC20(token).balanceOf(address(smartVault));
-
-        return balance >= amount;
+        return _balanceOf(token) >= amount;
     }
 }
