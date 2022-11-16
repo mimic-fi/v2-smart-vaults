@@ -40,11 +40,6 @@ contract FeeClaimerMock is IFeeClaimer {
         return !fail;
     }
 
-    function withdrawSomeERC20(address token, uint256 amount, address recipient) external override returns (bool) {
-        _transferTokens(token, recipient, amount);
-        return !fail;
-    }
-
     function _transferTokens(address token, address destination, uint256 amount) internal {
         if (amount == 0) return;
         if (token == Denominations.NATIVE_TOKEN) Address.sendValue(payable(destination), amount);

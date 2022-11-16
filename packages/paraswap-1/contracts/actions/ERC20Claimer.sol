@@ -110,7 +110,7 @@ contract ERC20Claimer is BaseClaimer {
         // Min amount already includes both the current balance and the amount to be claimed
         address wrappedNativeToken = smartVault.wrappedNativeToken();
         _validateThreshold(wrappedNativeToken, minAmountOut);
-        _claim(abi.encodeWithSelector(IFeeClaimer.withdrawAllERC20.selector, tokenIn, smartVault));
+        _claim(tokenIn);
 
         if (!isTokenSwapIgnored[tokenIn]) {
             _validateSlippage(minAmountOut, expectedAmountOut);
