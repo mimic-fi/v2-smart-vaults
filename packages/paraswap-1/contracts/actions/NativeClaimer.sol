@@ -40,7 +40,7 @@ contract NativeClaimer is BaseClaimer {
         require(_isWrappedOrNativeToken(token), 'NATIVE_CLAIMER_INVALID_TOKEN');
         require(_passesThreshold(token), 'MIN_THRESHOLD_NOT_MET');
 
-        _claim(abi.encodeWithSelector(IFeeClaimer.withdrawAllERC20.selector, token, smartVault));
+        _claim(token);
         if (_isNativeToken(token)) smartVault.wrap(address(smartVault).balance, new bytes(0));
         emit Executed();
     }

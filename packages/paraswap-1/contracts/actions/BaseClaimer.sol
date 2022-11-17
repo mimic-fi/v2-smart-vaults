@@ -47,8 +47,10 @@ abstract contract BaseClaimer is BaseAction, TokenThresholdAction, RelayedAction
         return claimableBalance(token) + _balanceOf(token);
     }
 
-    function _claim(bytes memory withdrawData) internal {
-        bytes memory withdrawResponse = smartVault.call(feeClaimer, withdrawData, 0, new bytes(0));
-        require(abi.decode(withdrawResponse, (bool)), 'FEE_CLAIMER_WITHDRAW_FAILED');
+    function _claim(address token) internal {
+        if (claimableBalance(token) == 0) return;
+        bytes memory data = abi.encodeWithSelector(IFeeClaimer.withdrawAllERC20.selector, token, smartVault);
+        bytes memory response = smartVault.call(feeClaimer, data, 0, new bytes(0));
+        require(abi.decode(response, (bool)), 'FEE_CLAIMER_WITHDRAW_FAILED');
     }
 }

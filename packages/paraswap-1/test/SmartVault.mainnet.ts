@@ -377,6 +377,23 @@ describe('SmartVault', () => {
         )
       })
 
+      it('can wrap ETH when passing the threshold', async () => {
+        const previousSmartVaultBalance = await weth.balanceOf(smartVault.address)
+        const previousFeeCollectorBalance = await weth.balanceOf(feeCollector)
+
+        await bot.sendTransaction({ to: smartVault.address, value: fp(0.5) })
+        await expect(nativeClaimer.connect(bot).call(NATIVE_TOKEN_ADDRESS)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+
+        await bot.sendTransaction({ to: smartVault.address, value: fp(0.5) })
+        await nativeClaimer.connect(bot).call(NATIVE_TOKEN_ADDRESS)
+
+        const currentFeeCollectorBalance = await weth.balanceOf(feeCollector)
+        const relayedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+        const currentSmartVaultBalance = await weth.balanceOf(smartVault.address)
+        const expectedWrappedBalance = fp(1).sub(relayedCost)
+        expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.add(expectedWrappedBalance))
+      })
+
       it('can claim ETH when passing the threshold', async () => {
         const previousSmartVaultBalance = await weth.balanceOf(smartVault.address)
         const previousFeeCollectorBalance = await weth.balanceOf(feeCollector)
