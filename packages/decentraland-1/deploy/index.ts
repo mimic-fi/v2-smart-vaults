@@ -5,23 +5,33 @@ import { ARTIFACTS, deployment } from '@mimic-fi/v2-smart-vaults-base'
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 /* eslint-disable no-unused-vars */
 
+const VERSION = 'v1'
+
 export default async (input: any, writeOutput: (key: string, value: string) => void): Promise<void> => {
   const { params, mimic } = input
 
   const create3Factory = await instanceAt(ARTIFACTS.CREATE3_FACTORY, mimic.Create3Factory)
-  const deployer = await deployment.create3(input.namespace, create3Factory, 'SmartVaultDeployer', [], undefined, {
-    Deployer: mimic.Deployer,
-  })
+  const deployer = await deployment.create3(
+    input.namespace,
+    VERSION,
+    create3Factory,
+    'SmartVaultDeployer',
+    [],
+    undefined,
+    {
+      Deployer: mimic.Deployer,
+    }
+  )
   writeOutput('Deployer', deployer.address)
 
-  const swapper = await deployment.create3(input.namespace, create3Factory, 'Swapper', [
+  const swapper = await deployment.create3(input.namespace, VERSION, create3Factory, 'Swapper', [
     deployer.address,
     mimic.Registry,
   ])
   writeOutput('Swapper', swapper.address)
   params.swapperActionParams.impl = swapper.address
 
-  const withdrawer = await deployment.create3(input.namespace, create3Factory, 'Withdrawer', [
+  const withdrawer = await deployment.create3(input.namespace, VERSION, create3Factory, 'Withdrawer', [
     deployer.address,
     mimic.Registry,
   ])
