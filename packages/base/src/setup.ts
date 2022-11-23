@@ -49,7 +49,14 @@ export async function setupMimic(mocked: boolean): Promise<Mimic> {
 
   const swapConnector = await (mocked
     ? deploy(MOCKS.SWAP_CONNECTOR, [registry.address])
-    : deploy(ARTIFACTS.SWAP_CONNECTOR, [ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, registry.address]))
+    : deploy(ARTIFACTS.SWAP_CONNECTOR, [
+        ZERO_ADDRESS,
+        ZERO_ADDRESS,
+        ZERO_ADDRESS,
+        ZERO_ADDRESS,
+        ZERO_ADDRESS,
+        registry.address,
+      ]))
   await registry.connect(admin).register(await swapConnector.NAMESPACE(), swapConnector.address, true)
 
   return { deployer, registry, smartVault, priceOracle, swapConnector, wrappedNativeToken, admin }
