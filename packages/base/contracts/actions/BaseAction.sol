@@ -59,14 +59,11 @@ contract BaseAction is IAction, BaseAuthorizedImplementation {
     }
 
     function _balanceOf(address token) internal view returns (uint256) {
-        return _isNativeToken(token) ? address(smartVault).balance : IERC20(token).balanceOf(address(smartVault));
-    }
-
-    function _isNativeToken(address token) internal pure returns (bool) {
-        return token == Denominations.NATIVE_TOKEN;
+        bool isNative = Denominations.isNativeToken(token);
+        return isNative ? address(smartVault).balance : IERC20(token).balanceOf(address(smartVault));
     }
 
     function _isWrappedOrNativeToken(address token) internal view returns (bool) {
-        return _isNativeToken(token) || token == smartVault.wrappedNativeToken();
+        return Denominations.isNativeToken(token) || token == smartVault.wrappedNativeToken();
     }
 }
