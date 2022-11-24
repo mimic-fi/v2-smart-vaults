@@ -18,9 +18,9 @@ const accounts = {
 const mimic = {
   Deployer: '0xc744f93c24BbA10080C7cF3C23eE6D50ef6DA37A',
   Registry: '0x53D627B1a2993139b32d5dF209A94498d691f21A',
-  SmartVault: '0xee9ed4171C011eAaA2C17051081e3ce62E9e8D7e',
+  SmartVault: '0x9830218Cd5191BD66CC81d3edcCeEC1B31375AcC',
   PriceOracle: '0x80d62Efd16386582422391bd7eFDb8398a5B7996',
-  SwapConnector: '0x4625C584b18dEA937985f8f3BAe8DDeAA476836e',
+  SwapConnector: '0x14DBba98CB43348497cC9526848955313cb4808a',
   Create3Factory: '0x440c0e5F3bed5D9eB2e7Ba620225d86548c29D08',
 }
 
@@ -51,7 +51,7 @@ export default {
       managers: accounts.managers,
       tokenIn: MANA,
       tokenOut: DAI,
-      maxSlippage: fp(0.05), // 0.5 %
+      maxSlippage: fp(0.001), // 0.01 %
       tokenThresholdActionParams: {
         token: MANA,
         amount: fp(10),

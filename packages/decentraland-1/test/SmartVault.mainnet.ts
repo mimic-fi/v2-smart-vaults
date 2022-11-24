@@ -150,7 +150,7 @@ describe('SmartVault', () => {
     it('sets the expected swapper params', async () => {
       expect(await swapper.tokenIn()).to.be.equal(MANA)
       expect(await swapper.tokenOut()).to.be.equal(DAI)
-      expect(await swapper.maxSlippage()).to.be.equal(fp(0.05))
+      expect(await swapper.maxSlippage()).to.be.equal(fp(0.001))
     })
 
     it('sets the expected threshold', async () => {
@@ -181,8 +181,13 @@ describe('SmartVault', () => {
 
       const source = 1 // uniswap v3
       const amountIn = fp(20)
-      const slippage = fp(0.05) // 0.5 %
+      const slippage = fp(0.02) // 2 %
       const data = defaultAbiCoder.encode(['address[]', 'uint24[]'], [[WETH], [3000, 500]])
+
+      before('allow larger slippage', async () => {
+        const signer = await impersonate(owner)
+        await swapper.connect(signer).setMaxSlippage(slippage)
+      })
 
       before('load accounts', async () => {
         bot = await impersonate(relayers[0], fp(10))
