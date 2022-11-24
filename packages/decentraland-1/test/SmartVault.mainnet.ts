@@ -1,9 +1,9 @@
-import { bn, fp, getForkedNetwork, impersonate, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { bn, decimal, fp, getForkedNetwork, impersonate, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { assertPermissions, deployment } from '@mimic-fi/v2-smart-vaults-base'
+import { get1inchSwapData } from '@mimic-fi/v2-swap-connector'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
-import { defaultAbiCoder } from 'ethers/lib/utils'
 import hre from 'hardhat'
 
 /* eslint-disable no-secrets/no-secrets */
@@ -179,14 +179,16 @@ describe('SmartVault', () => {
     describe('call', async () => {
       let bot: SignerWithAddress, mana: Contract, dai: Contract, whale: SignerWithAddress
 
-      const source = 1 // uniswap v3
+      // TODO: We have to use a big slippage since there is too much discrepancy between 1inch and chain link
+
+      const source = 4 // 1inch
       const amountIn = fp(20)
-      const slippage = fp(0.02) // 2 %
-      const data = defaultAbiCoder.encode(['address[]', 'uint24[]'], [[WETH], [3000, 500]])
+      const oneInchSlippage = 0.001 // 0.1 %
+      const chainLinkSlippage = 0.05 // 5 %
 
       before('allow larger slippage', async () => {
         const signer = await impersonate(owner)
-        await swapper.connect(signer).setMaxSlippage(slippage)
+        await swapper.connect(signer).setMaxSlippage(fp(chainLinkSlippage))
       })
 
       before('load accounts', async () => {
@@ -201,17 +203,21 @@ describe('SmartVault', () => {
         const previousFeeCollectorBalance = await dai.balanceOf(feeCollector)
 
         await mana.connect(whale).transfer(smartVault.address, amountIn)
-        await swapper.connect(bot).call(source, slippage, data)
+        const data = await get1inchSwapData(smartVault, mana, dai, amountIn, oneInchSlippage)
+        await swapper.connect(bot).call(source, fp(chainLinkSlippage), data)
 
-        const currentFeeCollectorBalance = await dai.balanceOf(feeCollector)
-        const relayedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
         const price = await smartVault.getPrice(MANA, DAI)
         const expectedAmountOut = amountIn.mul(price).div(fp(1))
-        const expectedMinAmountOut = expectedAmountOut.sub(expectedAmountOut.mul(slippage).div(fp(1)))
-        const expectedReceivedAmount = expectedMinAmountOut.sub(relayedCost)
+        const expectedMinAmountOut = expectedAmountOut.sub(expectedAmountOut.mul(fp(chainLinkSlippage)).div(fp(1)))
 
         const currentSmartVaultBalance = await dai.balanceOf(smartVault.address)
-        expect(currentSmartVaultBalance).to.be.at.least(previousSmartVaultBalance.add(expectedReceivedAmount))
+        const currentFeeCollectorBalance = await dai.balanceOf(feeCollector)
+        const relayedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+        const receivedAmountOut = currentSmartVaultBalance.sub(previousSmartVaultBalance).add(relayedCost)
+        expect(receivedAmountOut).to.be.at.least(expectedMinAmountOut)
+
+        const oneInchPrice = decimal(receivedAmountOut.mul(fp(1)).div(amountIn))
+        console.log('Ratio CL/1inch:', decimal(1).sub(decimal(price).div(oneInchPrice)).toString())
       })
     })
   })
