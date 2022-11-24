@@ -18,6 +18,10 @@
   "workspaces": {
     "packages": [
       "packages/*"
+    ],
+    "nohoist": [
+      "**/@mimic-fi/v2-helpers",
+      "**/@mimic-fi/v2-helpers/**"
     ]
   }
 }
