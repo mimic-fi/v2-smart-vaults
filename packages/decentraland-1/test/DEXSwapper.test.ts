@@ -12,7 +12,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-describe('Swapper', () => {
+describe('DEXSwapper', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic
   let tokenIn: Contract, tokenOut: Contract
   let owner: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
@@ -25,7 +25,7 @@ describe('Swapper', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     smartVault = await createSmartVault(mimic, owner)
-    action = await createAction('Swapper', mimic, owner, smartVault)
+    action = await createAction('DEXSwapper', mimic, owner, smartVault)
   })
 
   beforeEach('deploy tokens', async () => {

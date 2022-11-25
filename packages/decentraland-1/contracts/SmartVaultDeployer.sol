@@ -20,7 +20,8 @@ import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 
-import './actions/Swapper.sol';
+import './actions/DEXSwapper.sol';
+import './actions/OTCSwapper.sol';
 import './actions/Withdrawer.sol';
 
 // solhint-disable avoid-low-level-calls
@@ -28,7 +29,8 @@ import './actions/Withdrawer.sol';
 contract SmartVaultDeployer {
     struct Params {
         IRegistry registry;
-        SwapperActionParams swapperActionParams;
+        SwapperActionParams dexSwapperActionParams;
+        SwapperActionParams otcSwapperActionParams;
         WithdrawerActionParams withdrawerActionParams;
         Deployer.SmartVaultParams smartVaultParams;
     }
@@ -56,17 +58,44 @@ contract SmartVaultDeployer {
 
     function deploy(Params memory params) external {
         SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
-        _setupSwapperAction(smartVault, params.swapperActionParams);
+        _setupDexSwapperAction(smartVault, params.dexSwapperActionParams);
+        _setupOtcSwapperAction(smartVault, params.otcSwapperActionParams);
         _setupWithdrawerAction(smartVault, params.withdrawerActionParams);
         Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
     }
 
-    function _setupSwapperAction(SmartVault smartVault, SwapperActionParams memory params) internal {
-        // Create and setup action
-        Swapper swapper = Swapper(params.impl);
-        Deployer.setupBaseAction(swapper, params.admin, address(smartVault));
+    function _setupDexSwapperAction(SmartVault smartVault, SwapperActionParams memory params) internal {
+        DEXSwapper swapper = DEXSwapper(address(_setupSwapperAction(smartVault, params)));
+
+        // Allow executors and transfer admin permissions to admin
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         Deployer.setupActionExecutors(swapper, executors, swapper.call.selector);
+        Deployer.transferAdminPermissions(swapper, params.admin);
+
+        // Authorize action to swap and withdraw from Smart Vault
+        smartVault.authorize(address(swapper), smartVault.swap.selector);
+        smartVault.authorize(address(swapper), smartVault.withdraw.selector);
+    }
+
+    function _setupOtcSwapperAction(SmartVault smartVault, SwapperActionParams memory params) internal {
+        OTCSwapper swapper = OTCSwapper(address(_setupSwapperAction(smartVault, params)));
+
+        // Allow ANY to execute and transfer admin permissions to admin
+        swapper.authorize(swapper.ANY_ADDRESS(), swapper.call.selector);
+        Deployer.transferAdminPermissions(swapper, params.admin);
+
+        // Authorize action to collect and withdraw from Smart Vault
+        smartVault.authorize(address(swapper), smartVault.collect.selector);
+        smartVault.authorize(address(swapper), smartVault.withdraw.selector);
+    }
+
+    function _setupSwapperAction(SmartVault smartVault, SwapperActionParams memory params)
+        internal
+        returns (BaseSwapper swapper)
+    {
+        // Create and setup action
+        swapper = BaseSwapper(params.impl);
+        Deployer.setupBaseAction(swapper, params.admin, address(smartVault));
         Deployer.setupRelayedAction(swapper, params.admin, params.relayedActionParams);
         Deployer.setupTokenThresholdAction(swapper, params.admin, params.tokenThresholdActionParams);
 
@@ -87,13 +116,6 @@ contract SmartVaultDeployer {
         swapper.authorize(address(this), swapper.setMaxSlippage.selector);
         swapper.setMaxSlippage(params.maxSlippage);
         swapper.unauthorize(address(this), swapper.setMaxSlippage.selector);
-
-        // Transfer admin permissions to admin
-        Deployer.transferAdminPermissions(swapper, params.admin);
-
-        // Authorize action to swap and withdraw from Smart Vault
-        smartVault.authorize(address(swapper), smartVault.swap.selector);
-        smartVault.authorize(address(swapper), smartVault.withdraw.selector);
     }
 
     function _setupWithdrawerAction(SmartVault smartVault, WithdrawerActionParams memory params) internal {

@@ -24,12 +24,19 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   )
   writeOutput('Deployer', deployer.address)
 
-  const swapper = await deployment.create3(input.namespace, VERSION, create3Factory, 'Swapper', [
+  const dexSwapper = await deployment.create3(input.namespace, VERSION, create3Factory, 'DEXSwapper', [
     deployer.address,
     mimic.Registry,
   ])
-  writeOutput('Swapper', swapper.address)
-  params.swapperActionParams.impl = swapper.address
+  writeOutput('DEXSwapper', dexSwapper.address)
+  params.dexSwapperActionParams.impl = dexSwapper.address
+
+  const otcSwapper = await deployment.create3(input.namespace, VERSION, create3Factory, 'OTCSwapper', [
+    deployer.address,
+    mimic.Registry,
+  ])
+  writeOutput('OTCSwapper', otcSwapper.address)
+  params.otcSwapperActionParams.impl = otcSwapper.address
 
   const withdrawer = await deployment.create3(input.namespace, VERSION, create3Factory, 'Withdrawer', [
     deployer.address,
