@@ -1,6 +1,5 @@
 import { assertEvent, assertIndirectEvent, fp, getSigners } from '@mimic-fi/v2-helpers'
 import {
-  assertRelayedBaseCost,
   createAction,
   createPriceFeedMock,
   createSmartVault,
@@ -353,11 +352,10 @@ describe('DEXSwapper', () => {
             it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
               const previousBalance = await tokenOut.balanceOf(feeCollector.address)
 
-              const tx = await action.call(SOURCE, tokenIn.address, tokenOut.address, amountIn, slippage, DATA)
+              await action.call(SOURCE, tokenIn.address, tokenOut.address, amountIn, slippage, DATA)
 
               const currentBalance = await tokenOut.balanceOf(feeCollector.address)
-              if (refunds) await assertRelayedBaseCost(tx, currentBalance.sub(previousBalance), 0.1)
-              else expect(currentBalance).to.be.equal(previousBalance)
+              expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
             })
           })
 
@@ -369,7 +367,9 @@ describe('DEXSwapper', () => {
             })
 
             it('reverts', async () => {
-              await expect(action.call(SOURCE, tokenIn.address, tokenOut.address, amountIn, 0, DATA)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+              await expect(
+                action.call(SOURCE, tokenIn.address, tokenOut.address, amountIn, 0, DATA)
+              ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
             })
           })
         })
@@ -378,7 +378,9 @@ describe('DEXSwapper', () => {
           const slippage = maxSlippage.add(1)
 
           it('reverts', async () => {
-            await expect(action.call(SOURCE, tokenIn.address, tokenOut.address, 0, slippage, DATA)).to.be.revertedWith('SWAPPER_SLIPPAGE_ABOVE_MAX')
+            await expect(action.call(SOURCE, tokenIn.address, tokenOut.address, 0, slippage, DATA)).to.be.revertedWith(
+              'SWAPPER_SLIPPAGE_ABOVE_MAX'
+            )
           })
         })
       }
@@ -409,7 +411,9 @@ describe('DEXSwapper', () => {
 
     context('when the sender is authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(SOURCE, tokenIn.address, tokenOut.address, 0, 0, DATA)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.call(SOURCE, tokenIn.address, tokenOut.address, 0, 0, DATA)).to.be.revertedWith(
+          'AUTH_SENDER_NOT_ALLOWED'
+        )
       })
     })
   })

@@ -1,6 +1,5 @@
 import { assertEvent, assertIndirectEvent, fp, getSigners } from '@mimic-fi/v2-helpers'
 import {
-  assertRelayedBaseCost,
   createAction,
   createPriceFeedMock,
   createSmartVault,
@@ -348,11 +347,10 @@ describe('OTCSwapper', () => {
             it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
               const previousBalance = await tokenOut.balanceOf(feeCollector.address)
 
-              const tx = await action.call(tokenIn.address, tokenOut.address, amountOut, slippage)
+              await action.call(tokenIn.address, tokenOut.address, amountOut, slippage)
 
               const currentBalance = await tokenOut.balanceOf(feeCollector.address)
-              if (refunds) await assertRelayedBaseCost(tx, currentBalance.sub(previousBalance), 0.1)
-              else expect(currentBalance).to.be.equal(previousBalance)
+              expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
             })
           })
 
@@ -361,7 +359,9 @@ describe('OTCSwapper', () => {
             const amountOut = amountIn.mul(priceRate)
 
             it('reverts', async () => {
-              await expect(action.call(tokenIn.address, tokenOut.address, amountOut, slippage)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+              await expect(action.call(tokenIn.address, tokenOut.address, amountOut, slippage)).to.be.revertedWith(
+                'MIN_THRESHOLD_NOT_MET'
+              )
             })
           })
         })
@@ -371,7 +371,9 @@ describe('OTCSwapper', () => {
           const slippage = maxSlippage.add(1)
 
           it('reverts', async () => {
-            await expect(action.call(tokenIn.address, tokenOut.address, amountOut, slippage)).to.be.revertedWith('SWAPPER_SLIPPAGE_ABOVE_MAX')
+            await expect(action.call(tokenIn.address, tokenOut.address, amountOut, slippage)).to.be.revertedWith(
+              'SWAPPER_SLIPPAGE_ABOVE_MAX'
+            )
           })
         })
       }

@@ -1,8 +1,8 @@
 import { bn, fp, getForkedNetwork, impersonate, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
-import { assertPermissions, deployment } from '@mimic-fi/v2-smart-vaults-base'
+import { assertPermissions, assertRelayedBaseCost, deployment } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
-import { Contract } from 'ethers'
+import { BigNumber, Contract } from 'ethers'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 import hre from 'hardhat'
 
@@ -199,11 +199,14 @@ describe('SmartVault', () => {
         whale = await impersonate(WHALE, fp(100))
       })
 
+      beforeEach('fund smart vault', async () => {
+        await mana.connect(whale).transfer(smartVault.address, amountIn)
+      })
+
       it('can swap MANA when passing the threshold', async () => {
         const previousSmartVaultBalance = await dai.balanceOf(smartVault.address)
         const previousFeeCollectorBalance = await dai.balanceOf(feeCollector)
 
-        await mana.connect(whale).transfer(smartVault.address, amountIn)
         await dexSwapper.connect(bot).call(source, MANA, DAI, amountIn, slippage, data)
 
         const currentFeeCollectorBalance = await dai.balanceOf(feeCollector)
@@ -215,6 +218,17 @@ describe('SmartVault', () => {
 
         const currentSmartVaultBalance = await dai.balanceOf(smartVault.address)
         expect(currentSmartVaultBalance).to.be.at.least(previousSmartVaultBalance.add(expectedReceivedAmount))
+      })
+
+      it('covers gas cost when relaying txs', async () => {
+        const previousBalance = await dai.balanceOf(feeCollector)
+
+        const tx = await dexSwapper.connect(bot).call(source, MANA, DAI, amountIn, slippage, data)
+
+        const currentBalance = await dai.balanceOf(feeCollector)
+        const price = await smartVault.getPrice(DAI, WETH)
+        const redeemedCost = currentBalance.sub(previousBalance).mul(price).div(fp(1))
+        await assertRelayedBaseCost(tx, redeemedCost, 0.1)
       })
     })
   })
@@ -280,6 +294,7 @@ describe('SmartVault', () => {
     })
 
     describe('call', async () => {
+      let expectedMaxAmountIn: BigNumber
       let mana: Contract, dai: Contract, whale: SignerWithAddress
 
       const amountOut = fp(20)
@@ -291,18 +306,20 @@ describe('SmartVault', () => {
         whale = await impersonate(WHALE, fp(100))
       })
 
-      it('can swap MANA when passing the threshold', async () => {
+      beforeEach('fund smart vault', async () => {
         const price = await smartVault.getPrice(DAI, MANA)
         const expectedAmountIn = amountOut.mul(price).div(fp(1))
-        const expectedMaxAmountIn = expectedAmountIn.add(expectedAmountIn.mul(slippage).div(fp(1)))
+        expectedMaxAmountIn = expectedAmountIn.add(expectedAmountIn.mul(slippage).div(fp(1)))
         await mana.connect(whale).transfer(smartVault.address, expectedMaxAmountIn)
-        await dai.connect(whale).approve(smartVault.address, amountOut)
+      })
 
+      it('can swap MANA when passing the threshold', async () => {
         const previousSenderDaiBalance = await dai.balanceOf(whale.address)
         const previousSenderManaBalance = await mana.balanceOf(whale.address)
         const previousSmartVaultDaiBalance = await dai.balanceOf(smartVault.address)
         const previousSmartVaultManaBalance = await mana.balanceOf(smartVault.address)
 
+        await dai.connect(whale).approve(smartVault.address, amountOut)
         await otcSwapper.connect(whale).call(MANA, DAI, amountOut, slippage)
 
         const currentSenderDaiBalance = await dai.balanceOf(whale.address)
@@ -316,6 +333,20 @@ describe('SmartVault', () => {
 
         const currentSmartVaultManaBalance = await mana.balanceOf(smartVault.address)
         expect(currentSmartVaultManaBalance).to.be.at.least(previousSmartVaultManaBalance.sub(expectedMaxAmountIn))
+      })
+
+      it('covers gas cost when relaying txs', async () => {
+        const bot = await impersonate(relayers[0], fp(10))
+        const previousBalance = await dai.balanceOf(feeCollector)
+
+        await dai.connect(whale).transfer(bot.address, amountOut)
+        await dai.connect(bot).approve(smartVault.address, amountOut)
+        const tx = await otcSwapper.connect(bot).call(MANA, DAI, amountOut, slippage)
+
+        const currentBalance = await dai.balanceOf(feeCollector)
+        const price = await smartVault.getPrice(DAI, WETH)
+        const redeemedCost = currentBalance.sub(previousBalance).mul(price).div(fp(1))
+        await assertRelayedBaseCost(tx, redeemedCost, 0.1)
       })
     })
   })
@@ -392,8 +423,11 @@ describe('SmartVault', () => {
         whale = await impersonate(WHALE, fp(100))
       })
 
-      it('can withdraw DAI when passing the threshold', async () => {
+      beforeEach('fund smart vault', async () => {
         await dai.connect(whale).transfer(smartVault.address, amount)
+      })
+
+      it('can withdraw DAI when passing the threshold', async () => {
         const previousRecipientBalance = await dai.balanceOf(owner)
         const previousSmartVaultBalance = await dai.balanceOf(smartVault.address)
         const previousFeeCollectorBalance = await dai.balanceOf(feeCollector)
@@ -408,6 +442,17 @@ describe('SmartVault', () => {
 
         const currentSmartVaultBalance = await dai.balanceOf(smartVault.address)
         expect(currentSmartVaultBalance).to.be.equal(0)
+      })
+
+      it('covers gas cost when relaying txs', async () => {
+        const previousBalance = await dai.balanceOf(feeCollector)
+
+        const tx = await withdrawer.connect(bot).call()
+
+        const currentBalance = await dai.balanceOf(feeCollector)
+        const price = await smartVault.getPrice(DAI, WETH)
+        const redeemedCost = currentBalance.sub(previousBalance).mul(price).div(fp(1))
+        await assertRelayedBaseCost(tx, redeemedCost, 0.1)
       })
     })
   })

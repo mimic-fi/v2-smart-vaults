@@ -18,7 +18,7 @@ import './BaseSwapper.sol';
 
 contract DEXSwapper is BaseSwapper {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 75e3;
+    uint256 public constant override BASE_GAS = 35e3;
 
     constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
