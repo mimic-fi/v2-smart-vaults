@@ -189,7 +189,7 @@ describe('SmartVault', () => {
 
       before('allow larger slippage', async () => {
         const signer = await impersonate(owner)
-        await swapper.connect(signer).setMaxSlippage(slippage)
+        await dexSwapper.connect(signer).setMaxSlippage(slippage)
       })
 
       before('load accounts', async () => {
@@ -279,51 +279,43 @@ describe('SmartVault', () => {
       }
     })
 
-    describe.skip('call', async () => {
-      let bot: SignerWithAddress, mana: Contract, dai: Contract, whale: SignerWithAddress
+    describe('call', async () => {
+      let mana: Contract, dai: Contract, whale: SignerWithAddress
 
-<<<<<<< HEAD
-      const source = 1 // uniswap v3
-      const amountIn = fp(20)
-      const slippage = fp(0.001) // 0.1 %
-      const data = defaultAbiCoder.encode(['address[]', 'uint24[]'], [[WETH], [3000, 500]])
-=======
       const amountOut = fp(20)
-      const slippage = fp(0.001) // 0.01 %
->>>>>>> be9f11e (1)
+      const slippage = fp(0.001) // 0.1 %
 
       before('load accounts', async () => {
-        bot = await impersonate(relayers[0], fp(10))
         dai = await instanceAt('IERC20', DAI)
         mana = await instanceAt('IERC20', MANA)
         whale = await impersonate(WHALE, fp(100))
       })
 
-<<<<<<< HEAD
       it('can swap MANA when passing the threshold', async () => {
-        const previousSmartVaultBalance = await dai.balanceOf(smartVault.address)
-        const previousFeeCollectorBalance = await dai.balanceOf(feeCollector)
-=======
-      it.only('can swap MANA when passing the threshold', async () => {
         const price = await smartVault.getPrice(DAI, MANA)
         const expectedAmountIn = amountOut.mul(price).div(fp(1))
         const expectedMaxAmountIn = expectedAmountIn.add(expectedAmountIn.mul(slippage).div(fp(1)))
         await mana.connect(whale).transfer(smartVault.address, expectedMaxAmountIn)
         await dai.connect(whale).approve(smartVault.address, amountOut)
->>>>>>> be9f11e (1)
 
-        await mana.connect(whale).transfer(smartVault.address, amountIn)
-        await otcSwapper.connect(bot).call(source, slippage, data)
+        const previousSenderDaiBalance = await dai.balanceOf(whale.address)
+        const previousSenderManaBalance = await mana.balanceOf(whale.address)
+        const previousSmartVaultDaiBalance = await dai.balanceOf(smartVault.address)
+        const previousSmartVaultManaBalance = await mana.balanceOf(smartVault.address)
 
-        const currentFeeCollectorBalance = await dai.balanceOf(feeCollector)
-        const relayedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
-        const price = await smartVault.getPrice(MANA, DAI)
-        const expectedAmountOut = amountIn.mul(price).div(fp(1))
-        const expectedMinAmountOut = expectedAmountOut.sub(expectedAmountOut.mul(slippage).div(fp(1)))
-        const expectedReceivedAmount = expectedMinAmountOut.sub(relayedCost)
+        await otcSwapper.connect(whale).call(amountOut, slippage)
 
-        const currentSmartVaultBalance = await dai.balanceOf(smartVault.address)
-        expect(currentSmartVaultBalance).to.be.at.least(previousSmartVaultBalance.add(expectedReceivedAmount))
+        const currentSenderDaiBalance = await dai.balanceOf(whale.address)
+        expect(currentSenderDaiBalance).to.be.at.least(previousSenderDaiBalance.sub(amountOut))
+
+        const currentSenderManaBalance = await mana.balanceOf(whale.address)
+        expect(currentSenderManaBalance).to.be.at.least(previousSenderManaBalance.add(expectedMaxAmountIn))
+
+        const currentSmartVaultDaiBalance = await dai.balanceOf(smartVault.address)
+        expect(currentSmartVaultDaiBalance).to.be.at.least(previousSmartVaultDaiBalance.add(amountOut))
+
+        const currentSmartVaultManaBalance = await mana.balanceOf(smartVault.address)
+        expect(currentSmartVaultManaBalance).to.be.at.least(previousSmartVaultManaBalance.sub(expectedMaxAmountIn))
       })
     })
   })
