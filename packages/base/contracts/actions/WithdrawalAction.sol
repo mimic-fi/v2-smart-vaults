@@ -47,7 +47,7 @@ abstract contract WithdrawalAction is BaseAction {
      * @param token Address of the token to be withdrawn
      */
     function _withdraw(address token) internal {
-        uint256 balance = IERC20(token).balanceOf(address(smartVault));
+        uint256 balance = _balanceOf(token);
         _withdraw(token, balance);
     }
 
