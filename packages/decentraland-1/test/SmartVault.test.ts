@@ -6,7 +6,7 @@ import { Contract } from 'ethers'
 
 describe('SmartVault', () => {
   let smartVault: Contract, mimic: Mimic
-  let swapper: Contract, withdrawer: Contract, tokenIn: Contract, tokenOut: Contract
+  let dexSwapper: Contract, otcSwapper: Contract, withdrawer: Contract, tokenIn: Contract, tokenOut: Contract
   let other: SignerWithAddress, owner: SignerWithAddress, managers: SignerWithAddress[], relayers: SignerWithAddress[]
 
   before('setup mimic', async () => {
@@ -27,7 +27,8 @@ describe('SmartVault', () => {
 
   before('deploy smart vault', async () => {
     const deployer = await deploy('SmartVaultDeployer', [], owner, { Deployer: mimic.deployer.address })
-    swapper = await deploy('Swapper', [deployer.address, mimic.registry.address])
+    dexSwapper = await deploy('DEXSwapper', [deployer.address, mimic.registry.address])
+    otcSwapper = await deploy('OTCSwapper', [deployer.address, mimic.registry.address])
     withdrawer = await deploy('Withdrawer', [deployer.address, mimic.registry.address])
 
     const tx = await deployer.deploy({
@@ -44,8 +45,8 @@ describe('SmartVault', () => {
         withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
         performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
       },
-      swapperActionParams: {
-        impl: swapper.address,
+      dexSwapperActionParams: {
+        impl: dexSwapper.address,
         admin: owner.address,
         managers: managers.map((m) => m.address),
         tokenIn: tokenIn.address,
@@ -54,6 +55,24 @@ describe('SmartVault', () => {
         tokenThresholdActionParams: {
           token: tokenIn.address,
           amount: fp(10),
+        },
+        relayedActionParams: {
+          relayers: relayers.map((m) => m.address),
+          gasPriceLimit: fp(100),
+          totalCostLimit: 0,
+          payingGasToken: tokenOut.address,
+        },
+      },
+      otcSwapperActionParams: {
+        impl: otcSwapper.address,
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        tokenIn: tokenIn.address,
+        tokenOut: tokenOut.address,
+        maxSlippage: fp(0.05),
+        tokenThresholdActionParams: {
+          token: tokenIn.address,
+          amount: fp(100),
         },
         relayedActionParams: {
           relayers: relayers.map((m) => m.address),
@@ -118,7 +137,8 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: ['setFeeCollector'] },
-        { name: 'swapper', account: swapper, roles: ['swap', 'withdraw'] },
+        { name: 'dexSwapper', account: dexSwapper, roles: ['swap', 'withdraw'] },
+        { name: 'otcSwapper', account: otcSwapper, roles: ['collect', 'withdraw'] },
         { name: 'withdrawer', account: withdrawer, roles: ['withdraw'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
@@ -166,9 +186,9 @@ describe('SmartVault', () => {
     })
   })
 
-  describe('swapper', () => {
+  describe('dex swapper', () => {
     it('has set its permissions correctly', async () => {
-      await assertPermissions(swapper, [
+      await assertPermissions(dexSwapper, [
         {
           name: 'owner',
           account: owner,
@@ -186,7 +206,8 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
-        { name: 'swapper', account: swapper, roles: [] },
+        { name: 'dexSwapper', account: dexSwapper, roles: [] },
+        { name: 'otcSwapper', account: otcSwapper, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
@@ -195,35 +216,98 @@ describe('SmartVault', () => {
     })
 
     it('has the proper smart vault set', async () => {
-      expect(await swapper.smartVault()).to.be.equal(smartVault.address)
+      expect(await dexSwapper.smartVault()).to.be.equal(smartVault.address)
     })
 
     it('sets the expected swapper params', async () => {
-      expect(await swapper.tokenIn()).to.be.equal(tokenIn.address)
-      expect(await swapper.tokenOut()).to.be.equal(tokenOut.address)
-      expect(await swapper.maxSlippage()).to.be.equal(fp(0.1))
+      expect(await dexSwapper.tokenIn()).to.be.equal(tokenIn.address)
+      expect(await dexSwapper.tokenOut()).to.be.equal(tokenOut.address)
+      expect(await dexSwapper.maxSlippage()).to.be.equal(fp(0.1))
     })
 
     it('sets the expected token threshold params', async () => {
-      expect(await swapper.thresholdToken()).to.be.equal(tokenIn.address)
-      expect(await swapper.thresholdAmount()).to.be.equal(fp(10))
+      expect(await dexSwapper.thresholdToken()).to.be.equal(tokenIn.address)
+      expect(await dexSwapper.thresholdAmount()).to.be.equal(fp(10))
     })
 
     it('sets the expected gas limits', async () => {
-      expect(await swapper.gasPriceLimit()).to.be.equal(fp(100))
-      expect(await swapper.totalCostLimit()).to.be.equal(0)
-      expect(await swapper.payingGasToken()).to.be.equal(tokenOut.address)
+      expect(await dexSwapper.gasPriceLimit()).to.be.equal(fp(100))
+      expect(await dexSwapper.totalCostLimit()).to.be.equal(0)
+      expect(await dexSwapper.payingGasToken()).to.be.equal(tokenOut.address)
     })
 
     it('whitelists the requested relayers', async () => {
       for (const relayer of relayers) {
-        expect(await swapper.isRelayer(relayer.address)).to.be.true
+        expect(await dexSwapper.isRelayer(relayer.address)).to.be.true
       }
     })
 
     it('does not whitelist managers as relayers', async () => {
       for (const manager of managers) {
-        expect(await swapper.isRelayer(manager.address)).to.be.false
+        expect(await dexSwapper.isRelayer(manager.address)).to.be.false
+      }
+    })
+  })
+
+  describe('otc swapper', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(otcSwapper, [
+        {
+          name: 'owner',
+          account: owner,
+          roles: [
+            'authorize',
+            'unauthorize',
+            'setSmartVault',
+            'setLimits',
+            'setRelayer',
+            'setTokenIn',
+            'setTokenOut',
+            'setMaxSlippage',
+            'setThreshold',
+            'call',
+          ],
+        },
+        { name: 'mimic', account: mimic.admin, roles: ['call'] },
+        { name: 'dexSwapper', account: dexSwapper, roles: ['call'] },
+        { name: 'otcSwapper', account: otcSwapper, roles: ['call'] },
+        { name: 'withdrawer', account: withdrawer, roles: ['call'] },
+        { name: 'other', account: other, roles: ['call'] },
+        { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
+      ])
+    })
+
+    it('has the proper smart vault set', async () => {
+      expect(await otcSwapper.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('sets the expected swapper params', async () => {
+      expect(await otcSwapper.tokenIn()).to.be.equal(tokenIn.address)
+      expect(await otcSwapper.tokenOut()).to.be.equal(tokenOut.address)
+      expect(await otcSwapper.maxSlippage()).to.be.equal(fp(0.05))
+    })
+
+    it('sets the expected token threshold params', async () => {
+      expect(await otcSwapper.thresholdToken()).to.be.equal(tokenIn.address)
+      expect(await otcSwapper.thresholdAmount()).to.be.equal(fp(100))
+    })
+
+    it('sets the expected gas limits', async () => {
+      expect(await otcSwapper.gasPriceLimit()).to.be.equal(fp(100))
+      expect(await otcSwapper.totalCostLimit()).to.be.equal(0)
+      expect(await otcSwapper.payingGasToken()).to.be.equal(tokenOut.address)
+    })
+
+    it('whitelists the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await otcSwapper.isRelayer(relayer.address)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await otcSwapper.isRelayer(manager.address)).to.be.false
       }
     })
   })
@@ -247,7 +331,8 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
-        { name: 'swapper', account: swapper, roles: [] },
+        { name: 'dexSwapper', account: dexSwapper, roles: [] },
+        { name: 'otcSwapper', account: otcSwapper, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },

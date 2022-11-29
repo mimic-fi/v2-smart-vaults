@@ -15,19 +15,14 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/WithdrawalAction.sol';
 
-contract Swapper is BaseAction, TokenThresholdAction, RelayedAction {
-    // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 75e3;
-
+abstract contract BaseSwapper is BaseAction, TokenThresholdAction, RelayedAction {
     address public tokenIn;
     address public tokenOut;
     uint256 public maxSlippage;
@@ -35,10 +30,6 @@ contract Swapper is BaseAction, TokenThresholdAction, RelayedAction {
     event TokenInSet(address indexed tokenIn);
     event TokenOutSet(address indexed tokenOut);
     event MaxSlippageSet(uint256 maxSlippage);
-
-    constructor(address admin, address registry) BaseAction(admin, registry) {
-        // solhint-disable-previous-line no-empty-blocks
-    }
 
     function setTokenIn(address newTokenIn) external auth {
         require(newTokenIn != tokenOut, 'SWAPPER_TOKEN_IN_EQ_TOKEN_OUT');
@@ -58,21 +49,8 @@ contract Swapper is BaseAction, TokenThresholdAction, RelayedAction {
         emit MaxSlippageSet(newMaxSlippage);
     }
 
-    function call(uint8 source, uint256 slippage, bytes memory data) external auth {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(source, slippage, data);
-    }
-
-    function _relayedCall(uint8 source, uint256 slippage, bytes memory data) internal redeemGas {
-        _call(source, slippage, data);
-    }
-
-    function _call(uint8 source, uint256 slippage, bytes memory data) internal {
+    function _validateSwap(uint256 amount, uint256 slippage) internal view {
         require(slippage <= maxSlippage, 'SWAPPER_SLIPPAGE_ABOVE_MAX');
-
-        uint256 amountIn = _balanceOf(tokenIn);
-        _validateThreshold(tokenIn, amountIn);
-
-        smartVault.swap(source, tokenIn, tokenOut, amountIn, ISmartVault.SwapLimit.Slippage, slippage, data);
-        emit Executed();
+        _validateThreshold(tokenIn, amount);
     }
 }

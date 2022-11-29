@@ -24,6 +24,25 @@ const mimic = {
   Create3Factory: '0x440c0e5F3bed5D9eB2e7Ba620225d86548c29D08',
 }
 
+const swapperActionParams = {
+  impl: undefined,
+  admin: accounts.owner,
+  managers: accounts.managers,
+  tokenIn: MANA,
+  tokenOut: DAI,
+  maxSlippage: fp(0.001), // 0.1 %
+  tokenThresholdActionParams: {
+    token: MANA,
+    amount: fp(10),
+  },
+  relayedActionParams: {
+    relayers: accounts.relayers,
+    gasPriceLimit: bn(50e9),
+    totalCostLimit: 0,
+    payingGasToken: DAI,
+  },
+}
+
 export default {
   namespace: 'mimic-v2.decentraland-sv1',
   accounts,
@@ -45,24 +64,8 @@ export default {
       withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
       performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
     },
-    swapperActionParams: {
-      impl: undefined,
-      admin: accounts.owner,
-      managers: accounts.managers,
-      tokenIn: MANA,
-      tokenOut: DAI,
-      maxSlippage: fp(0.001), // 0.01 %
-      tokenThresholdActionParams: {
-        token: MANA,
-        amount: fp(10),
-      },
-      relayedActionParams: {
-        relayers: accounts.relayers,
-        gasPriceLimit: bn(50e9),
-        totalCostLimit: 0,
-        payingGasToken: DAI,
-      },
-    },
+    dexSwapperActionParams: { ...swapperActionParams },
+    otcSwapperActionParams: { ...swapperActionParams },
     withdrawerActionParams: {
       impl: undefined,
       admin: accounts.owner,

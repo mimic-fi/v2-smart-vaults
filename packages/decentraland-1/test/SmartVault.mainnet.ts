@@ -18,7 +18,7 @@ const WHALE = '0x9A6ebE7E2a7722F8200d0ffB63a1F6406A0d7dce'
 
 describe('SmartVault', () => {
   let smartVault: Contract, mimic: { [key: string]: string }
-  let withdrawer: Contract, swapper: Contract
+  let withdrawer: Contract, dexSwapper: Contract, otcSwapper: Contract
   let owner: string, relayers: string[], managers: string[], feeCollector: string
 
   before('load accounts', async () => {
@@ -33,7 +33,8 @@ describe('SmartVault', () => {
   before('deploy smart vault', async () => {
     const output = await deployment.deploy(getForkedNetwork(hre), 'test')
     smartVault = await instanceAt('SmartVault', output.SmartVault)
-    swapper = await instanceAt('Swapper', output.Swapper)
+    dexSwapper = await instanceAt('DEXSwapper', output.DEXSwapper)
+    otcSwapper = await instanceAt('OTCSwapper', output.OTCSwapper)
     withdrawer = await instanceAt('Withdrawer', output.Withdrawer)
   })
 
@@ -65,7 +66,8 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'feeCollector', account: feeCollector, roles: ['setFeeCollector'] },
-        { name: 'swapper', account: swapper, roles: ['swap', 'withdraw'] },
+        { name: 'dexSwapper', account: dexSwapper, roles: ['swap', 'withdraw'] },
+        { name: 'otcSwapper', account: otcSwapper, roles: ['collect', 'withdraw'] },
         { name: 'withdrawer', account: withdrawer, roles: ['withdraw'] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },
@@ -117,9 +119,9 @@ describe('SmartVault', () => {
     })
   })
 
-  describe('swapper', () => {
+  describe('dex swapper', () => {
     it('has set its permissions correctly', async () => {
-      await assertPermissions(swapper, [
+      await assertPermissions(dexSwapper, [
         {
           name: 'owner',
           account: owner,
@@ -136,7 +138,8 @@ describe('SmartVault', () => {
             'call',
           ],
         },
-        { name: 'swapper', account: swapper, roles: [] },
+        { name: 'dexSwapper', account: dexSwapper, roles: [] },
+        { name: 'otcSwapper', account: otcSwapper, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
@@ -144,35 +147,35 @@ describe('SmartVault', () => {
     })
 
     it('has the proper smart vault set', async () => {
-      expect(await swapper.smartVault()).to.be.equal(smartVault.address)
+      expect(await dexSwapper.smartVault()).to.be.equal(smartVault.address)
     })
 
     it('sets the expected swapper params', async () => {
-      expect(await swapper.tokenIn()).to.be.equal(MANA)
-      expect(await swapper.tokenOut()).to.be.equal(DAI)
-      expect(await swapper.maxSlippage()).to.be.equal(fp(0.001))
+      expect(await dexSwapper.tokenIn()).to.be.equal(MANA)
+      expect(await dexSwapper.tokenOut()).to.be.equal(DAI)
+      expect(await dexSwapper.maxSlippage()).to.be.equal(fp(0.001))
     })
 
     it('sets the expected threshold', async () => {
-      expect(await swapper.thresholdToken()).to.be.equal(MANA)
-      expect(await swapper.thresholdAmount()).to.be.equal(fp(10))
+      expect(await dexSwapper.thresholdToken()).to.be.equal(MANA)
+      expect(await dexSwapper.thresholdAmount()).to.be.equal(fp(10))
     })
 
     it('sets the expected gas limits', async () => {
-      expect(await swapper.gasPriceLimit()).to.be.equal(bn(50e9))
-      expect(await swapper.totalCostLimit()).to.be.equal(0)
-      expect(await swapper.payingGasToken()).to.be.equal(DAI)
+      expect(await dexSwapper.gasPriceLimit()).to.be.equal(bn(50e9))
+      expect(await dexSwapper.totalCostLimit()).to.be.equal(0)
+      expect(await dexSwapper.payingGasToken()).to.be.equal(DAI)
     })
 
     it('whitelists the requested relayers', async () => {
       for (const relayer of relayers) {
-        expect(await swapper.isRelayer(relayer)).to.be.true
+        expect(await dexSwapper.isRelayer(relayer)).to.be.true
       }
     })
 
     it('does not whitelist managers as relayers', async () => {
       for (const manager of managers) {
-        expect(await swapper.isRelayer(manager)).to.be.false
+        expect(await dexSwapper.isRelayer(manager)).to.be.false
       }
     })
 
@@ -186,13 +189,13 @@ describe('SmartVault', () => {
 
       before('allow larger slippage', async () => {
         const signer = await impersonate(owner)
-        await swapper.connect(signer).setMaxSlippage(slippage)
+        await dexSwapper.connect(signer).setMaxSlippage(slippage)
       })
 
       before('load accounts', async () => {
         bot = await impersonate(relayers[0], fp(10))
-        dai = await instanceAt('IERC20Metadata', DAI)
-        mana = await instanceAt('IERC20Metadata', MANA)
+        dai = await instanceAt('IERC20', DAI)
+        mana = await instanceAt('IERC20', MANA)
         whale = await impersonate(WHALE, fp(100))
       })
 
@@ -201,7 +204,7 @@ describe('SmartVault', () => {
         const previousFeeCollectorBalance = await dai.balanceOf(feeCollector)
 
         await mana.connect(whale).transfer(smartVault.address, amountIn)
-        await swapper.connect(bot).call(source, slippage, data)
+        await dexSwapper.connect(bot).call(source, slippage, data)
 
         const currentFeeCollectorBalance = await dai.balanceOf(feeCollector)
         const relayedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
@@ -212,6 +215,107 @@ describe('SmartVault', () => {
 
         const currentSmartVaultBalance = await dai.balanceOf(smartVault.address)
         expect(currentSmartVaultBalance).to.be.at.least(previousSmartVaultBalance.add(expectedReceivedAmount))
+      })
+    })
+  })
+
+  describe('otc swapper', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(otcSwapper, [
+        {
+          name: 'owner',
+          account: owner,
+          roles: [
+            'authorize',
+            'unauthorize',
+            'setSmartVault',
+            'setLimits',
+            'setRelayer',
+            'setTokenIn',
+            'setTokenOut',
+            'setMaxSlippage',
+            'setThreshold',
+            'call',
+          ],
+        },
+        { name: 'dexSwapper', account: dexSwapper, roles: ['call'] },
+        { name: 'otcSwapper', account: otcSwapper, roles: ['call'] },
+        { name: 'withdrawer', account: withdrawer, roles: ['call'] },
+        { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
+      ])
+    })
+
+    it('has the proper smart vault set', async () => {
+      expect(await otcSwapper.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('sets the expected swapper params', async () => {
+      expect(await otcSwapper.tokenIn()).to.be.equal(MANA)
+      expect(await otcSwapper.tokenOut()).to.be.equal(DAI)
+      expect(await otcSwapper.maxSlippage()).to.be.equal(fp(0.001))
+    })
+
+    it('sets the expected threshold', async () => {
+      expect(await otcSwapper.thresholdToken()).to.be.equal(MANA)
+      expect(await otcSwapper.thresholdAmount()).to.be.equal(fp(10))
+    })
+
+    it('sets the expected gas limits', async () => {
+      expect(await otcSwapper.gasPriceLimit()).to.be.equal(bn(50e9))
+      expect(await otcSwapper.totalCostLimit()).to.be.equal(0)
+      expect(await otcSwapper.payingGasToken()).to.be.equal(DAI)
+    })
+
+    it('whitelists the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await otcSwapper.isRelayer(relayer)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await otcSwapper.isRelayer(manager)).to.be.false
+      }
+    })
+
+    describe('call', async () => {
+      let mana: Contract, dai: Contract, whale: SignerWithAddress
+
+      const amountOut = fp(20)
+      const slippage = fp(0.001) // 0.1 %
+
+      before('load accounts', async () => {
+        dai = await instanceAt('IERC20', DAI)
+        mana = await instanceAt('IERC20', MANA)
+        whale = await impersonate(WHALE, fp(100))
+      })
+
+      it('can swap MANA when passing the threshold', async () => {
+        const price = await smartVault.getPrice(DAI, MANA)
+        const expectedAmountIn = amountOut.mul(price).div(fp(1))
+        const expectedMaxAmountIn = expectedAmountIn.add(expectedAmountIn.mul(slippage).div(fp(1)))
+        await mana.connect(whale).transfer(smartVault.address, expectedMaxAmountIn)
+        await dai.connect(whale).approve(smartVault.address, amountOut)
+
+        const previousSenderDaiBalance = await dai.balanceOf(whale.address)
+        const previousSenderManaBalance = await mana.balanceOf(whale.address)
+        const previousSmartVaultDaiBalance = await dai.balanceOf(smartVault.address)
+        const previousSmartVaultManaBalance = await mana.balanceOf(smartVault.address)
+
+        await otcSwapper.connect(whale).call(amountOut, slippage)
+
+        const currentSenderDaiBalance = await dai.balanceOf(whale.address)
+        expect(currentSenderDaiBalance).to.be.at.least(previousSenderDaiBalance.sub(amountOut))
+
+        const currentSenderManaBalance = await mana.balanceOf(whale.address)
+        expect(currentSenderManaBalance).to.be.at.least(previousSenderManaBalance.add(expectedMaxAmountIn))
+
+        const currentSmartVaultDaiBalance = await dai.balanceOf(smartVault.address)
+        expect(currentSmartVaultDaiBalance).to.be.at.least(previousSmartVaultDaiBalance.add(amountOut))
+
+        const currentSmartVaultManaBalance = await mana.balanceOf(smartVault.address)
+        expect(currentSmartVaultManaBalance).to.be.at.least(previousSmartVaultManaBalance.sub(expectedMaxAmountIn))
       })
     })
   })
@@ -234,7 +338,8 @@ describe('SmartVault', () => {
             'call',
           ],
         },
-        { name: 'swapper', account: swapper, roles: [] },
+        { name: 'dexSwapper', account: dexSwapper, roles: [] },
+        { name: 'otcSwapper', account: otcSwapper, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
@@ -283,7 +388,7 @@ describe('SmartVault', () => {
 
       before('load accounts', async () => {
         bot = await impersonate(relayers[0], fp(10))
-        dai = await instanceAt('IERC20Metadata', DAI)
+        dai = await instanceAt('IERC20', DAI)
         whale = await impersonate(WHALE, fp(100))
       })
 
