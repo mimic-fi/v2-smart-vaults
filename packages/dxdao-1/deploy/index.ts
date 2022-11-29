@@ -25,4 +25,7 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   const registry = await instanceAt('IRegistry', mimic.Registry)
   const event = await assertIndirectEvent(tx, registry.interface, 'Cloned', { implementation: mimic.SmartVault })
   writeOutput('SmartVault', event.args.instance)
+
+  const receiver = await deployment.create3(input.namespace, create3Factory, 'Receiver', [event.args.instance])
+  writeOutput('Receiver', receiver.address)
 }

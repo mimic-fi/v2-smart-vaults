@@ -10,7 +10,7 @@ const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 
 describe('SmartVault', () => {
-  let smartVault: Contract, wrapper: Contract, registry: Contract
+  let smartVault: Contract, wrapper: Contract, receiver: Contract, registry: Contract
   let owner: string, relayers: string[], managers: string[], feeCollector: string, mimic: { [key: string]: string }
 
   before('load accounts', async () => {
@@ -24,8 +24,9 @@ describe('SmartVault', () => {
   })
 
   before('deploy smart vault', async () => {
-    const { Wrapper, SmartVault } = await deployment.deploy(getForkedNetwork(hre), 'test')
+    const { Wrapper, Receiver, SmartVault } = await deployment.deploy(getForkedNetwork(hre), 'test')
     wrapper = await instanceAt('Wrapper', Wrapper)
+    receiver = await instanceAt('Receiver', Receiver)
     smartVault = await instanceAt('SmartVault', SmartVault)
   })
 
@@ -61,6 +62,7 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'wrapper', account: wrapper, roles: ['wrap', 'withdraw'] },
+        { name: 'receiver', account: receiver, roles: [] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },
         { name: 'feeCollector', account: feeCollector, roles: ['setFeeCollector'] },
@@ -130,6 +132,7 @@ describe('SmartVault', () => {
           ],
         },
         { name: 'wrapper', account: wrapper, roles: [] },
+        { name: 'receiver', account: receiver, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
         { name: 'feeCollector', account: feeCollector, roles: [] },
@@ -186,6 +189,29 @@ describe('SmartVault', () => {
       const currentOwnerBalance = await weth.balanceOf(owner)
       const expectedWrappedBalance = fp(0.6).sub(relayedCost)
       expect(currentOwnerBalance).to.be.equal(previousOwnerBalance.add(expectedWrappedBalance))
+    })
+  })
+
+  describe('receiver', () => {
+    it('has the proper smart vault set', async () => {
+      expect(await receiver.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('forwards ETH to the smart vault', async () => {
+      const amount = fp(10)
+      const bot = await impersonate(relayers[0], amount.mul(2))
+      await bot.sendTransaction({ to: receiver.address, value: amount })
+
+      const previousActionBalance = await ethers.provider.getBalance(receiver.address)
+      const previousSmartVaultBalance = await ethers.provider.getBalance(smartVault.address)
+
+      await receiver.call()
+
+      const currentActionBalance = await ethers.provider.getBalance(receiver.address)
+      expect(currentActionBalance).to.be.equal(previousActionBalance.sub(amount))
+
+      const currentSmartVaultBalance = await ethers.provider.getBalance(smartVault.address)
+      expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.add(amount))
     })
   })
 })
