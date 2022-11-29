@@ -28,8 +28,8 @@ const swapperActionParams = {
   impl: undefined,
   admin: accounts.owner,
   managers: accounts.managers,
-  tokenIn: MANA,
-  tokenOut: DAI,
+  tokensIn: [MANA],
+  tokensOut: [DAI],
   maxSlippage: fp(0.001), // 0.1 %
   tokenThresholdActionParams: {
     token: MANA,

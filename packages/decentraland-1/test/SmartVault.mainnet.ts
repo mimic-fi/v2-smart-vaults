@@ -151,8 +151,8 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected swapper params', async () => {
-      expect(await dexSwapper.tokenIn()).to.be.equal(MANA)
-      expect(await dexSwapper.tokenOut()).to.be.equal(DAI)
+      expect(await dexSwapper.isTokenInAllowed(MANA)).to.be.true
+      expect(await dexSwapper.isTokenOutAllowed(DAI)).to.be.true
       expect(await dexSwapper.maxSlippage()).to.be.equal(fp(0.001))
     })
 
@@ -204,7 +204,7 @@ describe('SmartVault', () => {
         const previousFeeCollectorBalance = await dai.balanceOf(feeCollector)
 
         await mana.connect(whale).transfer(smartVault.address, amountIn)
-        await dexSwapper.connect(bot).call(source, slippage, data)
+        await dexSwapper.connect(bot).call(source, MANA, DAI, amountIn, slippage, data)
 
         const currentFeeCollectorBalance = await dai.balanceOf(feeCollector)
         const relayedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
@@ -251,8 +251,8 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected swapper params', async () => {
-      expect(await otcSwapper.tokenIn()).to.be.equal(MANA)
-      expect(await otcSwapper.tokenOut()).to.be.equal(DAI)
+      expect(await otcSwapper.isTokenInAllowed(MANA)).to.be.true
+      expect(await otcSwapper.isTokenOutAllowed(DAI)).to.be.true
       expect(await otcSwapper.maxSlippage()).to.be.equal(fp(0.001))
     })
 
@@ -303,7 +303,7 @@ describe('SmartVault', () => {
         const previousSmartVaultDaiBalance = await dai.balanceOf(smartVault.address)
         const previousSmartVaultManaBalance = await mana.balanceOf(smartVault.address)
 
-        await otcSwapper.connect(whale).call(amountOut, slippage)
+        await otcSwapper.connect(whale).call(MANA, DAI, amountOut, slippage)
 
         const currentSenderDaiBalance = await dai.balanceOf(whale.address)
         expect(currentSenderDaiBalance).to.be.at.least(previousSenderDaiBalance.sub(amountOut))

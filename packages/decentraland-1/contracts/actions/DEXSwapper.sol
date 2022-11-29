@@ -24,18 +24,37 @@ contract DEXSwapper is BaseSwapper {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function call(uint8 source, uint256 slippage, bytes memory data) external auth {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(source, slippage, data);
+    function call(
+        uint8 source,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 slippage,
+        bytes memory data
+    ) external auth {
+        (isRelayer[msg.sender] ? _relayedCall : _call)(source, tokenIn, tokenOut, amountIn, slippage, data);
     }
 
-    function _relayedCall(uint8 source, uint256 slippage, bytes memory data) internal redeemGas {
-        _call(source, slippage, data);
+    function _relayedCall(
+        uint8 source,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 slippage,
+        bytes memory data
+    ) internal redeemGas {
+        _call(source, tokenIn, tokenOut, amountIn, slippage, data);
     }
 
-    function _call(uint8 source, uint256 slippage, bytes memory data) internal {
-        uint256 amountIn = _balanceOf(tokenIn);
-        _validateSwap(amountIn, slippage);
-
+    function _call(
+        uint8 source,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 slippage,
+        bytes memory data
+    ) internal {
+        _validateSwap(tokenIn, tokenOut, amountIn, slippage);
         smartVault.swap(source, tokenIn, tokenOut, amountIn, ISmartVault.SwapLimit.Slippage, slippage, data);
         emit Executed();
     }

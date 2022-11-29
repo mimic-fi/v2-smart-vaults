@@ -41,16 +41,58 @@ describe('DEXSwapper', () => {
         action = action.connect(owner)
       })
 
-      it('sets the token in', async () => {
-        await action.setTokenIn(tokenIn.address)
+      const itConfigsTokenInCorrectly = (allowed: boolean) => {
+        it('sets the token in', async () => {
+          await action.setTokenIn(tokenIn.address, allowed)
 
-        expect(await action.tokenIn()).to.be.equal(tokenIn.address)
+          expect(await action.isTokenInAllowed(tokenIn.address)).to.be.equal(allowed)
+        })
+
+        it('emits an event', async () => {
+          const tx = await action.setTokenIn(tokenIn.address, allowed)
+
+          await assertEvent(tx, 'TokenInSet', { tokenIn, allowed })
+        })
+      }
+
+      context('when allowing the token', () => {
+        const allowed = true
+
+        context('when the token was allowed', () => {
+          beforeEach('sallow the token', async () => {
+            await action.setTokenIn(tokenIn.address, true)
+          })
+
+          itConfigsTokenInCorrectly(allowed)
+        })
+
+        context('when the token was not allowed', () => {
+          beforeEach('disallow the token', async () => {
+            await action.setTokenIn(tokenIn.address, false)
+          })
+
+          itConfigsTokenInCorrectly(allowed)
+        })
       })
 
-      it('emits an event', async () => {
-        const tx = await action.setTokenIn(tokenIn.address)
+      context('when disallowing the token', () => {
+        const allowed = false
 
-        await assertEvent(tx, 'TokenInSet', { tokenIn })
+        context('when the token was allowed', () => {
+          beforeEach('sallow the token', async () => {
+            await action.setTokenIn(tokenIn.address, true)
+          })
+
+          itConfigsTokenInCorrectly(allowed)
+        })
+
+        context('when the token was not allowed', () => {
+          beforeEach('disallow the token', async () => {
+            await action.setTokenIn(tokenIn.address, false)
+          })
+
+          itConfigsTokenInCorrectly(allowed)
+        })
       })
     })
 
@@ -60,7 +102,7 @@ describe('DEXSwapper', () => {
       })
 
       it('reverts', async () => {
-        await expect(action.setTokenIn(tokenIn.address)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.setTokenIn(tokenIn.address, true)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -73,16 +115,58 @@ describe('DEXSwapper', () => {
         action = action.connect(owner)
       })
 
-      it('sets the token out', async () => {
-        await action.setTokenOut(tokenOut.address)
+      const itConfigsTokenOutCorrectly = (allowed: boolean) => {
+        it('sets the token out', async () => {
+          await action.setTokenOut(tokenOut.address, allowed)
 
-        expect(await action.tokenOut()).to.be.equal(tokenOut.address)
+          expect(await action.isTokenOutAllowed(tokenOut.address)).to.be.equal(allowed)
+        })
+
+        it('emits an event', async () => {
+          const tx = await action.setTokenOut(tokenOut.address, allowed)
+
+          await assertEvent(tx, 'TokenOutSet', { tokenOut, allowed })
+        })
+      }
+
+      context('when allowing the token', () => {
+        const allowed = true
+
+        context('when the token was allowed', () => {
+          beforeEach('sallow the token', async () => {
+            await action.setTokenOut(tokenOut.address, true)
+          })
+
+          itConfigsTokenOutCorrectly(allowed)
+        })
+
+        context('when the token was not allowed', () => {
+          beforeEach('disallow the token', async () => {
+            await action.setTokenOut(tokenOut.address, false)
+          })
+
+          itConfigsTokenOutCorrectly(allowed)
+        })
       })
 
-      it('emits an event', async () => {
-        const tx = await action.setTokenOut(tokenOut.address)
+      context('when disallowing the token', () => {
+        const allowed = false
 
-        await assertEvent(tx, 'TokenOutSet', { tokenOut })
+        context('when the token was allowed', () => {
+          beforeEach('sallow the token', async () => {
+            await action.setTokenOut(tokenOut.address, true)
+          })
+
+          itConfigsTokenOutCorrectly(allowed)
+        })
+
+        context('when the token was not allowed', () => {
+          beforeEach('disallow the token', async () => {
+            await action.setTokenOut(tokenOut.address, false)
+          })
+
+          itConfigsTokenOutCorrectly(allowed)
+        })
       })
     })
 
@@ -92,7 +176,7 @@ describe('DEXSwapper', () => {
       })
 
       it('reverts', async () => {
-        await expect(action.setTokenOut(tokenOut.address)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.setTokenOut(tokenOut.address, true)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -165,13 +249,13 @@ describe('DEXSwapper', () => {
     beforeEach('set token in', async () => {
       const setTokenInRole = action.interface.getSighash('setTokenIn')
       await action.connect(owner).authorize(owner.address, setTokenInRole)
-      await action.connect(owner).setTokenIn(tokenIn.address)
+      await action.connect(owner).setTokenIn(tokenIn.address, true)
     })
 
     beforeEach('set token out', async () => {
       const setTokenOutRole = action.interface.getSighash('setTokenOut')
       await action.connect(owner).authorize(owner.address, setTokenOutRole)
-      await action.connect(owner).setTokenOut(tokenOut.address)
+      await action.connect(owner).setTokenOut(tokenOut.address, true)
     })
 
     beforeEach('set max slippage', async () => {
@@ -219,7 +303,7 @@ describe('DEXSwapper', () => {
             })
 
             it('calls swap primitive', async () => {
-              const tx = await action.call(SOURCE, slippage, DATA)
+              const tx = await action.call(SOURCE, tokenIn.address, tokenOut.address, amountIn, slippage, DATA)
 
               await assertIndirectEvent(tx, smartVault.interface, 'Swap', {
                 source: SOURCE,
@@ -235,7 +319,7 @@ describe('DEXSwapper', () => {
               const previousSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
               const previousDexBalance = await tokenIn.balanceOf(await mimic.swapConnector.dex())
 
-              await action.call(SOURCE, slippage, DATA)
+              await action.call(SOURCE, tokenIn.address, tokenOut.address, amountIn, slippage, DATA)
 
               const currentSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
               expect(currentSmartVaultBalance).to.be.eq(0)
@@ -249,7 +333,7 @@ describe('DEXSwapper', () => {
               const previousFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
               const previousDexBalance = await tokenOut.balanceOf(await mimic.swapConnector.dex())
 
-              await action.call(SOURCE, slippage, DATA)
+              await action.call(SOURCE, tokenIn.address, tokenOut.address, amountIn, slippage, DATA)
 
               const currentFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
               const gasPaid = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
@@ -261,7 +345,7 @@ describe('DEXSwapper', () => {
             })
 
             it('emits an Executed event', async () => {
-              const tx = await action.call(SOURCE, slippage, DATA)
+              const tx = await action.call(SOURCE, tokenIn.address, tokenOut.address, amountIn, slippage, DATA)
 
               await assertEvent(tx, 'Executed')
             })
@@ -269,7 +353,7 @@ describe('DEXSwapper', () => {
             it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
               const previousBalance = await tokenOut.balanceOf(feeCollector.address)
 
-              const tx = await action.call(SOURCE, slippage, DATA)
+              const tx = await action.call(SOURCE, tokenIn.address, tokenOut.address, amountIn, slippage, DATA)
 
               const currentBalance = await tokenOut.balanceOf(feeCollector.address)
               if (refunds) await assertRelayedBaseCost(tx, currentBalance.sub(previousBalance), 0.1)
@@ -278,12 +362,14 @@ describe('DEXSwapper', () => {
           })
 
           context('when the token in balance does not pass the threshold', () => {
+            const amountIn = threshold.sub(1)
+
             beforeEach('fund smart vault', async () => {
-              await tokenIn.mint(smartVault.address, threshold.sub(1))
+              await tokenIn.mint(smartVault.address, amountIn)
             })
 
             it('reverts', async () => {
-              await expect(action.call(SOURCE, 0, DATA)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+              await expect(action.call(SOURCE, tokenIn.address, tokenOut.address, amountIn, 0, DATA)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
             })
           })
         })
@@ -292,7 +378,7 @@ describe('DEXSwapper', () => {
           const slippage = maxSlippage.add(1)
 
           it('reverts', async () => {
-            await expect(action.call(SOURCE, slippage, DATA)).to.be.revertedWith('SWAPPER_SLIPPAGE_ABOVE_MAX')
+            await expect(action.call(SOURCE, tokenIn.address, tokenOut.address, 0, slippage, DATA)).to.be.revertedWith('SWAPPER_SLIPPAGE_ABOVE_MAX')
           })
         })
       }
@@ -323,7 +409,7 @@ describe('DEXSwapper', () => {
 
     context('when the sender is authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(SOURCE, 0, DATA)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.call(SOURCE, tokenIn.address, tokenOut.address, 0, 0, DATA)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })

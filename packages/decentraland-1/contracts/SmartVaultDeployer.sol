@@ -15,6 +15,7 @@
 pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
@@ -27,6 +28,8 @@ import './actions/Withdrawer.sol';
 // solhint-disable avoid-low-level-calls
 
 contract SmartVaultDeployer {
+    using UncheckedMath for uint256;
+
     struct Params {
         IRegistry registry;
         SwapperActionParams dexSwapperActionParams;
@@ -39,8 +42,8 @@ contract SmartVaultDeployer {
         address impl;
         address admin;
         address[] managers;
-        address tokenIn;
-        address tokenOut;
+        address[] tokensIn;
+        address[] tokensOut;
         uint256 maxSlippage;
         Deployer.RelayedActionParams relayedActionParams;
         Deployer.TokenThresholdActionParams tokenThresholdActionParams;
@@ -102,13 +105,17 @@ contract SmartVaultDeployer {
         // Set swapper token in
         swapper.authorize(params.admin, swapper.setTokenIn.selector);
         swapper.authorize(address(this), swapper.setTokenIn.selector);
-        swapper.setTokenIn(params.tokenIn);
+        for (uint256 i = 0; i < params.tokensIn.length; i = i.uncheckedAdd(1)) {
+            swapper.setTokenIn(params.tokensIn[i], true);
+        }
         swapper.unauthorize(address(this), swapper.setTokenIn.selector);
 
         // Set swapper token out
         swapper.authorize(params.admin, swapper.setTokenOut.selector);
         swapper.authorize(address(this), swapper.setTokenOut.selector);
-        swapper.setTokenOut(params.tokenOut);
+        for (uint256 i = 0; i < params.tokensOut.length; i = i.uncheckedAdd(1)) {
+            swapper.setTokenOut(params.tokensOut[i], true);
+        }
         swapper.unauthorize(address(this), swapper.setTokenOut.selector);
 
         // Set swapper max slippage
