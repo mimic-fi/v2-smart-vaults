@@ -13,7 +13,7 @@ import {
   YEAR,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
-import { assertPermissions, deployment } from '@mimic-fi/v2-smart-vaults-base'
+import { assertPermissions, assertRelayedBaseCost, deployment } from '@mimic-fi/v2-smart-vaults-base'
 import { getSwapData } from '@mimic-fi/v2-swap-connector'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -290,7 +290,9 @@ describe('SmartVault', () => {
         await usdc.connect(whale).transfer(feeClaimer.address, amountIn)
         const augustusSwapper = await impersonate(await feeClaimer.augustusSwapper(), fp(10))
         await feeClaimer.connect(augustusSwapper).registerFee(smartVault.address, USDC, fp(0.5))
-        await erc20Claimer.connect(bot).call(USDC, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig)
+        const tx = await erc20Claimer
+          .connect(bot)
+          .call(USDC, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig)
 
         expect(await feeClaimer.getBalance(USDC, smartVault.address)).to.be.equal(0)
 
@@ -299,6 +301,9 @@ describe('SmartVault', () => {
         const currentSmartVaultBalance = await weth.balanceOf(smartVault.address)
         const expectedClaimedBalance = minAmountOut.sub(relayedCost)
         expect(currentSmartVaultBalance).to.be.at.least(previousSmartVaultBalance.add(expectedClaimedBalance))
+
+        const redeemedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+        await assertRelayedBaseCost(tx, redeemedCost, 0.1)
       })
     })
   })
@@ -385,13 +390,16 @@ describe('SmartVault', () => {
         await expect(nativeClaimer.connect(bot).call(NATIVE_TOKEN_ADDRESS)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
 
         await bot.sendTransaction({ to: smartVault.address, value: fp(0.5) })
-        await nativeClaimer.connect(bot).call(NATIVE_TOKEN_ADDRESS)
+        const tx = await nativeClaimer.connect(bot).call(NATIVE_TOKEN_ADDRESS)
 
         const currentFeeCollectorBalance = await weth.balanceOf(feeCollector)
         const relayedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
         const currentSmartVaultBalance = await weth.balanceOf(smartVault.address)
         const expectedWrappedBalance = fp(1).sub(relayedCost)
         expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.add(expectedWrappedBalance))
+
+        const redeemedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+        await assertRelayedBaseCost(tx, redeemedCost, 0.1)
       })
 
       it('can claim ETH when passing the threshold', async () => {
@@ -404,7 +412,7 @@ describe('SmartVault', () => {
 
         await bot.sendTransaction({ to: feeClaimer.address, value: fp(0.5) })
         await feeClaimer.connect(augustusSwapper).registerFee(smartVault.address, NATIVE_TOKEN_ADDRESS, fp(0.5))
-        await nativeClaimer.connect(bot).call(NATIVE_TOKEN_ADDRESS)
+        const tx = await nativeClaimer.connect(bot).call(NATIVE_TOKEN_ADDRESS)
 
         expect(await feeClaimer.getBalance(NATIVE_TOKEN_ADDRESS, smartVault.address)).to.be.equal(0)
 
@@ -413,6 +421,9 @@ describe('SmartVault', () => {
         const currentSmartVaultBalance = await weth.balanceOf(smartVault.address)
         const expectedWrappedBalance = fp(1).sub(relayedCost)
         expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.add(expectedWrappedBalance))
+
+        const redeemedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+        await assertRelayedBaseCost(tx, redeemedCost, 0.15)
       })
 
       it('can claim WETH when passing the threshold', async () => {
@@ -427,7 +438,7 @@ describe('SmartVault', () => {
         await weth.connect(bot).deposit({ value: fp(0.5) })
         await weth.connect(bot).transfer(feeClaimer.address, fp(0.5))
         await feeClaimer.connect(augustusSwapper).registerFee(smartVault.address, WETH, fp(0.5))
-        await nativeClaimer.connect(bot).call(WETH)
+        const tx = await nativeClaimer.connect(bot).call(WETH)
 
         expect(await feeClaimer.getBalance(WETH, smartVault.address)).to.be.equal(0)
 
@@ -436,6 +447,9 @@ describe('SmartVault', () => {
         const currentSmartVaultBalance = await weth.balanceOf(smartVault.address)
         const expectedWrappedBalance = fp(1).sub(relayedCost)
         expect(currentSmartVaultBalance).to.be.equal(previousSmartVaultBalance.add(expectedWrappedBalance))
+
+        const redeemedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+        await assertRelayedBaseCost(tx, redeemedCost, 0.15)
       })
     })
   })
@@ -525,13 +539,18 @@ describe('SmartVault', () => {
       it('can set multiple swap fees', async () => {
         await weth.connect(bot).deposit({ value: fp(1) })
         await weth.connect(bot).transfer(smartVault.address, fp(1))
+        const previousFeeCollectorBalance = await weth.balanceOf(feeCollector)
 
-        await swapFeeSetter.connect(bot).call()
+        const tx = await swapFeeSetter.connect(bot).call()
         const swapFee0 = await smartVault.swapFee()
         expect(swapFee0.pct).to.be.equal(fp(0))
         expect(swapFee0.cap).to.be.equal(fp(0))
         expect(swapFee0.token).to.be.equal(ZERO_ADDRESS)
         expect(swapFee0.period).to.be.equal(0)
+
+        const currentFeeCollectorBalance = await weth.balanceOf(feeCollector)
+        const redeemedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+        await assertRelayedBaseCost(tx, redeemedCost, 0.1)
 
         await expect(swapFeeSetter.connect(bot).call()).to.be.revertedWith('TIME_LOCK_NOT_EXPIRED')
         await advanceTime(MONTH * 3)

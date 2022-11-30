@@ -9,7 +9,6 @@ import {
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import {
-  assertRelayedBaseCost,
   createAction,
   createPriceFeedMock,
   createSmartVault,
@@ -138,11 +137,10 @@ describe('NativeClaimer', () => {
           it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
             const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-            const tx = await action.call(token)
+            await action.call(token)
 
             const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-            if (refunds) await assertRelayedBaseCost(tx, currentBalance.sub(previousBalance))
-            else expect(currentBalance).to.be.equal(previousBalance)
+            expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
           })
         }
 
