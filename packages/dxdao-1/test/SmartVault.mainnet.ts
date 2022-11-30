@@ -1,5 +1,5 @@
 import { bn, fp, getForkedNetwork, impersonate, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
-import { assertPermissions, deployment } from '@mimic-fi/v2-smart-vaults-base'
+import { assertPermissions, assertRelayedBaseCost, deployment } from '@mimic-fi/v2-smart-vaults-base'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import hre, { ethers } from 'hardhat'
@@ -180,7 +180,7 @@ describe('SmartVault', () => {
       await expect(wrapper.connect(bot).call()).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
 
       await bot.sendTransaction({ to: smartVault.address, value: fp(0.5) })
-      await wrapper.connect(bot).call()
+      const tx = await wrapper.connect(bot).call()
 
       expect(await ethers.provider.getBalance(smartVault.address)).to.be.equal(0)
 
@@ -189,6 +189,9 @@ describe('SmartVault', () => {
       const currentOwnerBalance = await weth.balanceOf(owner)
       const expectedWrappedBalance = fp(0.6).sub(relayedCost)
       expect(currentOwnerBalance).to.be.equal(previousOwnerBalance.add(expectedWrappedBalance))
+
+      const redeemedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+      await assertRelayedBaseCost(tx, redeemedCost, 0.1)
     })
   })
 

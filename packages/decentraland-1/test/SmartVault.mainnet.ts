@@ -207,7 +207,7 @@ describe('SmartVault', () => {
         const previousSmartVaultBalance = await dai.balanceOf(smartVault.address)
         const previousFeeCollectorBalance = await dai.balanceOf(feeCollector)
 
-        await dexSwapper.connect(bot).call(source, MANA, DAI, amountIn, slippage, data)
+        const tx = await dexSwapper.connect(bot).call(source, MANA, DAI, amountIn, slippage, data)
 
         const currentFeeCollectorBalance = await dai.balanceOf(feeCollector)
         const relayedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
@@ -218,16 +218,9 @@ describe('SmartVault', () => {
 
         const currentSmartVaultBalance = await dai.balanceOf(smartVault.address)
         expect(currentSmartVaultBalance).to.be.at.least(previousSmartVaultBalance.add(expectedReceivedAmount))
-      })
 
-      it('covers gas cost when relaying txs', async () => {
-        const previousBalance = await dai.balanceOf(feeCollector)
-
-        const tx = await dexSwapper.connect(bot).call(source, MANA, DAI, amountIn, slippage, data)
-
-        const currentBalance = await dai.balanceOf(feeCollector)
-        const price = await smartVault.getPrice(DAI, WETH)
-        const redeemedCost = currentBalance.sub(previousBalance).mul(price).div(fp(1))
+        const daiWethPrice = await smartVault.getPrice(DAI, WETH)
+        const redeemedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance).mul(daiWethPrice).div(fp(1))
         await assertRelayedBaseCost(tx, redeemedCost, 0.1)
       })
     })
@@ -432,7 +425,10 @@ describe('SmartVault', () => {
         const previousSmartVaultBalance = await dai.balanceOf(smartVault.address)
         const previousFeeCollectorBalance = await dai.balanceOf(feeCollector)
 
-        await withdrawer.connect(bot).call()
+        const tx = await withdrawer.connect(bot).call()
+
+        const currentSmartVaultBalance = await dai.balanceOf(smartVault.address)
+        expect(currentSmartVaultBalance).to.be.equal(0)
 
         const currentFeeCollectorBalance = await dai.balanceOf(feeCollector)
         const relayedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
@@ -440,18 +436,8 @@ describe('SmartVault', () => {
         const expectedRecipientBalance = previousRecipientBalance.add(previousSmartVaultBalance).sub(relayedCost)
         expect(currentRecipientBalance).to.be.equal(expectedRecipientBalance)
 
-        const currentSmartVaultBalance = await dai.balanceOf(smartVault.address)
-        expect(currentSmartVaultBalance).to.be.equal(0)
-      })
-
-      it('covers gas cost when relaying txs', async () => {
-        const previousBalance = await dai.balanceOf(feeCollector)
-
-        const tx = await withdrawer.connect(bot).call()
-
-        const currentBalance = await dai.balanceOf(feeCollector)
         const price = await smartVault.getPrice(DAI, WETH)
-        const redeemedCost = currentBalance.sub(previousBalance).mul(price).div(fp(1))
+        const redeemedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance).mul(price).div(fp(1))
         await assertRelayedBaseCost(tx, redeemedCost, 0.1)
       })
     })

@@ -1,6 +1,5 @@
 import { assertEvent, assertIndirectEvent, fp, getSigners } from '@mimic-fi/v2-helpers'
 import {
-  assertRelayedBaseCost,
   createAction,
   createPriceFeedMock,
   createSmartVault,
@@ -106,11 +105,10 @@ describe('Wrapper', () => {
           it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
             const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-            const tx = await action.call()
+            await action.call()
 
             const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-            if (refunds) await assertRelayedBaseCost(tx, currentBalance.sub(previousBalance))
-            else expect(currentBalance).to.be.equal(previousBalance)
+            expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
           })
         })
 
