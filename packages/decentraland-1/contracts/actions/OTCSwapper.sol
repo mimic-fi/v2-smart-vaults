@@ -24,25 +24,25 @@ contract OTCSwapper is BaseSwapper {
     using UncheckedMath for uint256;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 75e3;
+    uint256 public constant override BASE_GAS = 50e3;
 
     constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function call(uint256 amountOut, uint256 slippage) external auth {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(amountOut, slippage);
+    function call(address tokenIn, address tokenOut, uint256 amountOut, uint256 slippage) external auth {
+        (isRelayer[msg.sender] ? _relayedCall : _call)(tokenIn, tokenOut, amountOut, slippage);
     }
 
-    function _relayedCall(uint256 amountOut, uint256 slippage) internal redeemGas {
-        _call(amountOut, slippage);
+    function _relayedCall(address tokenIn, address tokenOut, uint256 amountOut, uint256 slippage) internal redeemGas {
+        _call(tokenIn, tokenOut, amountOut, slippage);
     }
 
-    function _call(uint256 amountOut, uint256 slippage) internal {
+    function _call(address tokenIn, address tokenOut, uint256 amountOut, uint256 slippage) internal {
         uint256 price = smartVault.getPrice(tokenOut, tokenIn);
         uint256 amountIn = amountOut.mulDown(price);
         uint256 maxAmountIn = amountIn.mulDown(FixedPoint.ONE.uncheckedAdd(slippage));
-        _validateSwap(maxAmountIn, slippage);
+        _validateSwap(tokenIn, tokenOut, maxAmountIn, slippage);
 
         smartVault.collect(tokenOut, msg.sender, amountOut, new bytes(0));
         smartVault.withdraw(tokenIn, maxAmountIn, msg.sender, new bytes(0));

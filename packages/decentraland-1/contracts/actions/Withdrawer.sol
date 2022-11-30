@@ -21,7 +21,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/WithdrawalAction.sol';
 
 contract Withdrawer is BaseAction, RelayedAction, TokenThresholdAction, WithdrawalAction {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 120e3;
+    uint256 public constant override BASE_GAS = 115e3;
 
     event TokenSet(address indexed token);
 

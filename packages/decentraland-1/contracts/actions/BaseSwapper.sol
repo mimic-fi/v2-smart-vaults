@@ -23,25 +23,13 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.so
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
 abstract contract BaseSwapper is BaseAction, TokenThresholdAction, RelayedAction {
-    address public tokenIn;
-    address public tokenOut;
     uint256 public maxSlippage;
+    mapping (address => bool) public isTokenInAllowed;
+    mapping (address => bool) public isTokenOutAllowed;
 
-    event TokenInSet(address indexed tokenIn);
-    event TokenOutSet(address indexed tokenOut);
     event MaxSlippageSet(uint256 maxSlippage);
-
-    function setTokenIn(address newTokenIn) external auth {
-        require(newTokenIn != tokenOut, 'SWAPPER_TOKEN_IN_EQ_TOKEN_OUT');
-        tokenIn = newTokenIn;
-        emit TokenInSet(newTokenIn);
-    }
-
-    function setTokenOut(address newTokenOut) external auth {
-        require(newTokenOut != tokenIn, 'SWAPPER_TOKEN_OUT_EQ_TOKEN_IN');
-        tokenOut = newTokenOut;
-        emit TokenOutSet(newTokenOut);
-    }
+    event TokenInSet(address indexed tokenIn, bool allowed);
+    event TokenOutSet(address indexed tokenOut, bool allowed);
 
     function setMaxSlippage(uint256 newMaxSlippage) external auth {
         require(newMaxSlippage <= FixedPoint.ONE, 'SWAPPER_SLIPPAGE_ABOVE_ONE');
@@ -49,8 +37,20 @@ abstract contract BaseSwapper is BaseAction, TokenThresholdAction, RelayedAction
         emit MaxSlippageSet(newMaxSlippage);
     }
 
-    function _validateSwap(uint256 amount, uint256 slippage) internal view {
+    function setTokenIn(address token, bool allowed) external auth {
+        isTokenInAllowed[token] = allowed;
+        emit TokenInSet(token, allowed);
+    }
+
+    function setTokenOut(address token, bool allowed) external auth {
+        isTokenOutAllowed[token] = allowed;
+        emit TokenOutSet(token, allowed);
+    }
+
+    function _validateSwap(address tokenIn, address tokenOut, uint256 amountIn, uint256 slippage) internal view {
         require(slippage <= maxSlippage, 'SWAPPER_SLIPPAGE_ABOVE_MAX');
-        _validateThreshold(tokenIn, amount);
+        require(isTokenInAllowed[tokenIn], 'SWAPPER_TOKEN_IN_NOT_ALLOWED');
+        require(isTokenOutAllowed[tokenOut], 'SWAPPER_TOKEN_OUT_NOT_ALLOWED');
+        _validateThreshold(tokenIn, amountIn);
     }
 }
