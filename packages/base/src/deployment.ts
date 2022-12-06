@@ -20,8 +20,13 @@ export async function deploy(
   outputFileName: string = network,
   rootDir?: string
 ): Promise<{ [key: string]: string }> {
-  const scriptPath = dir('index.ts', rootDir)
-  if (!fs.existsSync(scriptPath)) throw Error('Missing deployment script')
+  const genericScriptPath = dir('index.ts', rootDir)
+  const networkScriptPath = dir(`index.${network}.ts`, rootDir)
+
+  let scriptPath
+  if (fs.existsSync(networkScriptPath)) scriptPath = networkScriptPath
+  else if (fs.existsSync(genericScriptPath)) scriptPath = genericScriptPath
+  else throw Error('Missing deployment script')
   const script = require(scriptPath).default
 
   const input = readInput(network, rootDir)

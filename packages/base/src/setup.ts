@@ -8,6 +8,7 @@ export type Mimic = {
   smartVault: Contract
   priceOracle: Contract
   swapConnector: Contract
+  bridgeConnector: Contract
   wrappedNativeToken: Contract
   admin: SignerWithAddress
 }
@@ -18,6 +19,7 @@ export const MOCKS = {
   TOKEN: `${SMART_VAULTS_BASE_PATH}/samples/TokenMock.sol/TokenMock`,
   PRICE_FEED: `${SMART_VAULTS_BASE_PATH}/samples/PriceFeedMock.sol/PriceFeedMock`,
   SWAP_CONNECTOR: `${SMART_VAULTS_BASE_PATH}/core/SwapConnectorMock.sol/SwapConnectorMock`,
+  BRIDGE_CONNECTOR: `${SMART_VAULTS_BASE_PATH}/core/BridgeConnectorMock.sol/BridgeConnectorMock`,
   WRAPPED_NATIVE_TOKEN: `${SMART_VAULTS_BASE_PATH}/samples/WrappedNativeTokenMock.sol/WrappedNativeTokenMock`,
 }
 
@@ -26,6 +28,7 @@ export const ARTIFACTS = {
   SMART_VAULT: '@mimic-fi/v2-smart-vault/artifacts/contracts/SmartVault.sol/SmartVault',
   PRICE_ORACLE: '@mimic-fi/v2-price-oracle/artifacts/contracts/oracle/PriceOracle.sol/PriceOracle',
   SWAP_CONNECTOR: '@mimic-fi/v2-swap-connector/artifacts/contracts/SwapConnector.sol/SwapConnector',
+  BRIDGE_CONNECTOR: '@mimic-fi/v2-bridge-connector/artifacts/contracts/BridgeConnector.sol/BridgeConnector',
   DEPLOYER: '@mimic-fi/v2-smart-vaults-base/artifacts/contracts/Deployer.sol/Deployer',
   CREATE3_FACTORY: '@mimic-fi/v2-smart-vaults-base/artifacts/contracts/Create3Factory.sol/Create3Factory',
 }
@@ -59,5 +62,10 @@ export async function setupMimic(mocked: boolean): Promise<Mimic> {
       ]))
   await registry.connect(admin).register(await swapConnector.NAMESPACE(), swapConnector.address, true)
 
-  return { deployer, registry, smartVault, priceOracle, swapConnector, wrappedNativeToken, admin }
+  const bridgeConnector = await (mocked
+    ? deploy(MOCKS.BRIDGE_CONNECTOR, [registry.address])
+    : deploy(ARTIFACTS.BRIDGE_CONNECTOR, [registry.address]))
+  await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
+
+  return { deployer, registry, smartVault, priceOracle, swapConnector, bridgeConnector, wrappedNativeToken, admin }
 }

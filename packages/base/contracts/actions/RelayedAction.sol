@@ -79,7 +79,8 @@ abstract contract RelayedAction is BaseAction {
     }
 
     /**
-     * @dev Sets the relayed action permissive mode. If active,  relayer address. Sender must be authorized.
+     * @dev Sets the relayed action permissive mode. If active, it won't fail when trying to redeem gas costs to the
+     * relayer if the smart vault does not have enough balance. Sender must be authorized.
      * @param active Whether the permissive mode should be active or not
      */
     function setPermissiveMode(bool active) external auth {
