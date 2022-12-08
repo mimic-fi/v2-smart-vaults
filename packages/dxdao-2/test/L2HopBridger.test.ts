@@ -431,15 +431,20 @@ describe('L2HopBridger', () => {
 
                 context('when the current balance passes the threshold', () => {
                   const balance = THRESHOLD
+                  const bonderFee = balance.mul(BONDER_FEE_PCT).div(fp(1))
 
                   beforeEach('fund smart vault token', async () => {
                     await token.mint(smartVault.address, balance)
                   })
 
-                  it('calls the bridge primitive', async () => {
-                    const tx = await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, BONDER_FEE_PCT)
+                  it('can executes', async () => {
+                    const canExecute = await action.canExecute(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)
+                    expect(canExecute).to.be.true
+                  })
 
-                    const bonderFee = balance.mul(BONDER_FEE_PCT).div(fp(1))
+                  it('calls the bridge primitive', async () => {
+                    const tx = await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)
+
                     const data = defaultAbiCoder.encode(['address', 'uint256'], [hopL2Amm.address, bonderFee])
 
                     await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
@@ -452,7 +457,7 @@ describe('L2HopBridger', () => {
                   })
 
                   it('emits an Executed event', async () => {
-                    const tx = await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, BONDER_FEE_PCT)
+                    const tx = await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)
 
                     await assertEvent(tx, 'Executed')
                   })
@@ -460,7 +465,7 @@ describe('L2HopBridger', () => {
                   it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
                     const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-                    await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, BONDER_FEE_PCT)
+                    await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)
 
                     const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
                     expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
@@ -483,8 +488,11 @@ describe('L2HopBridger', () => {
               })
 
               context('when the bonder fee is above the limit', () => {
+                const balance = fp(1)
+                const bonderFee = fp(1)
+
                 it('reverts', async () => {
-                  await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, BONDER_FEE_PCT)).to.be.revertedWith(
+                  await expect(action.call(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)).to.be.revertedWith(
                     'BRIDGER_BONDER_FEE_ABOVE_MAX'
                   )
                 })
@@ -493,7 +501,7 @@ describe('L2HopBridger', () => {
 
             context('when the slippage is above the limit', () => {
               it('reverts', async () => {
-                await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, BONDER_FEE_PCT)).to.be.revertedWith(
+                await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
                   'BRIDGER_SLIPPAGE_ABOVE_MAX'
                 )
               })
@@ -502,7 +510,7 @@ describe('L2HopBridger', () => {
 
           context('when the chain ID is not allowed', () => {
             it('reverts', async () => {
-              await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, BONDER_FEE_PCT)).to.be.revertedWith(
+              await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
                 'BRIDGER_CHAIN_NOT_ALLOWED'
               )
             })
@@ -511,7 +519,7 @@ describe('L2HopBridger', () => {
 
         context('when the given token does not have an AMM set', () => {
           it('reverts', async () => {
-            await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, BONDER_FEE_PCT)).to.be.revertedWith(
+            await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
               'BRIDGER_TOKEN_AMM_NOT_SET'
             )
           })
@@ -539,7 +547,7 @@ describe('L2HopBridger', () => {
 
     context('when the sender is authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, BONDER_FEE_PCT)).to.be.revertedWith(
+        await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
           'AUTH_SENDER_NOT_ALLOWED'
         )
       })

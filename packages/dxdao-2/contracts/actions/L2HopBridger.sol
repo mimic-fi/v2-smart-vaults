@@ -49,6 +49,19 @@ contract L2HopBridger is BaseAction, TokenThresholdAction, RelayedAction {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function canExecute(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFee)
+        external
+        view
+        returns (bool)
+    {
+        return
+            getTokenAmm[token] != address(0) &&
+            isChainAllowed[chainId] &&
+            slippage <= maxSlippage &&
+            bonderFee.divUp(amount) <= maxBonderFeePct &&
+            _passesThreshold(token, amount);
+    }
+
     function setMaxDeadline(uint256 newMaxDeadline) external auth {
         require(newMaxDeadline > 0, 'BRIDGER_MAX_DEADLINE_ZERO');
         maxDeadline = newMaxDeadline;
@@ -81,30 +94,31 @@ contract L2HopBridger is BaseAction, TokenThresholdAction, RelayedAction {
         emit TokenAmmSet(token, amm);
     }
 
-    function call(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFeePct)
+    function call(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFee)
         external
         auth
     {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(chainId, token, amount, slippage, bonderFeePct);
+        (isRelayer[msg.sender] ? _relayedCall : _call)(chainId, token, amount, slippage, bonderFee);
     }
 
-    function _relayedCall(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFeePct)
+    function _relayedCall(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFee)
         internal
         redeemGas
     {
-        _call(chainId, token, amount, slippage, bonderFeePct);
+        _call(chainId, token, amount, slippage, bonderFee);
     }
 
-    function _call(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFeePct) internal {
+    function _call(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFee) internal {
         address amm = getTokenAmm[token];
         require(amm != address(0), 'BRIDGER_TOKEN_AMM_NOT_SET');
         require(isChainAllowed[chainId], 'BRIDGER_CHAIN_NOT_ALLOWED');
         require(slippage <= maxSlippage, 'BRIDGER_SLIPPAGE_ABOVE_MAX');
-        require(bonderFeePct <= maxBonderFeePct, 'BRIDGER_BONDER_FEE_ABOVE_MAX');
+        require(bonderFee.divUp(amount) <= maxBonderFeePct, 'BRIDGER_BONDER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
-        uint256 fee = amount.mulDown(bonderFeePct);
-        bytes memory data = chainId == ETHEREUM_MAINNET ? abi.encode(amm, fee) : abi.encode(amm, fee, maxDeadline);
+        bytes memory data =
+            chainId == ETHEREUM_MAINNET ? abi.encode(amm, bonderFee) : abi.encode(amm, bonderFee, maxDeadline);
+
         smartVault.bridge(HOP_SOURCE, chainId, token, amount, ISmartVault.BridgeLimit.Slippage, slippage, data);
         emit Executed();
     }
