@@ -298,6 +298,10 @@ describe('OTCSwapper', () => {
               await tokenOut.connect(owner).approve(smartVault.address, fp(1000))
             })
 
+            it('can execute', async () => {
+              expect(await action.canExecute(tokenIn.address, tokenOut.address, amountOut, slippage)).to.be.true
+            })
+
             it('calls collect primitive', async () => {
               const tx = await action.call(tokenIn.address, tokenOut.address, amountOut, slippage)
 

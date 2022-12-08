@@ -24,6 +24,14 @@ contract DEXSwapper is BaseSwapper {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function canExecute(address tokenIn, address tokenOut, uint256 amountIn, uint256 slippage)
+        external
+        view
+        returns (bool)
+    {
+        return _canExecute(tokenIn, tokenOut, amountIn, slippage);
+    }
+
     function call(
         uint8 source,
         address tokenIn,

@@ -30,6 +30,15 @@ contract OTCSwapper is BaseSwapper {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function canExecute(address tokenIn, address tokenOut, uint256 amountOut, uint256 slippage)
+        external
+        view
+        returns (bool)
+    {
+        uint256 amountIn = _calcAmountIn(tokenIn, tokenOut, amountOut, slippage);
+        return _canExecute(tokenIn, tokenOut, amountIn, slippage);
+    }
+
     function call(address tokenIn, address tokenOut, uint256 amountOut, uint256 slippage) external auth {
         (isRelayer[msg.sender] ? _relayedCall : _call)(tokenIn, tokenOut, amountOut, slippage);
     }
@@ -39,13 +48,21 @@ contract OTCSwapper is BaseSwapper {
     }
 
     function _call(address tokenIn, address tokenOut, uint256 amountOut, uint256 slippage) internal {
-        uint256 price = smartVault.getPrice(tokenOut, tokenIn);
-        uint256 amountIn = amountOut.mulDown(price);
-        uint256 maxAmountIn = amountIn.mulDown(FixedPoint.ONE.uncheckedAdd(slippage));
-        _validateSwap(tokenIn, tokenOut, maxAmountIn, slippage);
+        uint256 amountIn = _calcAmountIn(tokenIn, tokenOut, amountOut, slippage);
+        _validateSwap(tokenIn, tokenOut, amountIn, slippage);
 
         smartVault.collect(tokenOut, msg.sender, amountOut, new bytes(0));
-        smartVault.withdraw(tokenIn, maxAmountIn, msg.sender, new bytes(0));
+        smartVault.withdraw(tokenIn, amountIn, msg.sender, new bytes(0));
         emit Executed();
+    }
+
+    function _calcAmountIn(address tokenIn, address tokenOut, uint256 amountOut, uint256 slippage)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 price = smartVault.getPrice(tokenOut, tokenIn);
+        uint256 minAmountIn = amountOut.mulDown(price);
+        return minAmountIn.mulDown(FixedPoint.ONE.uncheckedAdd(slippage));
     }
 }

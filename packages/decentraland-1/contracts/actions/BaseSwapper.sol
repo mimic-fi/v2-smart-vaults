@@ -53,4 +53,16 @@ abstract contract BaseSwapper is BaseAction, TokenThresholdAction, RelayedAction
         require(isTokenOutAllowed[tokenOut], 'SWAPPER_TOKEN_OUT_NOT_ALLOWED');
         _validateThreshold(tokenIn, amountIn);
     }
+
+    function _canExecute(address tokenIn, address tokenOut, uint256 amountIn, uint256 slippage)
+        internal
+        view
+        returns (bool)
+    {
+        return
+            slippage <= maxSlippage &&
+            isTokenInAllowed[tokenIn] &&
+            isTokenOutAllowed[tokenOut] &&
+            _passesThreshold(tokenIn, amountIn);
+    }
 }
