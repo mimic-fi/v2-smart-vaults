@@ -58,7 +58,7 @@ describe('DEXSwapper', () => {
         const allowed = true
 
         context('when the token was allowed', () => {
-          beforeEach('sallow the token', async () => {
+          beforeEach('allow the token', async () => {
             await action.setTokenIn(tokenIn.address, true)
           })
 
@@ -78,7 +78,7 @@ describe('DEXSwapper', () => {
         const allowed = false
 
         context('when the token was allowed', () => {
-          beforeEach('sallow the token', async () => {
+          beforeEach('allow the token', async () => {
             await action.setTokenIn(tokenIn.address, true)
           })
 
@@ -132,7 +132,7 @@ describe('DEXSwapper', () => {
         const allowed = true
 
         context('when the token was allowed', () => {
-          beforeEach('sallow the token', async () => {
+          beforeEach('allow the token', async () => {
             await action.setTokenOut(tokenOut.address, true)
           })
 
@@ -152,7 +152,7 @@ describe('DEXSwapper', () => {
         const allowed = false
 
         context('when the token was allowed', () => {
-          beforeEach('sallow the token', async () => {
+          beforeEach('allow the token', async () => {
             await action.setTokenOut(tokenOut.address, true)
           })
 
