@@ -1,5 +1,5 @@
 {
-  "name": "@mimic-fi/v2-smart-vaults-dxdao-2",
+  "name": "@mimic-fi/v2-smart-vaults-dxdao-bridger",
   "version": "0.0.1",
   "license": "GPL-3.0",
   "engines": {

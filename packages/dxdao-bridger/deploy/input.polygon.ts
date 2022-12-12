@@ -29,7 +29,7 @@ const mimic = {
 }
 
 export default {
-  namespace: 'mimic-v2.dxdao-sv2-beta',
+  namespace: 'mimic-v2.dxdao-bridger-beta',
   accounts,
   mimic,
   params: {
