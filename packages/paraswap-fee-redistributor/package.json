@@ -1,5 +1,5 @@
 {
-  "name": "@mimic-fi/v2-smart-vaults-paraswap-1",
+  "name": "@mimic-fi/v2-smart-vaults-paraswap-fee-redistributor",
   "version": "0.0.1",
   "license": "GPL-3.0",
   "engines": {

@@ -2,9 +2,7 @@ import { bn, fp, MONTH, YEAR, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
 /* eslint-disable no-secrets/no-secrets */
 
-const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
-const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
-const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
+const WETH = '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6'
 
 const accounts = {
   mimic: '0x495dD9E4784C207Ec9f4f426F204C73916d5b7A9',
@@ -12,7 +10,6 @@ const accounts = {
   managers: [],
   relayers: ['0xB3AfB6DB38a8E72905165c1fBB96772e63560790'],
   swapSigner: '0x6278c27CF5534F07fA8f1Ab6188a155cb8750FFA',
-  feeClaimer: '0xeF13101C5bbD737cFb2bF00Bbd38c626AD6952F7',
   feeCollector: '0x27751A0Fe3bd6EBfeB04B359D97B0cf199f20D22',
 }
 
@@ -26,7 +23,7 @@ const mimic = {
 }
 
 export default {
-  namespace: 'mimic-v2.paraswap-sv1',
+  namespace: 'mimic-v2.paraswap-fee-redistributor',
   accounts,
   mimic,
   params: {
@@ -37,10 +34,10 @@ export default {
       admin: accounts.owner,
       feeCollector: accounts.feeCollector,
       strategies: [],
-      priceFeedParams: [{ base: USDC, quote: WETH, feed: CHAINLINK_ORACLE_USDC_ETH }],
+      priceFeedParams: [],
       priceOracle: mimic.PriceOracle,
       swapConnector: mimic.SwapConnector,
-      swapFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+      swapFee: { pct: fp(0.02), cap: fp(4), token: WETH, period: YEAR },
       withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
       performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
     },
@@ -53,7 +50,7 @@ export default {
       },
       relayedActionParams: {
         relayers: accounts.relayers,
-        gasPriceLimit: bn(50e9),
+        gasPriceLimit: bn(100e9),
         totalCostLimit: 0,
         payingGasToken: WETH,
       },
@@ -66,17 +63,17 @@ export default {
       admin: accounts.owner,
       managers: accounts.managers,
       swapSigner: accounts.swapSigner,
-      maxSlippage: fp(0.03),
+      maxSlippage: fp(0.05),
       tokenSwapIgnores: ['0xcafe001067cdef266afb7eb5a286dcfd277f3de5'], // PSP
       feeClaimerParams: {
-        feeClaimer: accounts.feeClaimer,
+        feeClaimer: undefined,
         tokenThresholdActionParams: {
-          token: USDC,
-          amount: bn(1000e6),
+          token: WETH,
+          amount: fp(0.3),
         },
         relayedActionParams: {
           relayers: accounts.relayers,
-          gasPriceLimit: bn(50e9),
+          gasPriceLimit: bn(100e9),
           totalCostLimit: 0,
           payingGasToken: WETH,
         },
@@ -87,14 +84,14 @@ export default {
       admin: accounts.owner,
       managers: accounts.managers,
       feeClaimerParams: {
-        feeClaimer: accounts.feeClaimer,
+        feeClaimer: undefined,
         tokenThresholdActionParams: {
-          token: USDC,
-          amount: bn(1000e6),
+          token: WETH,
+          amount: fp(0.3),
         },
         relayedActionParams: {
           relayers: accounts.relayers,
-          gasPriceLimit: bn(50e9),
+          gasPriceLimit: bn(100e9),
           totalCostLimit: 0,
           payingGasToken: WETH,
         },
@@ -105,19 +102,18 @@ export default {
       admin: accounts.owner,
       managers: accounts.managers,
       feeParams: [
-        { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-        { pct: fp(0.05), cap: bn(5000e6), token: USDC, period: YEAR },
-        { pct: fp(0.1), cap: bn(5000e6), token: USDC, period: YEAR },
-        { pct: fp(0.2), cap: bn(5000e6), token: USDC, period: YEAR },
+        { pct: fp(0.05), cap: fp(100), token: WETH, period: YEAR },
+        { pct: fp(0.1), cap: fp(200), token: WETH, period: YEAR },
+        { pct: fp(0.15), cap: fp(300), token: WETH, period: YEAR },
       ],
       relayedActionParams: {
         relayers: accounts.relayers,
-        gasPriceLimit: bn(50e9),
+        gasPriceLimit: bn(100e9),
         totalCostLimit: 0,
         payingGasToken: WETH,
       },
       timeLockedActionParams: {
-        period: 3 * MONTH,
+        period: MONTH,
       },
     },
   },
