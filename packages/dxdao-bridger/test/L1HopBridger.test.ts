@@ -1,12 +1,20 @@
-import { assertEvent, assertIndirectEvent, deploy, fp, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import {
+  assertEvent,
+  assertIndirectEvent,
+  deploy,
+  fp,
+  getSigners,
+  ONES_ADDRESS,
+  ZERO_ADDRESS,
+} from '@mimic-fi/v2-helpers'
 import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 
-describe('L2HopBridger', () => {
-  let action: Contract, smartVault: Contract, token: Contract, hopL2Amm: Contract, mimic: Mimic
+describe('L1HopBridger', () => {
+  let action: Contract, smartVault: Contract, token: Contract, hopL1Bridge: Contract, mimic: Mimic
   let owner: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
 
   before('set up signers', async () => {
@@ -17,12 +25,12 @@ describe('L2HopBridger', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     smartVault = await createSmartVault(mimic, owner)
-    action = await createAction('L2HopBridger', mimic, owner, smartVault)
+    action = await createAction('L1HopBridger', mimic, owner, smartVault)
   })
 
-  beforeEach('deploy token and amm mock', async () => {
+  beforeEach('deploy token and bridge mock', async () => {
     token = await createTokenMock()
-    hopL2Amm = await deploy('HopL2AmmMock', [token.address])
+    hopL1Bridge = await deploy('HopL1BridgeMock', [token.address])
   })
 
   beforeEach('authorize action', async () => {
@@ -38,89 +46,89 @@ describe('L2HopBridger', () => {
     await smartVault.connect(owner).setFeeCollector(feeCollector.address)
   })
 
-  describe('setTokenAmm', () => {
+  describe('setTokenBridge', () => {
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const setTokenAmmRole = action.interface.getSighash('setTokenAmm')
-        await action.connect(owner).authorize(owner.address, setTokenAmmRole)
+        const setTokenBridgeRole = action.interface.getSighash('setTokenBridge')
+        await action.connect(owner).authorize(owner.address, setTokenBridgeRole)
         action = action.connect(owner)
       })
 
       context('when the token address is not zero', () => {
-        context('when the amm canonical token matches', () => {
-          context('when setting the token amm', () => {
-            const itSetsTheTokenAmm = () => {
-              it('sets the token amm', async () => {
-                await action.setTokenAmm(token.address, hopL2Amm.address)
+        context('when the bridge canonical token matches', () => {
+          context('when setting the token bridge', () => {
+            const itSetsTheTokenBridge = () => {
+              it('sets the token bridge', async () => {
+                await action.setTokenBridge(token.address, hopL1Bridge.address)
 
-                expect(await action.getTokenAmm(token.address)).to.be.equal(hopL2Amm.address)
+                expect(await action.getTokenBridge(token.address)).to.be.equal(hopL1Bridge.address)
               })
 
               it('emits an event', async () => {
-                const tx = await action.setTokenAmm(token.address, hopL2Amm.address)
+                const tx = await action.setTokenBridge(token.address, hopL1Bridge.address)
 
-                await assertEvent(tx, 'TokenAmmSet', { token, amm: hopL2Amm.address })
+                await assertEvent(tx, 'TokenBridgeSet', { token, bridge: hopL1Bridge.address })
               })
             }
 
-            context('when the token amm was set', () => {
-              beforeEach('set token amm', async () => {
-                await action.setTokenAmm(token.address, hopL2Amm.address)
+            context('when the token bridge was set', () => {
+              beforeEach('set token bridge', async () => {
+                await action.setTokenBridge(token.address, hopL1Bridge.address)
               })
 
-              itSetsTheTokenAmm()
+              itSetsTheTokenBridge()
             })
 
-            context('when the token amm was not set', () => {
-              beforeEach('unset token amm', async () => {
-                await action.setTokenAmm(token.address, ZERO_ADDRESS)
+            context('when the token bridge was not set', () => {
+              beforeEach('unset token bridge', async () => {
+                await action.setTokenBridge(token.address, ZERO_ADDRESS)
               })
 
-              itSetsTheTokenAmm()
+              itSetsTheTokenBridge()
             })
           })
 
-          context('when unsetting the token amm', () => {
-            const itUnsetsTheTokenAmm = () => {
-              it('unsets the token amm', async () => {
-                await action.setTokenAmm(token.address, ZERO_ADDRESS)
+          context('when unsetting the token bridge', () => {
+            const itUnsetsTheTokenBridge = () => {
+              it('unsets the token bridge', async () => {
+                await action.setTokenBridge(token.address, ZERO_ADDRESS)
 
-                expect(await action.getTokenAmm(token.address)).to.be.equal(ZERO_ADDRESS)
+                expect(await action.getTokenBridge(token.address)).to.be.equal(ZERO_ADDRESS)
               })
 
               it('emits an event', async () => {
-                const tx = await action.setTokenAmm(token.address, ZERO_ADDRESS)
+                const tx = await action.setTokenBridge(token.address, ZERO_ADDRESS)
 
-                await assertEvent(tx, 'TokenAmmSet', { token, amm: ZERO_ADDRESS })
+                await assertEvent(tx, 'TokenBridgeSet', { token, bridge: ZERO_ADDRESS })
               })
             }
 
-            context('when the token amm was set', () => {
-              beforeEach('set token amm', async () => {
-                await action.setTokenAmm(token.address, hopL2Amm.address)
+            context('when the token bridge was set', () => {
+              beforeEach('set token bridge', async () => {
+                await action.setTokenBridge(token.address, hopL1Bridge.address)
               })
 
-              itUnsetsTheTokenAmm()
+              itUnsetsTheTokenBridge()
             })
 
             context('when the token was not set', () => {
-              beforeEach('unset token amm', async () => {
-                await action.setTokenAmm(token.address, ZERO_ADDRESS)
+              beforeEach('unset token bridge', async () => {
+                await action.setTokenBridge(token.address, ZERO_ADDRESS)
               })
 
-              itUnsetsTheTokenAmm()
+              itUnsetsTheTokenBridge()
             })
           })
         })
 
-        context('when the amm canonical token matches', () => {
-          beforeEach('deploy another amm', async () => {
-            hopL2Amm = await deploy('HopL2AmmMock', [owner.address])
+        context('when the bridge canonical token matches', () => {
+          beforeEach('deploy another bridge', async () => {
+            hopL1Bridge = await deploy('HopL1BridgeMock', [owner.address])
           })
 
           it('reverts', async () => {
-            await expect(action.setTokenAmm(token.address, hopL2Amm.address)).to.be.revertedWith(
-              'BRIDGER_AMM_TOKEN_DOES_NOT_MATCH'
+            await expect(action.setTokenBridge(token.address, hopL1Bridge.address)).to.be.revertedWith(
+              'BRIDGER_BRIDGE_TOKEN_DONT_MATCH'
             )
           })
         })
@@ -130,7 +138,7 @@ describe('L2HopBridger', () => {
         const token = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await expect(action.setTokenAmm(token, hopL2Amm.address)).to.be.revertedWith('BRIDGER_TOKEN_ZERO')
+          await expect(action.setTokenBridge(token, hopL1Bridge.address)).to.be.revertedWith('BRIDGER_TOKEN_ZERO')
         })
       })
     })
@@ -141,7 +149,9 @@ describe('L2HopBridger', () => {
       })
 
       it('reverts', async () => {
-        await expect(action.setTokenAmm(token.address, hopL2Amm.address)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.setTokenBridge(token.address, hopL1Bridge.address)).to.be.revertedWith(
+          'AUTH_SENDER_NOT_ALLOWED'
+        )
       })
     })
   })
@@ -286,27 +296,29 @@ describe('L2HopBridger', () => {
     })
   })
 
-  describe('setMaxBonderFeePct', () => {
+  describe('setMaxRelayerFeePct', () => {
+    const relayer = ONES_ADDRESS
+
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const setMaxBonderFeePctRole = action.interface.getSighash('setMaxBonderFeePct')
-        await action.connect(owner).authorize(owner.address, setMaxBonderFeePctRole)
+        const setMaxRelayerFeePctRole = action.interface.getSighash('setMaxRelayerFeePct')
+        await action.connect(owner).authorize(owner.address, setMaxRelayerFeePctRole)
         action = action.connect(owner)
       })
 
       context('when the pct is not above one', () => {
         const pct = fp(0.1)
 
-        it('sets the bonder fee pct', async () => {
-          await action.setMaxBonderFeePct(pct)
+        it('sets the relayer fee pct', async () => {
+          await action.setMaxRelayerFeePct(relayer, pct)
 
-          expect(await action.maxBonderFeePct()).to.be.equal(pct)
+          expect(await action.getMaxRelayerFeePct(relayer)).to.be.equal(pct)
         })
 
         it('emits an event', async () => {
-          const tx = await action.setMaxBonderFeePct(pct)
+          const tx = await action.setMaxRelayerFeePct(relayer, pct)
 
-          await assertEvent(tx, 'MaxBonderFeePctSet', { maxBonderFeePct: pct })
+          await assertEvent(tx, 'MaxRelayerFeePctSet', { relayer, maxFeePct: pct })
         })
       })
 
@@ -314,7 +326,7 @@ describe('L2HopBridger', () => {
         const pct = fp(1).add(1)
 
         it('reverts', async () => {
-          await expect(action.setMaxBonderFeePct(pct)).to.be.revertedWith('BRIDGER_BONDER_FEE_PCT_ABOVE_ONE')
+          await expect(action.setMaxRelayerFeePct(relayer, pct)).to.be.revertedWith('BRIDGER_RELAYER_FEE_PCT_GT_ONE')
         })
       })
     })
@@ -325,7 +337,7 @@ describe('L2HopBridger', () => {
       })
 
       it('reverts', async () => {
-        await expect(action.setMaxBonderFeePct(1)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.setMaxRelayerFeePct(relayer, 1)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -377,8 +389,10 @@ describe('L2HopBridger', () => {
   describe('call', () => {
     const SOURCE = 0
     const CHAIN_ID = 1
+    const DEADLINE = 60 * 2
     const SLIPPAGE = fp(0.01)
-    const BONDER_FEE_PCT = fp(0.002)
+    const RELAYER = ZERO_ADDRESS
+    const RELAYER_FEE_PCT = fp(0.002)
 
     const THRESHOLD = fp(50)
 
@@ -393,6 +407,12 @@ describe('L2HopBridger', () => {
       await action.connect(owner).setThreshold(token.address, THRESHOLD)
     })
 
+    beforeEach('set deadline', async () => {
+      const setMaxDeadlineRole = action.interface.getSighash('setMaxDeadline')
+      await action.connect(owner).authorize(owner.address, setMaxDeadlineRole)
+      await action.connect(owner).setMaxDeadline(DEADLINE)
+    })
+
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         const callRole = action.interface.getSighash('call')
@@ -401,11 +421,11 @@ describe('L2HopBridger', () => {
       })
 
       const itPerformsTheExpectedCall = (refunds: boolean) => {
-        context('when the given token has an AMM set', () => {
-          beforeEach('set token AMM', async () => {
-            const setTokenAmmRole = action.interface.getSighash('setTokenAmm')
-            await action.connect(owner).authorize(owner.address, setTokenAmmRole)
-            await action.connect(owner).setTokenAmm(token.address, hopL2Amm.address)
+        context('when the given token has a bridge set', () => {
+          beforeEach('set token bridge', async () => {
+            const setTokenBridgeRole = action.interface.getSighash('setTokenBridge')
+            await action.connect(owner).authorize(owner.address, setTokenBridgeRole)
+            await action.connect(owner).setTokenBridge(token.address, hopL1Bridge.address)
           })
 
           context('when the chainId is allowed', () => {
@@ -422,30 +442,40 @@ describe('L2HopBridger', () => {
                 await action.connect(owner).setMaxSlippage(SLIPPAGE)
               })
 
-              context('when the bonder fee is below the limit', () => {
-                beforeEach('set max bonder fee', async () => {
-                  const setMaxBonderFeePctRole = action.interface.getSighash('setMaxBonderFeePct')
-                  await action.connect(owner).authorize(owner.address, setMaxBonderFeePctRole)
-                  await action.connect(owner).setMaxBonderFeePct(BONDER_FEE_PCT)
+              context('when the relayer fee is below the limit', () => {
+                beforeEach('set max relayer fee', async () => {
+                  const setMaxRelayerFeePctRole = action.interface.getSighash('setMaxRelayerFeePct')
+                  await action.connect(owner).authorize(owner.address, setMaxRelayerFeePctRole)
+                  await action.connect(owner).setMaxRelayerFeePct(RELAYER, RELAYER_FEE_PCT)
                 })
 
                 context('when the current balance passes the threshold', () => {
                   const balance = THRESHOLD
-                  const bonderFee = balance.mul(BONDER_FEE_PCT).div(fp(1))
+                  const relayerFee = balance.mul(RELAYER_FEE_PCT).div(fp(1))
 
                   beforeEach('fund smart vault token', async () => {
                     await token.mint(smartVault.address, balance)
                   })
 
                   it('can executes', async () => {
-                    const canExecute = await action.canExecute(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)
+                    const canExecute = await action.canExecute(
+                      CHAIN_ID,
+                      token.address,
+                      balance,
+                      SLIPPAGE,
+                      RELAYER,
+                      relayerFee
+                    )
                     expect(canExecute).to.be.true
                   })
 
                   it('calls the bridge primitive', async () => {
-                    const tx = await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)
+                    const tx = await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, RELAYER, relayerFee)
 
-                    const data = defaultAbiCoder.encode(['address', 'uint256'], [hopL2Amm.address, bonderFee])
+                    const data = defaultAbiCoder.encode(
+                      ['address', 'uint256', 'address', 'uint256'],
+                      [hopL1Bridge.address, DEADLINE, RELAYER, relayerFee]
+                    )
 
                     await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
                       source: SOURCE,
@@ -457,7 +487,7 @@ describe('L2HopBridger', () => {
                   })
 
                   it('emits an Executed event', async () => {
-                    const tx = await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)
+                    const tx = await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, RELAYER, relayerFee)
 
                     await assertEvent(tx, 'Executed')
                   })
@@ -465,7 +495,7 @@ describe('L2HopBridger', () => {
                   it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
                     const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-                    await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)
+                    await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, RELAYER, relayerFee)
 
                     const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
                     expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
@@ -481,27 +511,27 @@ describe('L2HopBridger', () => {
 
                   it('reverts', async () => {
                     await expect(
-                      action.call(CHAIN_ID, token.address, balance, SLIPPAGE, BONDER_FEE_PCT)
+                      action.call(CHAIN_ID, token.address, balance, SLIPPAGE, RELAYER, RELAYER_FEE_PCT)
                     ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
                   })
                 })
               })
 
-              context('when the bonder fee is above the limit', () => {
+              context('when the relayer fee is above the limit', () => {
                 const balance = fp(1)
-                const bonderFee = fp(1)
+                const relayerFee = fp(1)
 
                 it('reverts', async () => {
-                  await expect(action.call(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)).to.be.revertedWith(
-                    'BRIDGER_BONDER_FEE_ABOVE_MAX'
-                  )
+                  await expect(
+                    action.call(CHAIN_ID, token.address, balance, SLIPPAGE, RELAYER, relayerFee)
+                  ).to.be.revertedWith('BRIDGER_RELAYER_FEE_ABOVE_MAX')
                 })
               })
             })
 
             context('when the slippage is above the limit', () => {
               it('reverts', async () => {
-                await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
+                await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
                   'BRIDGER_SLIPPAGE_ABOVE_MAX'
                 )
               })
@@ -510,17 +540,17 @@ describe('L2HopBridger', () => {
 
           context('when the chain ID is not allowed', () => {
             it('reverts', async () => {
-              await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
+              await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
                 'BRIDGER_CHAIN_NOT_ALLOWED'
               )
             })
           })
         })
 
-        context('when the given token does not have an AMM set', () => {
+        context('when the given token does not have a bridge set', () => {
           it('reverts', async () => {
-            await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
-              'BRIDGER_TOKEN_AMM_NOT_SET'
+            await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
+              'BRIDGER_TOKEN_BRIDGE_NOT_SET'
             )
           })
         })
@@ -547,7 +577,9 @@ describe('L2HopBridger', () => {
 
     context('when the sender is authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.call(CHAIN_ID, token.address, 0, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
+          'AUTH_SENDER_NOT_ALLOWED'
+        )
       })
     })
   })

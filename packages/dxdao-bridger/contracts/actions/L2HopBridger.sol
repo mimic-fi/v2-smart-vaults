@@ -16,33 +16,19 @@ pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-bridge-connector/contracts/interfaces/IHopL2AMM.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
-import '@mimic-fi/v2-smart-vault/contracts/ISmartVault.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
-contract L2HopBridger is BaseAction, TokenThresholdAction, RelayedAction {
+import './BaseHopBridger.sol';
+
+contract L2HopBridger is BaseHopBridger {
     using FixedPoint for uint256;
 
     // Base gas amount charged to cover gas payment
     uint256 public constant override BASE_GAS = 80e3;
 
-    // Hop Exchange source number
-    uint8 public constant HOP_SOURCE = 0;
-
-    // Ethereum mainnet chain ID
-    uint256 public constant ETHEREUM_MAINNET = 1;
-
-    uint256 public maxDeadline;
-    uint256 public maxSlippage;
     uint256 public maxBonderFeePct;
-    mapping (uint256 => bool) public isChainAllowed;
     mapping (address => address) public getTokenAmm;
 
-    event MaxDeadlineSet(uint256 maxDeadline);
-    event MaxSlippageSet(uint256 maxSlippage);
     event MaxBonderFeePctSet(uint256 maxBonderFeePct);
-    event AllowedChainSet(uint256 indexed chainId, bool allowed);
     event TokenAmmSet(address indexed token, address indexed amm);
 
     constructor(address admin, address registry) BaseAction(admin, registry) {
@@ -62,29 +48,10 @@ contract L2HopBridger is BaseAction, TokenThresholdAction, RelayedAction {
             _passesThreshold(token, amount);
     }
 
-    function setMaxDeadline(uint256 newMaxDeadline) external auth {
-        require(newMaxDeadline > 0, 'BRIDGER_MAX_DEADLINE_ZERO');
-        maxDeadline = newMaxDeadline;
-        emit MaxDeadlineSet(newMaxDeadline);
-    }
-
-    function setMaxSlippage(uint256 newMaxSlippage) external auth {
-        require(newMaxSlippage <= FixedPoint.ONE, 'BRIDGER_SLIPPAGE_ABOVE_ONE');
-        maxSlippage = newMaxSlippage;
-        emit MaxSlippageSet(newMaxSlippage);
-    }
-
     function setMaxBonderFeePct(uint256 newMaxBonderFeePct) external auth {
         require(newMaxBonderFeePct <= FixedPoint.ONE, 'BRIDGER_BONDER_FEE_PCT_ABOVE_ONE');
         maxBonderFeePct = newMaxBonderFeePct;
         emit MaxBonderFeePctSet(newMaxBonderFeePct);
-    }
-
-    function setAllowedChain(uint256 chainId, bool allowed) external auth {
-        require(chainId != 0, 'BRIDGER_CHAIN_ID_ZERO');
-        require(chainId != block.chainid, 'BRIDGER_SAME_CHAIN_ID');
-        isChainAllowed[chainId] = allowed;
-        emit AllowedChainSet(chainId, allowed);
     }
 
     function setTokenAmm(address token, address amm) external auth {
@@ -94,10 +61,7 @@ contract L2HopBridger is BaseAction, TokenThresholdAction, RelayedAction {
         emit TokenAmmSet(token, amm);
     }
 
-    function call(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFee)
-        external
-        auth
-    {
+    function call(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFee) external auth {
         (isRelayer[msg.sender] ? _relayedCall : _call)(chainId, token, amount, slippage, bonderFee);
     }
 
@@ -116,8 +80,9 @@ contract L2HopBridger is BaseAction, TokenThresholdAction, RelayedAction {
         require(bonderFee.divUp(amount) <= maxBonderFeePct, 'BRIDGER_BONDER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
-        bytes memory data =
-            chainId == ETHEREUM_MAINNET ? abi.encode(amm, bonderFee) : abi.encode(amm, bonderFee, maxDeadline);
+        bytes memory data = chainId == ETHEREUM_MAINNET
+            ? abi.encode(amm, bonderFee)
+            : abi.encode(amm, bonderFee, maxDeadline);
 
         smartVault.bridge(HOP_SOURCE, chainId, token, amount, ISmartVault.BridgeLimit.Slippage, slippage, data);
         emit Executed();

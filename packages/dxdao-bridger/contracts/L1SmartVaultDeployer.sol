@@ -14,17 +14,107 @@
 
 pragma solidity ^0.8.0;
 
+import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
+
+import './actions/L1HopBridger.sol';
+
+// solhint-disable avoid-low-level-calls
 
 contract L1SmartVaultDeployer {
+    using UncheckedMath for uint256;
+
     struct Params {
         IRegistry registry;
         Deployer.SmartVaultParams smartVaultParams;
+        L1HopBridgerActionParams l1HopBridgerActionParams;
+    }
+
+    struct L1HopBridgerActionParams {
+        address impl;
+        address admin;
+        address[] managers;
+        uint256 maxDeadline;
+        uint256 maxSlippage;
+        uint256[] allowedChainIds;
+        HopBridgeParams[] hopBridgeParams;
+        HopRelayerParams[] hopRelayerParams;
+        Deployer.RelayedActionParams relayedActionParams;
+        Deployer.TokenThresholdActionParams tokenThresholdActionParams;
+    }
+
+    struct HopBridgeParams {
+        address token;
+        address bridge;
+    }
+
+    struct HopRelayerParams {
+        address relayer;
+        uint256 maxFeePct;
     }
 
     function deploy(Params memory params) external {
-        Deployer.createSmartVault(params.registry, params.smartVaultParams, true);
+        SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
+        _setupL2HopBridgerAction(smartVault, params.l1HopBridgerActionParams);
+        Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
+    }
+
+    function _setupL2HopBridgerAction(SmartVault smartVault, L1HopBridgerActionParams memory params) internal {
+        // Create and setup action
+        L1HopBridger bridger = L1HopBridger(params.impl);
+        Deployer.setupBaseAction(bridger, params.admin, address(smartVault));
+        address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
+        Deployer.setupActionExecutors(bridger, executors, bridger.call.selector);
+        Deployer.setupRelayedAction(bridger, params.admin, params.relayedActionParams);
+        Deployer.setupTokenThresholdAction(bridger, params.admin, params.tokenThresholdActionParams);
+
+        // Set bridger max deadline
+        bridger.authorize(params.admin, bridger.setMaxDeadline.selector);
+        bridger.authorize(address(this), bridger.setMaxDeadline.selector);
+        bridger.setMaxDeadline(params.maxDeadline);
+        bridger.unauthorize(address(this), bridger.setMaxDeadline.selector);
+
+        // Set bridger max slippage
+        bridger.authorize(params.admin, bridger.setMaxSlippage.selector);
+        bridger.authorize(address(this), bridger.setMaxSlippage.selector);
+        bridger.setMaxSlippage(params.maxSlippage);
+        bridger.unauthorize(address(this), bridger.setMaxSlippage.selector);
+
+        // Set bridger max relayer fee pcts
+        bridger.authorize(params.admin, bridger.setMaxRelayerFeePct.selector);
+        bridger.authorize(address(this), bridger.setMaxRelayerFeePct.selector);
+        for (uint256 i = 0; i < params.hopRelayerParams.length; i = i.uncheckedAdd(1)) {
+            HopRelayerParams memory hopRelayerParam = params.hopRelayerParams[i];
+            bridger.setMaxRelayerFeePct(hopRelayerParam.relayer, hopRelayerParam.maxFeePct);
+        }
+        bridger.unauthorize(address(this), bridger.setMaxRelayerFeePct.selector);
+
+        // Set bridger AMMs
+        bridger.authorize(params.admin, bridger.setTokenBridge.selector);
+        bridger.authorize(address(this), bridger.setTokenBridge.selector);
+        for (uint256 i = 0; i < params.hopBridgeParams.length; i = i.uncheckedAdd(1)) {
+            HopBridgeParams memory hopBridgeParam = params.hopBridgeParams[i];
+            bridger.setTokenBridge(hopBridgeParam.token, hopBridgeParam.bridge);
+        }
+        bridger.unauthorize(address(this), bridger.setTokenBridge.selector);
+
+        // Set bridger chain IDs
+        bridger.authorize(params.admin, bridger.setAllowedChain.selector);
+        bridger.authorize(address(this), bridger.setAllowedChain.selector);
+        for (uint256 i = 0; i < params.allowedChainIds.length; i = i.uncheckedAdd(1)) {
+            bridger.setAllowedChain(params.allowedChainIds[i], true);
+        }
+        bridger.unauthorize(address(this), bridger.setAllowedChain.selector);
+
+        // Transfer admin permissions to admin
+        Deployer.transferAdminPermissions(bridger, params.admin);
+
+        // Authorize action to bridge and withdraw from Smart Vault
+        smartVault.authorize(address(bridger), smartVault.bridge.selector);
+        smartVault.authorize(address(bridger), smartVault.withdraw.selector);
     }
 }

@@ -1,11 +1,20 @@
-import { assertIndirectEvent, deploy, fp, getSigner, getSigners, instanceAt, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import {
+  assertIndirectEvent,
+  deploy,
+  fp,
+  getSigner,
+  getSigners,
+  HOUR,
+  instanceAt,
+  ZERO_ADDRESS,
+} from '@mimic-fi/v2-helpers'
 import { assertPermissions, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('L1SmartVault', () => {
-  let smartVault: Contract, mimic: Mimic
+  let smartVault: Contract, bridger: Contract, mimic: Mimic, hopL1Bridge: Contract
   let other: SignerWithAddress, owner: SignerWithAddress, managers: SignerWithAddress[], relayers: SignerWithAddress[]
 
   beforeEach('set up signers', async () => {
@@ -19,8 +28,13 @@ describe('L1SmartVault', () => {
     mimic = await setupMimic(false)
   })
 
+  beforeEach('deploy hop l1 bridge mock', async () => {
+    hopL1Bridge = await deploy('HopL1BridgeMock', [mimic.wrappedNativeToken.address])
+  })
+
   beforeEach('deploy smart vault', async () => {
     const deployer = await deploy('L1SmartVaultDeployer', [], owner, { Deployer: mimic.deployer.address })
+    bridger = await deploy('L1HopBridger', [deployer.address, mimic.registry.address])
 
     const tx = await deployer.deploy({
       registry: mimic.registry.address,
@@ -37,6 +51,28 @@ describe('L1SmartVault', () => {
         swapFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
         withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
         performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+      },
+      l1HopBridgerActionParams: {
+        impl: bridger.address,
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        maxDeadline: 2 * HOUR,
+        maxSlippage: fp(0.002), // 0.2 %
+        allowedChainIds: [100], // gnosis chain
+        hopBridgeParams: [{ token: mimic.wrappedNativeToken.address, bridge: hopL1Bridge.address }],
+        hopRelayerParams: [{ relayer: other.address, maxFeePct: fp(0.02) }],
+        tokenThresholdActionParams: {
+          amount: fp(10),
+          token: mimic.wrappedNativeToken.address,
+        },
+        relayedActionParams: {
+          relayers: relayers.map((m) => m.address),
+          gasPriceLimit: 0,
+          totalCostLimit: fp(100),
+          payingGasToken: mimic.wrappedNativeToken.address,
+          permissiveModeAdmin: mimic.admin.address,
+          isPermissiveModeActive: false,
+        },
       },
     })
 
@@ -134,6 +170,81 @@ describe('L1SmartVault', () => {
 
     it('sets a bridge connector', async () => {
       expect(await smartVault.bridgeConnector()).to.be.equal(mimic.bridgeConnector.address)
+    })
+  })
+
+  describe('bridger', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(bridger, [
+        {
+          name: 'owner',
+          account: owner,
+          roles: [
+            'authorize',
+            'unauthorize',
+            'setSmartVault',
+            'setLimits',
+            'setRelayer',
+            'setThreshold',
+            'setMaxSlippage',
+            'setMaxDeadline',
+            'setMaxRelayerFeePct',
+            'setAllowedChain',
+            'setTokenBridge',
+            'call',
+          ],
+        },
+        { name: 'mimic', account: mimic.admin, roles: ['setPermissiveMode'] },
+        { name: 'l1 bridger', account: bridger, roles: [] },
+        { name: 'l2 bridger', account: bridger, roles: [] },
+        { name: 'other', account: other, roles: [] },
+        { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
+      ])
+    })
+
+    it('has the proper smart vault set', async () => {
+      expect(await bridger.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('sets the expected token threshold params', async () => {
+      expect(await bridger.thresholdToken()).to.be.equal(mimic.wrappedNativeToken.address)
+      expect(await bridger.thresholdAmount()).to.be.equal(fp(10))
+    })
+
+    it('sets the expected gas limits', async () => {
+      expect(await bridger.gasPriceLimit()).to.be.equal(0)
+      expect(await bridger.totalCostLimit()).to.be.equal(fp(100))
+      expect(await bridger.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
+    })
+
+    it('allows the requested chains', async () => {
+      expect(await bridger.isChainAllowed(100)).to.be.true
+      expect(await bridger.isChainAllowed(10)).to.be.false
+    })
+
+    it('sets the requested bridges', async () => {
+      expect(await bridger.getTokenBridge(owner.address)).to.be.equal(ZERO_ADDRESS)
+      expect(await bridger.getTokenBridge(mimic.wrappedNativeToken.address)).to.be.equal(hopL1Bridge.address)
+    })
+
+    it('sets the requested maximums', async () => {
+      expect(await bridger.maxDeadline()).to.be.equal(2 * HOUR)
+      expect(await bridger.maxSlippage()).to.be.equal(fp(0.002))
+      expect(await bridger.getMaxRelayerFeePct(ZERO_ADDRESS)).to.be.equal(0)
+      expect(await bridger.getMaxRelayerFeePct(other.address)).to.be.equal(fp(0.02))
+    })
+
+    it('allows the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await bridger.isRelayer(relayer.address)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await bridger.isRelayer(manager.address)).to.be.false
+      }
     })
   })
 })
