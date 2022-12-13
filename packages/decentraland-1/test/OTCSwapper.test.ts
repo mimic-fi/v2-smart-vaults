@@ -225,7 +225,7 @@ describe('OTCSwapper', () => {
   })
 
   describe('call', () => {
-    const threshold = fp(10) // token in
+    const threshold = fp(10) // token out
     const priceRate = 2 // 1 token in = 2 token out
     const maxSlippage = fp(0.02)
 
@@ -264,13 +264,13 @@ describe('OTCSwapper', () => {
       const feed = await createPriceFeedMock(fp(priceRate))
       const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
       await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
-      await smartVault.connect(owner).setPriceFeed(tokenIn.address, tokenOut.address, feed.address)
+      await smartVault.connect(owner).setPriceFeed(tokenOut.address, tokenIn.address, feed.address)
     })
 
     beforeEach('set threshold', async () => {
       const setThresholdRole = action.interface.getSighash('setThreshold')
       await action.connect(owner).authorize(owner.address, setThresholdRole)
-      await action.connect(owner).setThreshold(tokenIn.address, threshold)
+      await action.connect(owner).setThreshold(tokenOut.address, threshold)
     })
 
     context('when the sender is authorized', () => {
@@ -282,88 +282,87 @@ describe('OTCSwapper', () => {
 
       const itPerformsTheExpectedCall = (refunds: boolean) => {
         context('when the requested slippage is acceptable', () => {
-          const slippage = maxSlippage
+          const minAmountOut = 0
 
-          context('when the amount in passes the threshold', () => {
-            const amountIn = threshold
-            const amountOut = amountIn.mul(priceRate)
-            const maxAmountIn = amountIn.add(amountIn.mul(slippage).div(fp(1)))
+          context('when the amount out passes the threshold', () => {
+            const amountOut = threshold
+            const amountIn = amountOut.mul(fp(1)).div(fp(1).sub(maxSlippage)).mul(priceRate).add(2) // rounding error
 
             beforeEach('fund smart vault', async () => {
-              await tokenIn.mint(smartVault.address, maxAmountIn)
+              await tokenOut.mint(smartVault.address, amountOut)
             })
 
             beforeEach('fund sender and approve smart vault', async () => {
-              await tokenOut.mint(owner.address, fp(1000))
-              await tokenOut.connect(owner).approve(smartVault.address, fp(1000))
+              await tokenIn.mint(owner.address, fp(1000))
+              await tokenIn.connect(owner).approve(smartVault.address, fp(1000))
             })
 
             it('can execute', async () => {
-              expect(await action.canExecute(tokenIn.address, tokenOut.address, amountOut, slippage)).to.be.true
+              expect(await action.canExecute(tokenIn.address, tokenOut.address, amountIn, minAmountOut)).to.be.true
             })
 
             it('calls collect primitive', async () => {
-              const tx = await action.call(tokenIn.address, tokenOut.address, amountOut, slippage)
+              const tx = await action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)
 
               await assertIndirectEvent(tx, smartVault.interface, 'Collect', {
-                token: tokenOut,
-                collected: amountOut,
+                token: tokenIn,
+                collected: amountIn,
                 from: owner.address,
                 data: '0x',
               })
             })
 
-            it('transfers the token in to the sender', async () => {
+            it('transfers the token in to the smart vault', async () => {
               const previousSenderBalance = await tokenIn.balanceOf(owner.address)
               const previousSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
+              const previousFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
 
-              await action.call(tokenIn.address, tokenOut.address, amountOut, slippage)
+              await action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)
 
               const currentSenderBalance = await tokenIn.balanceOf(owner.address)
-              expect(currentSenderBalance).to.be.eq(previousSenderBalance.add(maxAmountIn))
+              expect(currentSenderBalance).to.be.eq(previousSenderBalance.sub(amountIn))
 
+              const currentFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
+              const gasPaid = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
               const currentSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
-              expect(currentSmartVaultBalance).to.be.eq(previousSmartVaultBalance.sub(maxAmountIn))
+              expect(currentSmartVaultBalance).to.be.eq(previousSmartVaultBalance.add(amountIn).sub(gasPaid))
             })
 
-            it('transfers the token out to the smart vault', async () => {
+            it('transfers the token out to the sender', async () => {
               const previousOwnerBalance = await tokenOut.balanceOf(owner.address)
               const previousSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
-              const previousFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
 
-              await action.call(tokenIn.address, tokenOut.address, amountOut, slippage)
+              await action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)
 
-              const currentFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
-              const gasPaid = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
               const currentSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
-              expect(currentSmartVaultBalance).to.be.eq(previousSmartVaultBalance.add(amountOut).sub(gasPaid))
+              expect(currentSmartVaultBalance).to.be.eq(previousSmartVaultBalance.sub(amountOut))
 
               const currentOwnerBalance = await tokenOut.balanceOf(owner.address)
-              expect(currentOwnerBalance).to.be.eq(previousOwnerBalance.sub(amountOut))
+              expect(currentOwnerBalance).to.be.eq(previousOwnerBalance.add(amountOut))
             })
 
             it('emits an Executed event', async () => {
-              const tx = await action.call(tokenIn.address, tokenOut.address, amountOut, slippage)
+              const tx = await action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)
 
               await assertEvent(tx, 'Executed')
             })
 
             it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-              const previousBalance = await tokenOut.balanceOf(feeCollector.address)
+              const previousBalance = await tokenIn.balanceOf(feeCollector.address)
 
-              await action.call(tokenIn.address, tokenOut.address, amountOut, slippage)
+              await action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)
 
-              const currentBalance = await tokenOut.balanceOf(feeCollector.address)
+              const currentBalance = await tokenIn.balanceOf(feeCollector.address)
               expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
             })
           })
 
           context('when the amount in does not passe the threshold', () => {
-            const amountIn = threshold.div(2)
-            const amountOut = amountIn.mul(priceRate)
+            const amountOut = threshold.div(2)
+            const amountIn = amountOut.div(priceRate)
 
             it('reverts', async () => {
-              await expect(action.call(tokenIn.address, tokenOut.address, amountOut, slippage)).to.be.revertedWith(
+              await expect(action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)).to.be.revertedWith(
                 'MIN_THRESHOLD_NOT_MET'
               )
             })
@@ -371,12 +370,12 @@ describe('OTCSwapper', () => {
         })
 
         context('when the slippage is not acceptable', () => {
-          const amountOut = fp(1)
-          const slippage = maxSlippage.add(1)
+          const amountIn = fp(1)
+          const minAmountOut = amountIn
 
           it('reverts', async () => {
-            await expect(action.call(tokenIn.address, tokenOut.address, amountOut, slippage)).to.be.revertedWith(
-              'SWAPPER_SLIPPAGE_ABOVE_MAX'
+            await expect(action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)).to.be.revertedWith(
+              'SWAPPER_MIN_AMOUNT_OUT'
             )
           })
         })
@@ -390,12 +389,12 @@ describe('OTCSwapper', () => {
 
           const setLimitsRole = action.interface.getSighash('setLimits')
           await action.connect(owner).authorize(owner.address, setLimitsRole)
-          await action.connect(owner).setLimits(fp(100), 0, tokenOut.address)
+          await action.connect(owner).setLimits(fp(100), 0, tokenIn.address)
         })
 
         beforeEach('set native token price feed for gas 1:1', async () => {
           const feed = await createPriceFeedMock(fp(1))
-          await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, tokenOut.address, feed.address)
+          await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, tokenIn.address, feed.address)
         })
 
         itPerformsTheExpectedCall(true)
