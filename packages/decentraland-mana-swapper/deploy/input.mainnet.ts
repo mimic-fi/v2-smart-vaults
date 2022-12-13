@@ -25,7 +25,7 @@ const mimic = {
 }
 
 export default {
-  namespace: 'mimic-v2.decentraland-sv1',
+  namespace: 'mimic-v2.decentraland-mana-swapper',
   accounts,
   mimic,
   params: {

@@ -1,5 +1,5 @@
 {
-  "name": "@mimic-fi/v2-smart-vaults-decentraland-1",
+  "name": "@mimic-fi/v2-smart-vaults-decentraland-mana-swapper",
   "version": "0.0.1",
   "license": "GPL-3.0",
   "engines": {
@@ -19,7 +19,7 @@
     "lint:typescript": "eslint . --ext .ts",
     "test": "hardhat test",
     "test:goerli": "yarn test --fork goerli --block-number 7958100",
-    "test:mainnet": "yarn test --fork mainnet",
+    "test:mainnet": "yarn test --fork mainnet --block-number 16039000",
     "prepare": "yarn build"
   },
   "dependencies": {
