@@ -134,7 +134,7 @@ describe('SmartVault', () => {
       expect(await smartVault.priceOracle()).to.be.equal(mimic.priceOracle.address)
     })
 
-    it('does not set a swap connector', async () => {
+    it('sets a swap connector', async () => {
       expect(await smartVault.swapConnector()).to.be.equal(mimic.swapConnector.address)
     })
   })

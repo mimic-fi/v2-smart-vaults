@@ -13,7 +13,6 @@ import {
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import {
-  assertRelayedBaseCost,
   createAction,
   createPriceFeedMock,
   createSmartVault,
@@ -442,7 +441,7 @@ describe('ERC20Claimer', () => {
                       it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
                         const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
 
-                        const tx = await action.call(
+                        await action.call(
                           token.address,
                           amountIn,
                           minAmountOut,
@@ -453,8 +452,7 @@ describe('ERC20Claimer', () => {
                         )
 
                         const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-                        if (refunds) await assertRelayedBaseCost(tx, currentBalance.sub(previousBalance), 0.1)
-                        else expect(currentBalance).to.be.equal(previousBalance)
+                        expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
                       })
                     })
 
@@ -557,17 +555,10 @@ describe('ERC20Claimer', () => {
                   it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
                     const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
 
-                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
+                    await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
 
                     const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-                    if (!refunds) expect(currentBalance).to.be.equal(previousBalance)
-                    else {
-                      const redeemedCost = currentBalance.sub(previousBalance)
-                      const { gasUsed, effectiveGasPrice } = await tx.wait()
-                      const redeemedGas = redeemedCost.div(effectiveGasPrice)
-                      const missing = gasUsed.sub(redeemedGas)
-                      expect(missing).to.be.lt(24e3)
-                    }
+                    expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
                   })
                 })
 

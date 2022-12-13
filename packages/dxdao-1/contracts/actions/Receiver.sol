@@ -14,8 +14,6 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
-
 contract Receiver {
     address public smartVault;
 
