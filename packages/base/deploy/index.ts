@@ -12,11 +12,11 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   const create3Factory = await deploy(ARTIFACTS.CREATE3_FACTORY)
   writeOutput('Create3Factory', create3Factory.address)
 
-  const deployer = await create3(input.namespace, 'v1', create3Factory, ARTIFACTS.DEPLOYER)
-  writeOutput('Deployer', deployer.address)
-
   const registry = await create3(input.namespace, 'v1', create3Factory, ARTIFACTS.REGISTRY, [admin.address])
   writeOutput('Registry', registry.address)
+
+  const deployer = await create3(input.namespace, 'v2', create3Factory, ARTIFACTS.DEPLOYER)
+  writeOutput('Deployer', deployer.address)
 
   // TODO: Smart Vault implementation does not fit due to block gas limit
   const smartVault = await deploy(ARTIFACTS.SMART_VAULT, [input.wrappedNativeToken, registry.address])
@@ -24,7 +24,7 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   writeOutput('SmartVault', smartVault.address)
 
   const priceOracle = await create3(input.namespace, 'v1', create3Factory, ARTIFACTS.PRICE_ORACLE, [
-    input.wrappedNativeToken,
+    input.priceOraclePivot,
     registry.address,
   ])
   await registry.connect(admin).register(await priceOracle.NAMESPACE(), priceOracle.address, true)
@@ -40,4 +40,10 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   ])
   await registry.connect(admin).register(await swapConnector.NAMESPACE(), swapConnector.address, true)
   writeOutput('SwapConnector', swapConnector.address)
+
+  const bridgeConnector = await create3(input.namespace, 'v1', create3Factory, ARTIFACTS.BRIDGE_CONNECTOR, [
+    registry.address,
+  ])
+  await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
+  writeOutput('BridgeConnector', bridgeConnector.address)
 }

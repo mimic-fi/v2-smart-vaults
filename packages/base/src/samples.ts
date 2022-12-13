@@ -22,9 +22,13 @@ export async function createSmartVault(mimic: Mimic, admin: SignerWithAddress): 
   await smartVault.connect(admin).authorize(admin.address, setPriceOracleRole)
   await smartVault.connect(admin).setPriceOracle(mimic.priceOracle.address)
 
-  const setSwapConnector = smartVault.interface.getSighash('setSwapConnector')
-  await smartVault.connect(admin).authorize(admin.address, setSwapConnector)
+  const setSwapConnectorRole = smartVault.interface.getSighash('setSwapConnector')
+  await smartVault.connect(admin).authorize(admin.address, setSwapConnectorRole)
   await smartVault.connect(admin).setSwapConnector(mimic.swapConnector.address)
+
+  const setBridgeConnectorRole = smartVault.interface.getSighash('setBridgeConnector')
+  await smartVault.connect(admin).authorize(admin.address, setBridgeConnectorRole)
+  await smartVault.connect(admin).setBridgeConnector(mimic.bridgeConnector.address)
 
   return smartVault
 }

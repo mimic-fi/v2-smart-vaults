@@ -43,16 +43,21 @@ library Deployer {
     // Namespace to use by this deployer to fetch ISwapConnector implementations from the Mimic Registry
     bytes32 private constant SWAP_CONNECTOR_NAMESPACE = keccak256('SWAP_CONNECTOR');
 
+    // Namespace to use by this deployer to fetch IBridgeConnector implementations from the Mimic Registry
+    bytes32 private constant BRIDGE_CONNECTOR_NAMESPACE = keccak256('BRIDGE_CONNECTOR');
+
     /**
      * @dev Smart vault params
      * @param impl Address of the Smart Vault implementation to be used
      * @param admin Address that will be granted with admin rights for the deployed Smart Vault
+     * @param bridgeConnector Optional Bridge Connector to set for the Smart Vault
      * @param swapConnector Optional Swap Connector to set for the Smart Vault
      * @param strategies List of strategies to be allowed for the Smart Vault
      * @param priceOracle Optional Price Oracle to set for the Smart Vault
      * @param priceFeedParams List of price feeds to be set for the Smart Vault
      * @param feeCollector Address to be set as the fee collector
      * @param swapFee Swap fee params
+     * @param bridgeFee Bridge fee params
      * @param withdrawFee Withdraw fee params
      * @param performanceFee Performance fee params
      */
@@ -60,11 +65,13 @@ library Deployer {
         address impl;
         address admin;
         address[] strategies;
+        address bridgeConnector;
         address swapConnector;
         address priceOracle;
         PriceFeedParams[] priceFeedParams;
         address feeCollector;
         SmartVaultFeeParams swapFee;
+        SmartVaultFeeParams bridgeFee;
         SmartVaultFeeParams withdrawFee;
         SmartVaultFeeParams performanceFee;
     }
@@ -101,12 +108,15 @@ library Deployer {
      * @param gasPriceLimit Gas price limit to be used for the relayed action
      * @param totalCostLimit Total cost limit to be used for the relayed action
      * @param payingGasToken Paying gas token to be used for the relayed action
+     * @param isPermissiveModeActive Whether permissive mode is active or not
      */
     struct RelayedActionParams {
         address[] relayers;
         uint256 gasPriceLimit;
         uint256 totalCostLimit;
         address payingGasToken;
+        bool isPermissiveModeActive;
+        address permissiveModeAdmin;
     }
 
     /**
@@ -160,14 +170,17 @@ library Deployer {
         smartVault.authorize(params.admin, smartVault.join.selector);
         smartVault.authorize(params.admin, smartVault.exit.selector);
         smartVault.authorize(params.admin, smartVault.swap.selector);
+        smartVault.authorize(params.admin, smartVault.bridge.selector);
         smartVault.authorize(params.admin, smartVault.setStrategy.selector);
         smartVault.authorize(params.admin, smartVault.setPriceFeed.selector);
         smartVault.authorize(params.admin, smartVault.setPriceFeeds.selector);
         smartVault.authorize(params.admin, smartVault.setPriceOracle.selector);
         smartVault.authorize(params.admin, smartVault.setSwapConnector.selector);
+        smartVault.authorize(params.admin, smartVault.setBridgeConnector.selector);
         smartVault.authorize(params.admin, smartVault.setWithdrawFee.selector);
         smartVault.authorize(params.admin, smartVault.setPerformanceFee.selector);
         smartVault.authorize(params.admin, smartVault.setSwapFee.selector);
+        smartVault.authorize(params.admin, smartVault.setBridgeFee.selector);
 
         // Set price feeds if any
         if (params.priceFeedParams.length > 0) {
@@ -205,6 +218,15 @@ library Deployer {
             smartVault.unauthorize(address(this), smartVault.setSwapConnector.selector);
         }
 
+        // Set bridge connector if given
+        if (params.bridgeConnector != address(0)) {
+            bool isActive = registry.isActive(BRIDGE_CONNECTOR_NAMESPACE, params.bridgeConnector);
+            require(isActive, 'BAD_BRIDGE_CONNECTOR_DEPENDENCY');
+            smartVault.authorize(address(this), smartVault.setBridgeConnector.selector);
+            smartVault.setBridgeConnector(params.bridgeConnector);
+            smartVault.unauthorize(address(this), smartVault.setBridgeConnector.selector);
+        }
+
         // Set fee collector if given, if not make sure no fee amounts were requested too
         // If there is a fee collector, authorize that address to change it, otherwise authorize the requested admin
         if (params.feeCollector != address(0)) {
@@ -213,7 +235,10 @@ library Deployer {
             smartVault.setFeeCollector(params.feeCollector);
             smartVault.unauthorize(address(this), smartVault.setFeeCollector.selector);
         } else {
-            bool noFees = params.withdrawFee.pct == 0 && params.swapFee.pct == 0 && params.performanceFee.pct == 0;
+            bool noFees = params.withdrawFee.pct == 0 &&
+                params.swapFee.pct == 0 &&
+                params.bridgeFee.pct == 0 &&
+                params.performanceFee.pct == 0;
             require(noFees, 'SMART_VAULT_FEES_NO_COLLECTOR');
             smartVault.authorize(params.admin, smartVault.setFeeCollector.selector);
         }
@@ -232,6 +257,14 @@ library Deployer {
             smartVault.authorize(address(this), smartVault.setSwapFee.selector);
             smartVault.setSwapFee(swapFee.pct, swapFee.cap, swapFee.token, swapFee.period);
             smartVault.unauthorize(address(this), smartVault.setSwapFee.selector);
+        }
+
+        // Set bridge fee if not zero
+        SmartVaultFeeParams memory bridgeFee = params.bridgeFee;
+        if (bridgeFee.pct != 0) {
+            smartVault.authorize(address(this), smartVault.setBridgeFee.selector);
+            smartVault.setBridgeFee(bridgeFee.pct, bridgeFee.cap, bridgeFee.token, bridgeFee.period);
+            smartVault.unauthorize(address(this), smartVault.setBridgeFee.selector);
         }
 
         // Set performance fee if not zero
@@ -281,6 +314,9 @@ library Deployer {
         action.authorize(admin, action.setLimits.selector);
         action.authorize(admin, action.setRelayer.selector);
 
+        // Authorize permissive mode admin
+        action.authorize(params.permissiveModeAdmin, action.setPermissiveMode.selector);
+
         // Authorize relayers to call action
         action.authorize(address(this), action.setRelayer.selector);
         for (uint256 i = 0; i < params.relayers.length; i = i.uncheckedAdd(1)) {
@@ -292,6 +328,13 @@ library Deployer {
         action.authorize(address(this), action.setLimits.selector);
         action.setLimits(params.gasPriceLimit, params.totalCostLimit, params.payingGasToken);
         action.unauthorize(address(this), action.setLimits.selector);
+
+        // Set permissive mode if necessary
+        if (params.isPermissiveModeActive) {
+            action.authorize(address(this), action.setPermissiveMode.selector);
+            action.setPermissiveMode(true);
+            action.unauthorize(address(this), action.setPermissiveMode.selector);
+        }
     }
 
     /**

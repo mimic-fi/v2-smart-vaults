@@ -11,7 +11,7 @@ const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 
 describe('Registry', () => {
   let registry: Contract, admin: SignerWithAddress
-  let smartVault: Contract, priceOracle: Contract, swapConnector: Contract
+  let smartVault: Contract, priceOracle: Contract, swapConnector: Contract, bridgeConnector: Contract
 
   before('impersonate admin', async () => {
     const input = await deployment.readInput(getForkedNetwork(hre))
@@ -24,6 +24,7 @@ describe('Registry', () => {
     smartVault = await instanceAt('ISmartVault', output.SmartVault)
     priceOracle = await instanceAt('IPriceOracle', output.PriceOracle)
     swapConnector = await instanceAt('ISwapConnector', output.SwapConnector)
+    bridgeConnector = await instanceAt('IBridgeConnector', output.BridgeConnector)
   })
 
   it('sets the admin correctly', async () => {
@@ -66,5 +67,14 @@ describe('Registry', () => {
     expect(data.namespace).to.be.equal(await swapConnector.NAMESPACE())
 
     expect(await swapConnector.registry()).to.be.equal(registry.address)
+  })
+
+  it('registers the bridge connector correctly', async () => {
+    const data = await registry.implementationData(bridgeConnector.address)
+    expect(data.stateless).to.be.true
+    expect(data.deprecated).to.be.false
+    expect(data.namespace).to.be.equal(await bridgeConnector.NAMESPACE())
+
+    expect(await bridgeConnector.registry()).to.be.equal(registry.address)
   })
 })
