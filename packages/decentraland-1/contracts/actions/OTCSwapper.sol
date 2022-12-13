@@ -30,22 +30,45 @@ contract OTCSwapper is BaseSwapper {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function call(address tokenIn, address tokenOut, uint256 amountOut, uint256 slippage) external auth {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(tokenIn, tokenOut, amountOut, slippage);
+    function canExecute(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut)
+        external
+        view
+        returns (bool)
+    {
+        uint256 amountOut = _calcAmountOut(tokenIn, tokenOut, amountIn);
+        return
+            amountOut >= minAmountOut &&
+            isTokenInAllowed[tokenIn] &&
+            isTokenOutAllowed[tokenOut] &&
+            _passesThreshold(tokenOut, amountOut);
     }
 
-    function _relayedCall(address tokenIn, address tokenOut, uint256 amountOut, uint256 slippage) internal redeemGas {
-        _call(tokenIn, tokenOut, amountOut, slippage);
+    function call(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut) external auth {
+        (isRelayer[msg.sender] ? _relayedCall : _call)(tokenIn, tokenOut, amountIn, minAmountOut);
     }
 
-    function _call(address tokenIn, address tokenOut, uint256 amountOut, uint256 slippage) internal {
-        uint256 price = smartVault.getPrice(tokenOut, tokenIn);
-        uint256 amountIn = amountOut.mulDown(price);
-        uint256 maxAmountIn = amountIn.mulDown(FixedPoint.ONE.uncheckedAdd(slippage));
-        _validateSwap(tokenIn, tokenOut, maxAmountIn, slippage);
+    function _relayedCall(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut)
+        internal
+        redeemGas
+    {
+        _call(tokenIn, tokenOut, amountIn, minAmountOut);
+    }
 
-        smartVault.collect(tokenOut, msg.sender, amountOut, new bytes(0));
-        smartVault.withdraw(tokenIn, maxAmountIn, msg.sender, new bytes(0));
+    function _call(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut) internal {
+        uint256 amountOut = _calcAmountOut(tokenIn, tokenOut, amountIn);
+        require(amountOut >= minAmountOut, 'SWAPPER_MIN_AMOUNT_OUT');
+        require(isTokenInAllowed[tokenIn], 'SWAPPER_TOKEN_IN_NOT_ALLOWED');
+        require(isTokenOutAllowed[tokenOut], 'SWAPPER_TOKEN_OUT_NOT_ALLOWED');
+        _validateThreshold(tokenOut, amountOut);
+
+        smartVault.collect(tokenIn, msg.sender, amountIn, new bytes(0));
+        smartVault.withdraw(tokenOut, amountOut, msg.sender, new bytes(0));
         emit Executed();
+    }
+
+    function _calcAmountOut(address tokenIn, address tokenOut, uint256 amountIn) internal view returns (uint256) {
+        uint256 price = smartVault.getPrice(tokenIn, tokenOut);
+        uint256 maxAmountOut = amountIn.mulDown(price);
+        return maxAmountOut.mulDown(FixedPoint.ONE.uncheckedSub(maxSlippage));
     }
 }

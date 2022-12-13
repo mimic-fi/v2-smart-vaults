@@ -46,11 +46,4 @@ abstract contract BaseSwapper is BaseAction, TokenThresholdAction, RelayedAction
         isTokenOutAllowed[token] = allowed;
         emit TokenOutSet(token, allowed);
     }
-
-    function _validateSwap(address tokenIn, address tokenOut, uint256 amountIn, uint256 slippage) internal view {
-        require(slippage <= maxSlippage, 'SWAPPER_SLIPPAGE_ABOVE_MAX');
-        require(isTokenInAllowed[tokenIn], 'SWAPPER_TOKEN_IN_NOT_ALLOWED');
-        require(isTokenOutAllowed[tokenOut], 'SWAPPER_TOKEN_OUT_NOT_ALLOWED');
-        _validateThreshold(tokenIn, amountIn);
-    }
 }

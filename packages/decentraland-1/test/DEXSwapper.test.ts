@@ -301,6 +301,10 @@ describe('DEXSwapper', () => {
               await tokenIn.mint(smartVault.address, amountIn)
             })
 
+            it('can execute', async () => {
+              expect(await action.canExecute(tokenIn.address, tokenOut.address, amountIn, slippage)).to.be.true
+            })
+
             it('calls swap primitive', async () => {
               const tx = await action.call(SOURCE, tokenIn.address, tokenOut.address, amountIn, slippage, DATA)
 

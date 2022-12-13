@@ -31,6 +31,10 @@ contract Withdrawer is BaseAction, RelayedAction, TokenThresholdAction, Withdraw
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function canExecute() external view returns (bool) {
+        return _passesThreshold(token, _balanceOf(token));
+    }
+
     function setToken(address newToken) external auth {
         token = newToken;
         emit TokenSet(newToken);

@@ -264,8 +264,8 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected swapper params', async () => {
-      expect(await otcSwapper.isTokenInAllowed(MANA)).to.be.true
-      expect(await otcSwapper.isTokenOutAllowed(DAI)).to.be.true
+      expect(await otcSwapper.isTokenInAllowed(DAI)).to.be.true
+      expect(await otcSwapper.isTokenOutAllowed(MANA)).to.be.true
       expect(await otcSwapper.maxSlippage()).to.be.equal(fp(0.001))
     })
 
@@ -293,11 +293,11 @@ describe('SmartVault', () => {
     })
 
     describe('call', async () => {
-      let expectedMaxAmountIn: BigNumber
+      let expectedAmountOut: BigNumber
       let mana: Contract, dai: Contract, whale: SignerWithAddress
 
-      const amountOut = fp(20)
-      const slippage = fp(0.001) // 0.1 %
+      const amountIn = fp(200)
+      const slippage = fp(0.001)
 
       before('load accounts', async () => {
         dai = await instanceAt('IERC20', DAI)
@@ -307,9 +307,10 @@ describe('SmartVault', () => {
 
       beforeEach('fund smart vault', async () => {
         const price = await smartVault.getPrice(DAI, MANA)
-        const expectedAmountIn = amountOut.mul(price).div(fp(1))
-        expectedMaxAmountIn = expectedAmountIn.add(expectedAmountIn.mul(slippage).div(fp(1)))
-        await mana.connect(whale).transfer(smartVault.address, expectedMaxAmountIn)
+        const maxAmountOut = amountIn.mul(price).div(fp(1))
+        expectedAmountOut = maxAmountOut.mul(fp(1).sub(slippage)).div(fp(1))
+        console.log('expectedAmountOut:', expectedAmountOut.toString())
+        await mana.connect(whale).transfer(smartVault.address, expectedAmountOut)
       })
 
       it('can swap MANA when passing the threshold', async () => {
@@ -318,29 +319,29 @@ describe('SmartVault', () => {
         const previousSmartVaultDaiBalance = await dai.balanceOf(smartVault.address)
         const previousSmartVaultManaBalance = await mana.balanceOf(smartVault.address)
 
-        await dai.connect(whale).approve(smartVault.address, amountOut)
-        await otcSwapper.connect(whale).call(MANA, DAI, amountOut, slippage)
+        await dai.connect(whale).approve(smartVault.address, amountIn)
+        await otcSwapper.connect(whale).call(DAI, MANA, amountIn, 0)
 
         const currentSenderDaiBalance = await dai.balanceOf(whale.address)
-        expect(currentSenderDaiBalance).to.be.at.least(previousSenderDaiBalance.sub(amountOut))
+        expect(currentSenderDaiBalance).to.be.equal(previousSenderDaiBalance.sub(amountIn))
 
         const currentSenderManaBalance = await mana.balanceOf(whale.address)
-        expect(currentSenderManaBalance).to.be.at.least(previousSenderManaBalance.add(expectedMaxAmountIn))
+        expect(currentSenderManaBalance).to.be.at.least(previousSenderManaBalance.add(expectedAmountOut))
 
         const currentSmartVaultDaiBalance = await dai.balanceOf(smartVault.address)
-        expect(currentSmartVaultDaiBalance).to.be.at.least(previousSmartVaultDaiBalance.add(amountOut))
+        expect(currentSmartVaultDaiBalance).to.be.equal(previousSmartVaultDaiBalance.add(amountIn))
 
         const currentSmartVaultManaBalance = await mana.balanceOf(smartVault.address)
-        expect(currentSmartVaultManaBalance).to.be.at.least(previousSmartVaultManaBalance.sub(expectedMaxAmountIn))
+        expect(currentSmartVaultManaBalance).to.be.at.least(previousSmartVaultManaBalance.sub(expectedAmountOut))
       })
 
       it('covers gas cost when relaying txs', async () => {
         const bot = await impersonate(relayers[0], fp(10))
         const previousBalance = await dai.balanceOf(feeCollector)
 
-        await dai.connect(whale).transfer(bot.address, amountOut)
-        await dai.connect(bot).approve(smartVault.address, amountOut)
-        const tx = await otcSwapper.connect(bot).call(MANA, DAI, amountOut, slippage)
+        await dai.connect(whale).transfer(bot.address, amountIn)
+        await dai.connect(bot).approve(smartVault.address, amountIn)
+        const tx = await otcSwapper.connect(bot).call(DAI, MANA, amountIn, 0)
 
         const currentBalance = await dai.balanceOf(feeCollector)
         const price = await smartVault.getPrice(DAI, WETH)

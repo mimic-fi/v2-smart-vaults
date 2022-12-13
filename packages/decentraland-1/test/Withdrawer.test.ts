@@ -109,6 +109,10 @@ describe('Withdrawer', () => {
             await token.mint(smartVault.address, amount)
           })
 
+          it('can execute', async () => {
+            expect(await action.canExecute()).to.be.true
+          })
+
           it('calls the withdraw primitive', async () => {
             const previousFeeCollectorBalance = await token.balanceOf(feeCollector.address)
 
