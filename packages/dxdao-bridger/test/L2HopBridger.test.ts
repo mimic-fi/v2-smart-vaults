@@ -22,7 +22,7 @@ describe('L2HopBridger', () => {
 
   beforeEach('deploy token and amm mock', async () => {
     token = await createTokenMock()
-    hopL2Amm = await deploy('HopL2AmmMock', [token.address])
+    hopL2Amm = await deploy('HopL2AmmMock', [token.address, token.address])
   })
 
   beforeEach('authorize action', async () => {
@@ -115,7 +115,7 @@ describe('L2HopBridger', () => {
 
         context('when the amm canonical token matches', () => {
           beforeEach('deploy another amm', async () => {
-            hopL2Amm = await deploy('HopL2AmmMock', [owner.address])
+            hopL2Amm = await deploy('HopL2AmmMock', [owner.address, owner.address])
           })
 
           it('reverts', async () => {

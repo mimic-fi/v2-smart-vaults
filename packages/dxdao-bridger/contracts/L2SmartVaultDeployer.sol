@@ -22,6 +22,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 
 import './actions/L2HopBridger.sol';
+import './actions/L2HopSwapper.sol';
 
 // solhint-disable avoid-low-level-calls
 
@@ -31,7 +32,17 @@ contract L2SmartVaultDeployer {
     struct Params {
         IRegistry registry;
         Deployer.SmartVaultParams smartVaultParams;
+        L2HopSwapperActionParams l2HopSwapperActionParams;
         L2HopBridgerActionParams l2HopBridgerActionParams;
+    }
+
+    struct L2HopSwapperActionParams {
+        address impl;
+        address admin;
+        address[] managers;
+        uint256 maxSlippage;
+        HopAmmParams[] hopAmmParams;
+        Deployer.RelayedActionParams relayedActionParams;
     }
 
     struct L2HopBridgerActionParams {
@@ -54,8 +65,40 @@ contract L2SmartVaultDeployer {
 
     function deploy(Params memory params) external {
         SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
+        _setupL2HopSwapperAction(smartVault, params.l2HopSwapperActionParams);
         _setupL2HopBridgerAction(smartVault, params.l2HopBridgerActionParams);
         Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
+    }
+
+    function _setupL2HopSwapperAction(SmartVault smartVault, L2HopSwapperActionParams memory params) internal {
+        // Create and setup action
+        L2HopSwapper swapper = L2HopSwapper(params.impl);
+        Deployer.setupBaseAction(swapper, params.admin, address(smartVault));
+        address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
+        Deployer.setupActionExecutors(swapper, executors, swapper.call.selector);
+        Deployer.setupRelayedAction(swapper, params.admin, params.relayedActionParams);
+
+        // Set swapper max slippage
+        swapper.authorize(params.admin, swapper.setMaxSlippage.selector);
+        swapper.authorize(address(this), swapper.setMaxSlippage.selector);
+        swapper.setMaxSlippage(params.maxSlippage);
+        swapper.unauthorize(address(this), swapper.setMaxSlippage.selector);
+
+        // Set swapper AMMs
+        swapper.authorize(params.admin, swapper.setTokenAmm.selector);
+        swapper.authorize(address(this), swapper.setTokenAmm.selector);
+        for (uint256 i = 0; i < params.hopAmmParams.length; i = i.uncheckedAdd(1)) {
+            HopAmmParams memory hopAmmParam = params.hopAmmParams[i];
+            swapper.setTokenAmm(hopAmmParam.token, hopAmmParam.amm);
+        }
+        swapper.unauthorize(address(this), swapper.setTokenAmm.selector);
+
+        // Transfer admin permissions to admin
+        Deployer.transferAdminPermissions(swapper, params.admin);
+
+        // Authorize action to wap and withdraw from Smart Vault
+        smartVault.authorize(address(swapper), smartVault.swap.selector);
+        smartVault.authorize(address(swapper), smartVault.withdraw.selector);
     }
 
     function _setupL2HopBridgerAction(SmartVault smartVault, L2HopBridgerActionParams memory params) internal {

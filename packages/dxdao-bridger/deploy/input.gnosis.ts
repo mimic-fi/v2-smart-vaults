@@ -45,6 +45,24 @@ export default {
       withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
       performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
     },
+    l2HopSwapperActionParams: {
+      impl: undefined,
+      admin: accounts.owner,
+      managers: accounts.managers,
+      maxSlippage: fp(0.002), // 0.2 %
+      hopAmmParams: [
+        { token: USDC, amm: HOP_USDC_AMM },
+        { token: WETH, amm: HOP_WETH_AMM },
+      ],
+      relayedActionParams: {
+        relayers: accounts.relayers,
+        gasPriceLimit: bn(100e9),
+        totalCostLimit: 0,
+        payingGasToken: WETH,
+        permissiveModeAdmin: accounts.feeCollector,
+        setPermissiveMode: false,
+      },
+    },
     l2HopBridgerActionParams: {
       impl: undefined,
       admin: accounts.owner,

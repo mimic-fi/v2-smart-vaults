@@ -14,7 +14,7 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('L2SmartVault', () => {
-  let smartVault: Contract, bridger: Contract, hopL2Amm: Contract, mimic: Mimic
+  let smartVault: Contract, bridger: Contract, swapper: Contract, hopL2Amm: Contract, mimic: Mimic
   let other: SignerWithAddress, owner: SignerWithAddress, managers: SignerWithAddress[], relayers: SignerWithAddress[]
 
   beforeEach('set up signers', async () => {
@@ -29,11 +29,12 @@ describe('L2SmartVault', () => {
   })
 
   beforeEach('deploy hop l2 amm mock', async () => {
-    hopL2Amm = await deploy('HopL2AmmMock', [mimic.wrappedNativeToken.address])
+    hopL2Amm = await deploy('HopL2AmmMock', [mimic.wrappedNativeToken.address, mimic.wrappedNativeToken.address])
   })
 
   beforeEach('deploy smart vault', async () => {
     const deployer = await deploy('L2SmartVaultDeployer', [], owner, { Deployer: mimic.deployer.address })
+    swapper = await deploy('L2HopSwapper', [deployer.address, mimic.registry.address])
     bridger = await deploy('L2HopBridger', [deployer.address, mimic.registry.address])
 
     const tx = await deployer.deploy({
@@ -51,6 +52,21 @@ describe('L2SmartVault', () => {
         swapFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
         withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
         performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+      },
+      l2HopSwapperActionParams: {
+        impl: swapper.address,
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        maxSlippage: fp(0.001), // 0.1 %
+        hopAmmParams: [{ token: mimic.wrappedNativeToken.address, amm: hopL2Amm.address }],
+        relayedActionParams: {
+          relayers: relayers.map((m) => m.address),
+          gasPriceLimit: 0,
+          totalCostLimit: fp(10),
+          payingGasToken: mimic.wrappedNativeToken.address,
+          permissiveModeAdmin: mimic.admin.address,
+          isPermissiveModeActive: false,
+        },
       },
       l2HopBridgerActionParams: {
         impl: bridger.address,
@@ -114,6 +130,7 @@ describe('L2SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: ['setFeeCollector'] },
+        { name: 'swapper', account: swapper, roles: ['swap', 'withdraw'] },
         { name: 'bridger', account: bridger, roles: ['bridge', 'withdraw'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
@@ -174,6 +191,64 @@ describe('L2SmartVault', () => {
     })
   })
 
+  describe('swapper', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(swapper, [
+        {
+          name: 'owner',
+          account: owner,
+          roles: [
+            'authorize',
+            'unauthorize',
+            'setSmartVault',
+            'setLimits',
+            'setRelayer',
+            'setMaxSlippage',
+            'setTokenAmm',
+            'call',
+          ],
+        },
+        { name: 'mimic', account: mimic.admin, roles: ['setPermissiveMode'] },
+        { name: 'swapper', account: swapper, roles: [] },
+        { name: 'bridger', account: bridger, roles: [] },
+        { name: 'other', account: other, roles: [] },
+        { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
+      ])
+    })
+
+    it('has the proper smart vault set', async () => {
+      expect(await swapper.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('sets the expected gas limits', async () => {
+      expect(await swapper.gasPriceLimit()).to.be.equal(0)
+      expect(await swapper.totalCostLimit()).to.be.equal(fp(10))
+      expect(await swapper.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
+    })
+
+    it('sets the requested AMMs', async () => {
+      expect(await swapper.getTokenAmm(owner.address)).to.be.equal(ZERO_ADDRESS)
+      expect(await swapper.getTokenAmm(mimic.wrappedNativeToken.address)).to.be.equal(hopL2Amm.address)
+    })
+
+    it('sets the requested max slippage', async () => {
+      expect(await swapper.maxSlippage()).to.be.equal(fp(0.001))
+    })
+
+    it('allows the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await swapper.isRelayer(relayer.address)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await swapper.isRelayer(manager.address)).to.be.false
+      }
+    })
+  })
+
   describe('bridger', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(bridger, [
@@ -196,6 +271,7 @@ describe('L2SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: ['setPermissiveMode'] },
+        { name: 'swapper', account: swapper, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
