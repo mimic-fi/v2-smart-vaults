@@ -297,7 +297,7 @@ library Deployer {
      * @param executors List of addresses to be allowed to call the given action
      * @param callSelector Selector of the function to allow the list of executors
      */
-    function setupActionExecutors(RelayedAction action, address[] memory executors, bytes4 callSelector) external {
+    function setupActionExecutors(BaseAction action, address[] memory executors, bytes4 callSelector) external {
         for (uint256 i = 0; i < executors.length; i = i.uncheckedAdd(1)) {
             action.authorize(executors[i], callSelector);
         }
