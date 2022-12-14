@@ -14,6 +14,7 @@
 
 pragma solidity ^0.8.0;
 
+import '@mimic-fi/v2-smart-vaults-base/contracts/utils/EnumerableMap.sol';
 import '@mimic-fi/v2-bridge-connector/contracts/interfaces/IHopL1Bridge.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 
@@ -21,8 +22,9 @@ import './BaseHopBridger.sol';
 
 contract L1HopBridger is BaseHopBridger {
     using FixedPoint for uint256;
+    using EnumerableMap for EnumerableMap.AddressToAddressMap;
 
-    mapping (address => address) public getTokenBridge;
+    EnumerableMap.AddressToAddressMap private tokenBridges;
     mapping (address => uint256) public getMaxRelayerFeePct;
 
     event TokenBridgeSet(address indexed token, address indexed bridge);
@@ -30,6 +32,32 @@ contract L1HopBridger is BaseHopBridger {
 
     constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
+    }
+
+    function getTokensLength() external view returns (uint256) {
+        return tokenBridges.length();
+    }
+
+    function getTokenBridge(address token) external view returns (address bridge) {
+        (, bridge) = tokenBridges.tryGet(token);
+    }
+
+    function getTokens() external view returns (address[] memory tokens) {
+        tokens = new address[](tokenBridges.length());
+        for (uint256 i = 0; i < tokens.length; i++) {
+            (address token, ) = tokenBridges.at(i);
+            tokens[i] = token;
+        }
+    }
+
+    function getTokenBridges() external view returns (address[] memory tokens, address[] memory bridges) {
+        tokens = new address[](tokenBridges.length());
+        bridges = new address[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            (address token, address bridge) = tokenBridges.at(i);
+            tokens[i] = token;
+            bridges[i] = bridge;
+        }
     }
 
     function canExecute(
@@ -41,7 +69,7 @@ contract L1HopBridger is BaseHopBridger {
         uint256 relayerFee
     ) external view returns (bool) {
         return
-            getTokenBridge[token] != address(0) &&
+            tokenBridges.contains(token) &&
             isChainAllowed[chainId] &&
             slippage <= maxSlippage &&
             relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer] &&
@@ -58,7 +86,7 @@ contract L1HopBridger is BaseHopBridger {
         require(token != address(0), 'BRIDGER_TOKEN_ZERO');
         bool isValidBridgeToken = bridge == address(0) || IHopL1Bridge(bridge).l1CanonicalToken() == token;
         require(isValidBridgeToken, 'BRIDGER_BRIDGE_TOKEN_DONT_MATCH');
-        getTokenBridge[token] = bridge;
+        bridge == address(0) ? tokenBridges.remove(token) : tokenBridges.set(token, bridge);
         emit TokenBridgeSet(token, bridge);
     }
 
@@ -66,8 +94,8 @@ contract L1HopBridger is BaseHopBridger {
         external
         auth
     {
-        address bridge = getTokenBridge[token];
-        require(bridge != address(0), 'BRIDGER_TOKEN_BRIDGE_NOT_SET');
+        (bool existsBridge, address bridge) = tokenBridges.tryGet(token);
+        require(existsBridge, 'BRIDGER_TOKEN_BRIDGE_NOT_SET');
         require(isChainAllowed[chainId], 'BRIDGER_CHAIN_NOT_ALLOWED');
         require(slippage <= maxSlippage, 'BRIDGER_SLIPPAGE_ABOVE_MAX');
         require(relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer], 'BRIDGER_RELAYER_FEE_ABOVE_MAX');
