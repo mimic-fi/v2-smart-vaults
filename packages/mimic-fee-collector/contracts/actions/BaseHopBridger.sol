@@ -20,10 +20,11 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
 abstract contract BaseHopBridger is BaseAction, TokenThresholdAction {
     // Hop Exchange source number
-    uint8 public constant HOP_SOURCE = 0;
+    uint8 internal constant HOP_SOURCE = 0;
 
-    // Ethereum mainnet chain ID
-    uint256 public constant ETHEREUM_MAINNET = 1;
+    // Chain IDs
+    uint256 internal constant MAINNET_CHAIN_ID = 1;
+    uint256 internal constant GOERLI_CHAIN_ID = 5;
 
     uint256 public maxDeadline;
     uint256 public maxSlippage;
@@ -50,5 +51,9 @@ abstract contract BaseHopBridger is BaseAction, TokenThresholdAction {
         require(chainId != block.chainid, 'BRIDGER_SAME_CHAIN_ID');
         isChainAllowed[chainId] = allowed;
         emit AllowedChainSet(chainId, allowed);
+    }
+
+    function _isL1(uint256 chainId) internal pure returns (bool) {
+        return chainId == MAINNET_CHAIN_ID || chainId == GOERLI_CHAIN_ID;
     }
 }

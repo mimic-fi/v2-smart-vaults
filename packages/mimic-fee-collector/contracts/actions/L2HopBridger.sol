@@ -66,10 +66,7 @@ contract L2HopBridger is BaseHopBridger {
         require(bonderFee.divUp(amount) <= maxBonderFeePct, 'BRIDGER_BONDER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
-        bytes memory data = chainId == ETHEREUM_MAINNET
-            ? abi.encode(amm, bonderFee)
-            : abi.encode(amm, bonderFee, maxDeadline);
-
+        bytes memory data = _isL1(chainId) ? abi.encode(amm, bonderFee) : abi.encode(amm, bonderFee, maxDeadline);
         smartVault.bridge(HOP_SOURCE, chainId, token, amount, ISmartVault.BridgeLimit.Slippage, slippage, data);
         emit Executed();
     }
