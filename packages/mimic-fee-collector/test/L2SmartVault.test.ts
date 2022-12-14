@@ -115,7 +115,7 @@ describe('L2SmartVault', () => {
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'swapper', account: swapper, roles: ['swap', 'withdraw'] },
-        { name: 'bridger', account: bridger, roles: ['bridge', 'withdraw'] },
+        { name: 'bridger', account: bridger, roles: ['collect', 'bridge', 'withdraw'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
       ])
@@ -220,6 +220,7 @@ describe('L2SmartVault', () => {
             'setMaxBonderFeePct',
             'setAllowedChain',
             'setTokenAmm',
+            'withdraw',
             'call',
           ],
         },

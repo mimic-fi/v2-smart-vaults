@@ -100,7 +100,7 @@ contract L2SmartVaultDeployer {
 
     function _setupL2HopBridgerAction(SmartVault smartVault, L2HopBridgerActionParams memory params) internal {
         // Create and setup action
-        L2HopBridger bridger = L2HopBridger(params.impl);
+        L2HopBridger bridger = L2HopBridger(payable(params.impl));
         Deployer.setupBaseAction(bridger, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(params.admin, params.managers, new address[](0));
         Deployer.setupActionExecutors(bridger, executors, bridger.call.selector);
@@ -141,10 +141,14 @@ contract L2SmartVaultDeployer {
         }
         bridger.unauthorize(address(this), bridger.setAllowedChain.selector);
 
+        // Authorize admin to withdraw funds from action
+        bridger.authorize(params.admin, bridger.withdraw.selector);
+
         // Transfer admin permissions to admin
         Deployer.transferAdminPermissions(bridger, params.admin);
 
-        // Authorize action to bridge and withdraw from Smart Vault
+        // Authorize action to collect, bridge and withdraw from Smart Vault
+        smartVault.authorize(address(bridger), smartVault.collect.selector);
         smartVault.authorize(address(bridger), smartVault.bridge.selector);
         smartVault.authorize(address(bridger), smartVault.withdraw.selector);
     }

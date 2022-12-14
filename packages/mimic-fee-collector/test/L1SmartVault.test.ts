@@ -106,6 +106,7 @@ describe('L1SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
+        { name: 'bridger', account: bridger, roles: ['collect', 'bridge', 'withdraw'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
       ])
@@ -180,12 +181,12 @@ describe('L1SmartVault', () => {
             'setMaxRelayerFeePct',
             'setAllowedChain',
             'setTokenBridge',
+            'withdraw',
             'call',
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
-        { name: 'l1 bridger', account: bridger, roles: [] },
-        { name: 'l2 bridger', account: bridger, roles: [] },
+        { name: 'bridger', account: bridger, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
       ])

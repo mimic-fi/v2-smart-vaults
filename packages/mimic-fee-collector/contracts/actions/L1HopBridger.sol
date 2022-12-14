@@ -73,6 +73,7 @@ contract L1HopBridger is BaseHopBridger {
         require(relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer], 'BRIDGER_RELAYER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
+        _collect(token, amount);
         bytes memory data = abi.encode(bridge, maxDeadline, relayer, relayerFee);
         smartVault.bridge(HOP_SOURCE, chainId, token, amount, ISmartVault.BridgeLimit.Slippage, slippage, data);
         emit Executed();

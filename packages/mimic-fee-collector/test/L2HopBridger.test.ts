@@ -33,6 +33,8 @@ describe('L2HopBridger', () => {
   })
 
   beforeEach('authorize action', async () => {
+    const collectRole = smartVault.interface.getSighash('collect')
+    await smartVault.connect(owner).authorize(action.address, collectRole)
     const bridgeRole = smartVault.interface.getSighash('bridge')
     await smartVault.connect(owner).authorize(action.address, bridgeRole)
     const withdrawRole = smartVault.interface.getSighash('withdraw')
@@ -383,11 +385,6 @@ describe('L2HopBridger', () => {
 
     const THRESHOLD = fp(50)
 
-    beforeEach('fund smart vault to pay gas', async () => {
-      await mimic.wrappedNativeToken.connect(owner).deposit({ value: fp(1) })
-      await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, fp(1))
-    })
-
     beforeEach('set threshold', async () => {
       const setThresholdRole = action.interface.getSighash('setThreshold')
       await action.connect(owner).authorize(owner.address, setThresholdRole)
@@ -434,13 +431,24 @@ describe('L2HopBridger', () => {
                   const balance = THRESHOLD
                   const bonderFee = balance.mul(BONDER_FEE_PCT).div(fp(1))
 
-                  beforeEach('fund smart vault token', async () => {
-                    await token.mint(smartVault.address, balance)
+                  beforeEach('transfer tokens to action', async () => {
+                    await token.mint(action.address, balance)
                   })
 
                   it('can executes', async () => {
                     const canExecute = await action.canExecute(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)
                     expect(canExecute).to.be.true
+                  })
+
+                  it('calls the collect primitive', async () => {
+                    const tx = await action.call(CHAIN_ID, token.address, balance, SLIPPAGE, bonderFee)
+
+                    await assertIndirectEvent(tx, smartVault.interface, 'Collect', {
+                      from: action,
+                      token,
+                      collected: balance,
+                      data: '0x',
+                    })
                   })
 
                   it('calls the bridge primitive', async () => {
