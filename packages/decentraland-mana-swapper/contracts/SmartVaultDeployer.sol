@@ -42,8 +42,8 @@ contract SmartVaultDeployer {
         address impl;
         address admin;
         address[] managers;
-        address[] tokensIn;
-        address[] tokensOut;
+        address tokenIn;
+        address tokenOut;
         uint256 maxSlippage;
         Deployer.RelayedActionParams relayedActionParams;
         Deployer.TokenThresholdActionParams tokenThresholdActionParams;
@@ -105,17 +105,13 @@ contract SmartVaultDeployer {
         // Set swapper token in
         swapper.authorize(params.admin, swapper.setTokenIn.selector);
         swapper.authorize(address(this), swapper.setTokenIn.selector);
-        for (uint256 i = 0; i < params.tokensIn.length; i = i.uncheckedAdd(1)) {
-            swapper.setTokenIn(params.tokensIn[i], true);
-        }
+        swapper.setTokenIn(params.tokenIn);
         swapper.unauthorize(address(this), swapper.setTokenIn.selector);
 
         // Set swapper token out
         swapper.authorize(params.admin, swapper.setTokenOut.selector);
         swapper.authorize(address(this), swapper.setTokenOut.selector);
-        for (uint256 i = 0; i < params.tokensOut.length; i = i.uncheckedAdd(1)) {
-            swapper.setTokenOut(params.tokensOut[i], true);
-        }
+        swapper.setTokenOut(params.tokenOut);
         swapper.unauthorize(address(this), swapper.setTokenOut.selector);
 
         // Set swapper max slippage

@@ -24,51 +24,26 @@ contract DEXSwapper is BaseSwapper {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function canExecute(address tokenIn, address tokenOut, uint256 amountIn, uint256 slippage)
-        external
-        view
-        returns (bool)
-    {
+    function canExecute(uint256 amountIn, uint256 slippage) external view returns (bool) {
         return
+            tokenIn != address(0) &&
+            tokenOut != address(0) &&
             slippage <= maxSlippage &&
-            isTokenInAllowed[tokenIn] &&
-            isTokenOutAllowed[tokenOut] &&
             _passesThreshold(tokenIn, amountIn);
     }
 
-    function call(
-        uint8 source,
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 slippage,
-        bytes memory data
-    ) external auth {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(source, tokenIn, tokenOut, amountIn, slippage, data);
+    function call(uint8 source, uint256 amountIn, uint256 slippage, bytes memory data) external auth {
+        (isRelayer[msg.sender] ? _relayedCall : _call)(source, amountIn, slippage, data);
     }
 
-    function _relayedCall(
-        uint8 source,
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 slippage,
-        bytes memory data
-    ) internal redeemGas {
-        _call(source, tokenIn, tokenOut, amountIn, slippage, data);
+    function _relayedCall(uint8 source, uint256 amountIn, uint256 slippage, bytes memory data) internal redeemGas {
+        _call(source, amountIn, slippage, data);
     }
 
-    function _call(
-        uint8 source,
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 slippage,
-        bytes memory data
-    ) internal {
+    function _call(uint8 source, uint256 amountIn, uint256 slippage, bytes memory data) internal {
+        require(tokenIn != address(0), 'SWAPPER_TOKEN_IN_NOT_SET');
+        require(tokenOut != address(0), 'SWAPPER_TOKEN_OUT_NOT_SET');
         require(slippage <= maxSlippage, 'SWAPPER_SLIPPAGE_ABOVE_MAX');
-        require(isTokenInAllowed[tokenIn], 'SWAPPER_TOKEN_IN_NOT_ALLOWED');
-        require(isTokenOutAllowed[tokenOut], 'SWAPPER_TOKEN_OUT_NOT_ALLOWED');
         _validateThreshold(tokenIn, amountIn);
 
         smartVault.swap(source, tokenIn, tokenOut, amountIn, ISmartVault.SwapLimit.Slippage, slippage, data);

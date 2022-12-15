@@ -49,8 +49,8 @@ describe('SmartVault', () => {
         impl: dexSwapper.address,
         admin: owner.address,
         managers: managers.map((m) => m.address),
-        tokensIn: [tokenIn.address],
-        tokensOut: [tokenOut.address],
+        tokenIn: tokenIn.address,
+        tokenOut: tokenOut.address,
         maxSlippage: fp(0.1),
         tokenThresholdActionParams: {
           token: tokenIn.address,
@@ -67,8 +67,8 @@ describe('SmartVault', () => {
         impl: otcSwapper.address,
         admin: owner.address,
         managers: managers.map((m) => m.address),
-        tokensIn: [tokenIn.address],
-        tokensOut: [tokenOut.address],
+        tokenIn: tokenIn.address,
+        tokenOut: tokenOut.address,
         maxSlippage: fp(0.05),
         tokenThresholdActionParams: {
           token: tokenIn.address,
@@ -220,8 +220,8 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected swapper params', async () => {
-      expect(await dexSwapper.isTokenInAllowed(tokenIn.address)).to.be.true
-      expect(await dexSwapper.isTokenOutAllowed(tokenOut.address)).to.be.true
+      expect(await dexSwapper.tokenIn()).to.be.equal(tokenIn.address)
+      expect(await dexSwapper.tokenOut()).to.be.equal(tokenOut.address)
       expect(await dexSwapper.maxSlippage()).to.be.equal(fp(0.1))
     })
 
@@ -283,8 +283,8 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected swapper params', async () => {
-      expect(await otcSwapper.isTokenInAllowed(tokenIn.address)).to.be.true
-      expect(await otcSwapper.isTokenOutAllowed(tokenOut.address)).to.be.true
+      expect(await otcSwapper.tokenIn()).to.be.equal(tokenIn.address)
+      expect(await otcSwapper.tokenOut()).to.be.equal(tokenOut.address)
       expect(await otcSwapper.maxSlippage()).to.be.equal(fp(0.05))
     })
 
