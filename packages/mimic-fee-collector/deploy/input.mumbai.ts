@@ -2,11 +2,11 @@ import { fp, HOUR, toUSDC, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
 /* eslint-disable no-secrets/no-secrets */
 
-const USDC = '0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83'
-const WETH = '0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1'
+const USDC = '0x6D4dd09982853F08d9966aC3cA4Eb5885F16f2b2'
+const WETH = '0xA6FA4fB5f76172d178d61B04b0ecd319C5d1C0aa'
 
-const HOP_USDC_AMM = '0x76b22b8C1079A44F1211D867D68b1eda76a635A7'
-const HOP_WETH_AMM = '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'
+const HOP_USDC_AMM = '0xa81D244A1814468C734E5b4101F7b9c0c577a8fC'
+const HOP_WETH_AMM = '0x0e0E3d2C5c292161999474247956EF542caBF8dd'
 
 const accounts = {
   owner: '0xB3AfB6DB38a8E72905165c1fBB96772e63560790', // mimic bot
@@ -60,13 +60,13 @@ export default {
       maxDeadline: 2 * HOUR,
       maxSlippage: fp(0.002), // 0.2 %
       maxBonderFeePct: fp(0.03), // 3 %
-      allowedChainIds: [1], // ethereum mainnet
+      destinationChainId: 5, // goerli
       hopAmmParams: [
         { token: USDC, amm: HOP_USDC_AMM },
         { token: WETH, amm: HOP_WETH_AMM },
       ],
       tokenThresholdActionParams: {
-        amount: toUSDC(500),
+        amount: toUSDC(5),
         token: USDC,
       },
     },

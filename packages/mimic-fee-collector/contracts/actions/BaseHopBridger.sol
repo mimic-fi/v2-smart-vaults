@@ -21,7 +21,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
 abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAction {
     // Hop Exchange source number
-    uint8 internal constant HOP_SOURCE = 0;
+    uint8 internal constant HOP = 0;
 
     // Chain IDs
     uint256 internal constant MAINNET_CHAIN_ID = 1;
@@ -29,11 +29,11 @@ abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAc
 
     uint256 public maxDeadline;
     uint256 public maxSlippage;
-    mapping (uint256 => bool) public isChainAllowed;
+    uint256 public destinationChainId;
 
     event MaxDeadlineSet(uint256 maxDeadline);
     event MaxSlippageSet(uint256 maxSlippage);
-    event AllowedChainSet(uint256 indexed chainId, bool allowed);
+    event DestinationChainIdSet(uint256 indexed chainId);
 
     function getTokens() external view virtual returns (address[] memory);
 
@@ -51,14 +51,13 @@ abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAc
         emit MaxSlippageSet(newMaxSlippage);
     }
 
-    function setAllowedChain(uint256 chainId, bool allowed) external auth {
-        require(chainId != 0, 'BRIDGER_CHAIN_ID_ZERO');
+    function setDestinationChainId(uint256 chainId) external auth {
         require(chainId != block.chainid, 'BRIDGER_SAME_CHAIN_ID');
-        isChainAllowed[chainId] = allowed;
-        emit AllowedChainSet(chainId, allowed);
+        destinationChainId = chainId;
+        emit DestinationChainIdSet(chainId);
     }
 
-    function _isL1(uint256 chainId) internal pure returns (bool) {
-        return chainId == MAINNET_CHAIN_ID || chainId == GOERLI_CHAIN_ID;
+    function _bridgingToL1() internal view returns (bool) {
+        return destinationChainId == MAINNET_CHAIN_ID || destinationChainId == GOERLI_CHAIN_ID;
     }
 }

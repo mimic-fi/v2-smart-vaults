@@ -4,7 +4,7 @@ import { fp, HOUR, toUSDC, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
 const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
-const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
+const CHAINLINK_ORACLE_ETH_USD = '0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e'
 
 const HOP_ETH_BRIDGE = '0xb8901acB165ed027E32754E0FFe830802919727f'
 const HOP_USDC_BRIDGE = '0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a'
@@ -35,7 +35,7 @@ export default {
       admin: accounts.owner,
       feeCollector: ZERO_ADDRESS,
       strategies: [],
-      priceFeedParams: [{ base: USDC, quote: WETH, feed: CHAINLINK_ORACLE_USDC_ETH }],
+      priceFeedParams: [{ base: WETH, quote: USDC, feed: CHAINLINK_ORACLE_ETH_USD }],
       priceOracle: mimic.PriceOracle,
       swapConnector: mimic.SwapConnector,
       bridgeConnector: mimic.BridgeConnector,
@@ -51,13 +51,13 @@ export default {
       maxDeadline: 2 * HOUR,
       maxSlippage: fp(0.002), // 0.2 %
       hopRelayerParams: [], // no relayer fees
-      allowedChainIds: [100], // gnosis chain
+      destinationChainId: 80001, // mumbai
       hopAmmParams: [
         { token: USDC, amm: HOP_USDC_BRIDGE },
         { token: WETH, amm: HOP_ETH_BRIDGE },
       ],
       tokenThresholdActionParams: {
-        amount: toUSDC(500),
+        amount: toUSDC(5),
         token: USDC,
       },
     },

@@ -40,7 +40,7 @@ contract L1SmartVaultDeployer {
         address[] managers;
         uint256 maxDeadline;
         uint256 maxSlippage;
-        uint256[] allowedChainIds;
+        uint256 destinationChainId;
         HopBridgeParams[] hopBridgeParams;
         HopRelayerParams[] hopRelayerParams;
         Deployer.TokenThresholdActionParams tokenThresholdActionParams;
@@ -100,13 +100,11 @@ contract L1SmartVaultDeployer {
         }
         bridger.unauthorize(address(this), bridger.setTokenBridge.selector);
 
-        // Set bridger chain IDs
-        bridger.authorize(params.admin, bridger.setAllowedChain.selector);
-        bridger.authorize(address(this), bridger.setAllowedChain.selector);
-        for (uint256 i = 0; i < params.allowedChainIds.length; i = i.uncheckedAdd(1)) {
-            bridger.setAllowedChain(params.allowedChainIds[i], true);
-        }
-        bridger.unauthorize(address(this), bridger.setAllowedChain.selector);
+        // Set bridger destination chain ID
+        bridger.authorize(params.admin, bridger.setDestinationChainId.selector);
+        bridger.authorize(address(this), bridger.setDestinationChainId.selector);
+        bridger.setDestinationChainId(params.destinationChainId);
+        bridger.unauthorize(address(this), bridger.setDestinationChainId.selector);
 
         // Authorize admin to withdraw funds from action
         bridger.authorize(params.admin, bridger.withdraw.selector);

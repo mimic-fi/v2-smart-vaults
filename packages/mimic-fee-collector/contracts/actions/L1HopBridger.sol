@@ -60,17 +60,14 @@ contract L1HopBridger is BaseHopBridger {
         }
     }
 
-    function canExecute(
-        uint256 chainId,
-        address token,
-        uint256 amount,
-        uint256 slippage,
-        address relayer,
-        uint256 relayerFee
-    ) external view returns (bool) {
+    function canExecute(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee)
+        external
+        view
+        returns (bool)
+    {
         return
             tokenBridges.contains(token) &&
-            isChainAllowed[chainId] &&
+            destinationChainId != 0 &&
             slippage <= maxSlippage &&
             relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer] &&
             _passesThreshold(token, amount);
@@ -90,20 +87,17 @@ contract L1HopBridger is BaseHopBridger {
         emit TokenBridgeSet(token, bridge);
     }
 
-    function call(uint256 chainId, address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee)
-        external
-        auth
-    {
+    function call(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee) external auth {
         (bool existsBridge, address bridge) = tokenBridges.tryGet(token);
         require(existsBridge, 'BRIDGER_TOKEN_BRIDGE_NOT_SET');
-        require(isChainAllowed[chainId], 'BRIDGER_CHAIN_NOT_ALLOWED');
+        require(destinationChainId != 0, 'BRIDGER_CHAIN_NOT_SET');
         require(slippage <= maxSlippage, 'BRIDGER_SLIPPAGE_ABOVE_MAX');
         require(relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer], 'BRIDGER_RELAYER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
         _collect(token, amount);
         bytes memory data = abi.encode(bridge, maxDeadline, relayer, relayerFee);
-        smartVault.bridge(HOP_SOURCE, chainId, token, amount, ISmartVault.BridgeLimit.Slippage, slippage, data);
+        smartVault.bridge(HOP, destinationChainId, token, amount, ISmartVault.BridgeLimit.Slippage, slippage, data);
         emit Executed();
     }
 }
