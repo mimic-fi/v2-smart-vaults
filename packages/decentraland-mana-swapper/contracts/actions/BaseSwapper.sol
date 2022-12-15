@@ -32,11 +32,13 @@ abstract contract BaseSwapper is BaseAction, TokenThresholdAction, RelayedAction
     event MaxSlippageSet(uint256 maxSlippage);
 
     function setTokenIn(address token) external auth {
+        require(token == address(0) || token != tokenOut, 'SWAPPER_TOKEN_IN_EQ_OUT');
         tokenIn = token;
         emit TokenInSet(token);
     }
 
     function setTokenOut(address token) external auth {
+        require(token == address(0) || token != tokenIn, 'SWAPPER_TOKEN_OUT_EQ_IN');
         tokenOut = token;
         emit TokenOutSet(token);
     }
