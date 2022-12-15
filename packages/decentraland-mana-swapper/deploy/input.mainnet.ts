@@ -49,8 +49,8 @@ export default {
       impl: undefined,
       admin: accounts.owner,
       managers: accounts.managers,
-      tokensIn: [MANA],
-      tokensOut: [DAI],
+      tokenIn: MANA,
+      tokenOut: DAI,
       maxSlippage: fp(0.001), // 0.1 %
       tokenThresholdActionParams: {
         token: MANA,
@@ -67,8 +67,8 @@ export default {
       impl: undefined,
       admin: accounts.owner,
       managers: accounts.managers,
-      tokensIn: [DAI],
-      tokensOut: [MANA],
+      tokenIn: DAI,
+      tokenOut: MANA,
       maxSlippage: fp(0.001), // 0.1 %
       tokenThresholdActionParams: {
         token: MANA,

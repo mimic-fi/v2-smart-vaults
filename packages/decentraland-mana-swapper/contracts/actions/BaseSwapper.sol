@@ -23,27 +23,27 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.so
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
 abstract contract BaseSwapper is BaseAction, TokenThresholdAction, RelayedAction {
+    address public tokenIn;
+    address public tokenOut;
     uint256 public maxSlippage;
-    mapping (address => bool) public isTokenInAllowed;
-    mapping (address => bool) public isTokenOutAllowed;
 
+    event TokenInSet(address indexed tokenIn);
+    event TokenOutSet(address indexed tokenOut);
     event MaxSlippageSet(uint256 maxSlippage);
-    event TokenInSet(address indexed tokenIn, bool allowed);
-    event TokenOutSet(address indexed tokenOut, bool allowed);
+
+    function setTokenIn(address token) external auth {
+        tokenIn = token;
+        emit TokenInSet(token);
+    }
+
+    function setTokenOut(address token) external auth {
+        tokenOut = token;
+        emit TokenOutSet(token);
+    }
 
     function setMaxSlippage(uint256 newMaxSlippage) external auth {
         require(newMaxSlippage <= FixedPoint.ONE, 'SWAPPER_SLIPPAGE_ABOVE_ONE');
         maxSlippage = newMaxSlippage;
         emit MaxSlippageSet(newMaxSlippage);
-    }
-
-    function setTokenIn(address token, bool allowed) external auth {
-        isTokenInAllowed[token] = allowed;
-        emit TokenInSet(token, allowed);
-    }
-
-    function setTokenOut(address token, bool allowed) external auth {
-        isTokenOutAllowed[token] = allowed;
-        emit TokenOutSet(token, allowed);
     }
 }

@@ -1,4 +1,4 @@
-import { assertEvent, assertIndirectEvent, fp, getSigners } from '@mimic-fi/v2-helpers'
+import { assertEvent, assertIndirectEvent, fp, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import {
   createAction,
   createPriceFeedMock,
@@ -40,57 +40,67 @@ describe('OTCSwapper', () => {
         action = action.connect(owner)
       })
 
-      const itConfigsTokenInCorrectly = (allowed: boolean) => {
-        it('sets the token in', async () => {
-          await action.setTokenIn(tokenIn.address, allowed)
+      context('when setting the token in', () => {
+        const itCanSetTheTokenProperly = () => {
+          it('sets the token in', async () => {
+            await action.setTokenIn(tokenIn.address)
 
-          expect(await action.isTokenInAllowed(tokenIn.address)).to.be.equal(allowed)
-        })
-
-        it('emits an event', async () => {
-          const tx = await action.setTokenIn(tokenIn.address, allowed)
-
-          await assertEvent(tx, 'TokenInSet', { tokenIn, allowed })
-        })
-      }
-
-      context('when allowing the token', () => {
-        const allowed = true
-
-        context('when the token was allowed', () => {
-          beforeEach('sallow the token', async () => {
-            await action.setTokenIn(tokenIn.address, true)
+            expect(await action.tokenIn()).to.be.equal(tokenIn.address)
           })
 
-          itConfigsTokenInCorrectly(allowed)
-        })
+          it('emits an event', async () => {
+            const tx = await action.setTokenIn(tokenIn.address)
 
-        context('when the token was not allowed', () => {
-          beforeEach('disallow the token', async () => {
-            await action.setTokenIn(tokenIn.address, false)
+            await assertEvent(tx, 'TokenInSet', { tokenIn })
+          })
+        }
+
+        context('when the token in was set', () => {
+          beforeEach('set the token', async () => {
+            await action.setTokenIn(tokenIn.address)
           })
 
-          itConfigsTokenInCorrectly(allowed)
+          itCanSetTheTokenProperly()
+        })
+
+        context('when the token in was not set', () => {
+          beforeEach('unset the token in', async () => {
+            await action.setTokenIn(ZERO_ADDRESS)
+          })
+
+          itCanSetTheTokenProperly()
         })
       })
 
-      context('when disallowing the token', () => {
-        const allowed = false
+      context('when unsetting the token in', () => {
+        const itCanUnsetTheTokenProperly = () => {
+          it('unsets the token in', async () => {
+            await action.setTokenIn(ZERO_ADDRESS)
 
-        context('when the token was allowed', () => {
-          beforeEach('sallow the token', async () => {
-            await action.setTokenIn(tokenIn.address, true)
+            expect(await action.tokenIn()).to.be.equal(ZERO_ADDRESS)
           })
 
-          itConfigsTokenInCorrectly(allowed)
+          it('emits an event', async () => {
+            const tx = await action.setTokenIn(ZERO_ADDRESS)
+
+            await assertEvent(tx, 'TokenInSet', { tokenIn: ZERO_ADDRESS })
+          })
+        }
+
+        context('when the token in was set', () => {
+          beforeEach('set the token in', async () => {
+            await action.setTokenIn(tokenIn.address)
+          })
+
+          itCanUnsetTheTokenProperly()
         })
 
-        context('when the token was not allowed', () => {
-          beforeEach('disallow the token', async () => {
-            await action.setTokenIn(tokenIn.address, false)
+        context('when the token in was not allowed', () => {
+          beforeEach('unset the token in', async () => {
+            await action.setTokenIn(ZERO_ADDRESS)
           })
 
-          itConfigsTokenInCorrectly(allowed)
+          itCanUnsetTheTokenProperly()
         })
       })
     })
@@ -101,7 +111,7 @@ describe('OTCSwapper', () => {
       })
 
       it('reverts', async () => {
-        await expect(action.setTokenIn(tokenIn.address, true)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.setTokenIn(tokenIn.address)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -114,57 +124,67 @@ describe('OTCSwapper', () => {
         action = action.connect(owner)
       })
 
-      const itConfigsTokenOutCorrectly = (allowed: boolean) => {
-        it('sets the token out', async () => {
-          await action.setTokenOut(tokenOut.address, allowed)
+      context('when setting the token out', () => {
+        const itCanSetTheTokenProperly = () => {
+          it('sets the token out', async () => {
+            await action.setTokenOut(tokenOut.address)
 
-          expect(await action.isTokenOutAllowed(tokenOut.address)).to.be.equal(allowed)
-        })
-
-        it('emits an event', async () => {
-          const tx = await action.setTokenOut(tokenOut.address, allowed)
-
-          await assertEvent(tx, 'TokenOutSet', { tokenOut, allowed })
-        })
-      }
-
-      context('when allowing the token', () => {
-        const allowed = true
-
-        context('when the token was allowed', () => {
-          beforeEach('sallow the token', async () => {
-            await action.setTokenOut(tokenOut.address, true)
+            expect(await action.tokenOut()).to.be.equal(tokenOut.address)
           })
 
-          itConfigsTokenOutCorrectly(allowed)
-        })
+          it('emits an event', async () => {
+            const tx = await action.setTokenOut(tokenOut.address)
 
-        context('when the token was not allowed', () => {
-          beforeEach('disallow the token', async () => {
-            await action.setTokenOut(tokenOut.address, false)
+            await assertEvent(tx, 'TokenOutSet', { tokenOut })
+          })
+        }
+
+        context('when the token out was set', () => {
+          beforeEach('set the token', async () => {
+            await action.setTokenOut(tokenOut.address)
           })
 
-          itConfigsTokenOutCorrectly(allowed)
+          itCanSetTheTokenProperly()
+        })
+
+        context('when the token out was not set', () => {
+          beforeEach('unset the token out', async () => {
+            await action.setTokenOut(ZERO_ADDRESS)
+          })
+
+          itCanSetTheTokenProperly()
         })
       })
 
-      context('when disallowing the token', () => {
-        const allowed = false
+      context('when unsetting the token out', () => {
+        const itCanUnsetTheTokenProperly = () => {
+          it('unsets the token out', async () => {
+            await action.setTokenOut(ZERO_ADDRESS)
 
-        context('when the token was allowed', () => {
-          beforeEach('sallow the token', async () => {
-            await action.setTokenOut(tokenOut.address, true)
+            expect(await action.tokenOut()).to.be.equal(ZERO_ADDRESS)
           })
 
-          itConfigsTokenOutCorrectly(allowed)
+          it('emits an event', async () => {
+            const tx = await action.setTokenOut(ZERO_ADDRESS)
+
+            await assertEvent(tx, 'TokenOutSet', { tokenOut: ZERO_ADDRESS })
+          })
+        }
+
+        context('when the token out was set', () => {
+          beforeEach('set the token out', async () => {
+            await action.setTokenOut(tokenOut.address)
+          })
+
+          itCanUnsetTheTokenProperly()
         })
 
-        context('when the token was not allowed', () => {
-          beforeEach('disallow the token', async () => {
-            await action.setTokenOut(tokenOut.address, false)
+        context('when the token out was not allowed', () => {
+          beforeEach('unset the token out', async () => {
+            await action.setTokenOut(ZERO_ADDRESS)
           })
 
-          itConfigsTokenOutCorrectly(allowed)
+          itCanUnsetTheTokenProperly()
         })
       })
     })
@@ -175,7 +195,7 @@ describe('OTCSwapper', () => {
       })
 
       it('reverts', async () => {
-        await expect(action.setTokenOut(tokenOut.address, true)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.setTokenOut(tokenOut.address)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -242,18 +262,6 @@ describe('OTCSwapper', () => {
       await smartVault.connect(owner).setFeeCollector(feeCollector.address)
     })
 
-    beforeEach('set token in', async () => {
-      const setTokenInRole = action.interface.getSighash('setTokenIn')
-      await action.connect(owner).authorize(owner.address, setTokenInRole)
-      await action.connect(owner).setTokenIn(tokenIn.address, true)
-    })
-
-    beforeEach('set token out', async () => {
-      const setTokenOutRole = action.interface.getSighash('setTokenOut')
-      await action.connect(owner).authorize(owner.address, setTokenOutRole)
-      await action.connect(owner).setTokenOut(tokenOut.address, true)
-    })
-
     beforeEach('set max slippage', async () => {
       const setMaxSlippage = action.interface.getSighash('setMaxSlippage')
       await action.connect(owner).authorize(owner.address, setMaxSlippage)
@@ -281,102 +289,138 @@ describe('OTCSwapper', () => {
       })
 
       const itPerformsTheExpectedCall = (refunds: boolean) => {
-        context('when the requested slippage is acceptable', () => {
-          const minAmountOut = 0
+        context('when the token in was set', () => {
+          beforeEach('set token in', async () => {
+            const setTokenInRole = action.interface.getSighash('setTokenIn')
+            await action.connect(owner).authorize(owner.address, setTokenInRole)
+            await action.connect(owner).setTokenIn(tokenIn.address)
+          })
 
-          context('when the amount out passes the threshold', () => {
-            const amountOut = threshold
-            const amountIn = amountOut.mul(fp(1)).div(fp(1).sub(maxSlippage)).mul(priceRate).add(2) // rounding error
-
-            beforeEach('fund smart vault', async () => {
-              await tokenOut.mint(smartVault.address, amountOut)
+          context('when the token out was set', () => {
+            beforeEach('set token out', async () => {
+              const setTokenOutRole = action.interface.getSighash('setTokenOut')
+              await action.connect(owner).authorize(owner.address, setTokenOutRole)
+              await action.connect(owner).setTokenOut(tokenOut.address)
             })
 
-            beforeEach('fund sender and approve smart vault', async () => {
-              await tokenIn.mint(owner.address, fp(1000))
-              await tokenIn.connect(owner).approve(smartVault.address, fp(1000))
-            })
+            context('when the requested min amount can be fulfilled', () => {
+              const minAmountOut = 0
 
-            it('can execute', async () => {
-              expect(await action.canExecute(tokenIn.address, tokenOut.address, amountIn, minAmountOut)).to.be.true
-            })
+              context('when the amount out passes the threshold', () => {
+                const amountOut = threshold
+                const amountIn = amountOut.mul(fp(1)).div(fp(1).sub(maxSlippage)).mul(priceRate).add(2) // rounding error
 
-            it('calls collect primitive', async () => {
-              const tx = await action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)
+                beforeEach('fund smart vault', async () => {
+                  await tokenOut.mint(smartVault.address, amountOut)
+                })
 
-              await assertIndirectEvent(tx, smartVault.interface, 'Collect', {
-                token: tokenIn,
-                collected: amountIn,
-                from: owner.address,
-                data: '0x',
+                beforeEach('fund sender and approve smart vault', async () => {
+                  await tokenIn.mint(owner.address, fp(1000))
+                  await tokenIn.connect(owner).approve(smartVault.address, fp(1000))
+                })
+
+                it('can execute', async () => {
+                  expect(await action.canExecute(amountIn, minAmountOut)).to.be.true
+                })
+
+                it('calls collect primitive', async () => {
+                  const tx = await action.call(amountIn, minAmountOut)
+
+                  await assertIndirectEvent(tx, smartVault.interface, 'Collect', {
+                    token: tokenIn,
+                    collected: amountIn,
+                    from: owner.address,
+                    data: '0x',
+                  })
+                })
+
+                it('transfers the token in to the smart vault', async () => {
+                  const previousSenderBalance = await tokenIn.balanceOf(owner.address)
+                  const previousSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
+                  const previousFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
+
+                  await action.call(amountIn, minAmountOut)
+
+                  const currentSenderBalance = await tokenIn.balanceOf(owner.address)
+                  expect(currentSenderBalance).to.be.eq(previousSenderBalance.sub(amountIn))
+
+                  const currentFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
+                  const gasPaid = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+                  const currentSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
+                  expect(currentSmartVaultBalance).to.be.eq(previousSmartVaultBalance.add(amountIn).sub(gasPaid))
+                })
+
+                it('transfers the token out to the sender', async () => {
+                  const previousOwnerBalance = await tokenOut.balanceOf(owner.address)
+                  const previousSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
+
+                  await action.call(amountIn, minAmountOut)
+
+                  const currentSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
+                  expect(currentSmartVaultBalance).to.be.eq(previousSmartVaultBalance.sub(amountOut))
+
+                  const currentOwnerBalance = await tokenOut.balanceOf(owner.address)
+                  expect(currentOwnerBalance).to.be.eq(previousOwnerBalance.add(amountOut))
+                })
+
+                it('emits an Executed event', async () => {
+                  const tx = await action.call(amountIn, minAmountOut)
+
+                  await assertEvent(tx, 'Executed')
+                })
+
+                it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
+                  const previousBalance = await tokenIn.balanceOf(feeCollector.address)
+
+                  await action.call(amountIn, minAmountOut)
+
+                  const currentBalance = await tokenIn.balanceOf(feeCollector.address)
+                  expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+                })
+              })
+
+              context('when the amount in does not passe the threshold', () => {
+                const amountOut = threshold.div(2)
+                const amountIn = amountOut.div(priceRate)
+
+                it('reverts', async () => {
+                  await expect(action.call(amountIn, minAmountOut)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+                })
               })
             })
 
-            it('transfers the token in to the smart vault', async () => {
-              const previousSenderBalance = await tokenIn.balanceOf(owner.address)
-              const previousSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
-              const previousFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
+            context('when the requested min amount can not be fulfilled', () => {
+              const amountIn = fp(1)
+              const minAmountOut = amountIn
 
-              await action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)
-
-              const currentSenderBalance = await tokenIn.balanceOf(owner.address)
-              expect(currentSenderBalance).to.be.eq(previousSenderBalance.sub(amountIn))
-
-              const currentFeeCollectorBalance = await tokenIn.balanceOf(feeCollector.address)
-              const gasPaid = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
-              const currentSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
-              expect(currentSmartVaultBalance).to.be.eq(previousSmartVaultBalance.add(amountIn).sub(gasPaid))
+              it('reverts', async () => {
+                await expect(action.call(amountIn, minAmountOut)).to.be.revertedWith('SWAPPER_MIN_AMOUNT_OUT')
+              })
             })
 
-            it('transfers the token out to the sender', async () => {
-              const previousOwnerBalance = await tokenOut.balanceOf(owner.address)
-              const previousSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
+            context('when the token out was not set', () => {
+              beforeEach('unset token out', async () => {
+                const setTokenOutRole = action.interface.getSighash('setTokenOut')
+                await action.connect(owner).authorize(owner.address, setTokenOutRole)
+                await action.connect(owner).setTokenOut(ZERO_ADDRESS)
+              })
 
-              await action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)
-
-              const currentSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
-              expect(currentSmartVaultBalance).to.be.eq(previousSmartVaultBalance.sub(amountOut))
-
-              const currentOwnerBalance = await tokenOut.balanceOf(owner.address)
-              expect(currentOwnerBalance).to.be.eq(previousOwnerBalance.add(amountOut))
-            })
-
-            it('emits an Executed event', async () => {
-              const tx = await action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)
-
-              await assertEvent(tx, 'Executed')
-            })
-
-            it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-              const previousBalance = await tokenIn.balanceOf(feeCollector.address)
-
-              await action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)
-
-              const currentBalance = await tokenIn.balanceOf(feeCollector.address)
-              expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+              it('reverts', async () => {
+                await expect(action.call(0, 0)).to.be.revertedWith('SWAPPER_TOKEN_OUT_NOT_SET')
+              })
             })
           })
 
-          context('when the amount in does not passe the threshold', () => {
-            const amountOut = threshold.div(2)
-            const amountIn = amountOut.div(priceRate)
+          context('when the token in was not set', () => {
+            beforeEach('unset token in', async () => {
+              const setTokenInRole = action.interface.getSighash('setTokenIn')
+              await action.connect(owner).authorize(owner.address, setTokenInRole)
+              await action.connect(owner).setTokenIn(ZERO_ADDRESS)
+            })
 
             it('reverts', async () => {
-              await expect(action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)).to.be.revertedWith(
-                'MIN_THRESHOLD_NOT_MET'
-              )
+              await expect(action.call(0, 0)).to.be.revertedWith('SWAPPER_TOKEN_IN_NOT_SET')
             })
-          })
-        })
-
-        context('when the slippage is not acceptable', () => {
-          const amountIn = fp(1)
-          const minAmountOut = amountIn
-
-          it('reverts', async () => {
-            await expect(action.call(tokenIn.address, tokenOut.address, amountIn, minAmountOut)).to.be.revertedWith(
-              'SWAPPER_MIN_AMOUNT_OUT'
-            )
           })
         })
       }
@@ -407,7 +451,7 @@ describe('OTCSwapper', () => {
 
     context('when the sender is authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(tokenIn.address, tokenOut.address, 0, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.call(0, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })

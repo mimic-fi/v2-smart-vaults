@@ -151,8 +151,8 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected swapper params', async () => {
-      expect(await dexSwapper.isTokenInAllowed(MANA)).to.be.true
-      expect(await dexSwapper.isTokenOutAllowed(DAI)).to.be.true
+      expect(await dexSwapper.tokenIn()).to.be.equal(MANA)
+      expect(await dexSwapper.tokenOut()).to.be.equal(DAI)
       expect(await dexSwapper.maxSlippage()).to.be.equal(fp(0.001))
     })
 
@@ -207,7 +207,7 @@ describe('SmartVault', () => {
         const previousSmartVaultBalance = await dai.balanceOf(smartVault.address)
         const previousFeeCollectorBalance = await dai.balanceOf(feeCollector)
 
-        const tx = await dexSwapper.connect(bot).call(source, MANA, DAI, amountIn, slippage, data)
+        const tx = await dexSwapper.connect(bot).call(source, amountIn, slippage, data)
 
         const price = await smartVault.getPrice(MANA, DAI)
         const expectedAmountOut = amountIn.mul(price).div(fp(1))
@@ -258,8 +258,8 @@ describe('SmartVault', () => {
     })
 
     it('sets the expected swapper params', async () => {
-      expect(await otcSwapper.isTokenInAllowed(DAI)).to.be.true
-      expect(await otcSwapper.isTokenOutAllowed(MANA)).to.be.true
+      expect(await otcSwapper.tokenIn()).to.be.equal(DAI)
+      expect(await otcSwapper.tokenOut()).to.be.equal(MANA)
       expect(await otcSwapper.maxSlippage()).to.be.equal(fp(0.001))
     })
 
@@ -314,7 +314,7 @@ describe('SmartVault', () => {
         const previousSmartVaultManaBalance = await mana.balanceOf(smartVault.address)
 
         await dai.connect(whale).approve(smartVault.address, amountIn)
-        await otcSwapper.connect(whale).call(DAI, MANA, amountIn, 0)
+        await otcSwapper.connect(whale).call(amountIn, 0)
 
         const currentSenderDaiBalance = await dai.balanceOf(whale.address)
         expect(currentSenderDaiBalance).to.be.equal(previousSenderDaiBalance.sub(amountIn))
@@ -335,7 +335,7 @@ describe('SmartVault', () => {
 
         await dai.connect(whale).transfer(bot.address, amountIn)
         await dai.connect(bot).approve(smartVault.address, amountIn)
-        const tx = await otcSwapper.connect(bot).call(DAI, MANA, amountIn, 0)
+        const tx = await otcSwapper.connect(bot).call(amountIn, 0)
 
         const currentBalance = await dai.balanceOf(feeCollector)
         const price = await smartVault.getPrice(DAI, WETH)

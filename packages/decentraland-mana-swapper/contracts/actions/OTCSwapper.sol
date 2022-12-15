@@ -30,35 +30,29 @@ contract OTCSwapper is BaseSwapper {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function canExecute(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut)
-        external
-        view
-        returns (bool)
-    {
-        uint256 amountOut = _calcAmountOut(tokenIn, tokenOut, amountIn);
+    function canExecute(uint256 amountIn, uint256 minAmountOut) external view returns (bool) {
+        uint256 amountOut = _calcAmountOut(amountIn);
         return
+            tokenIn != address(0) &&
+            tokenOut != address(0) &&
             amountOut >= minAmountOut &&
-            isTokenInAllowed[tokenIn] &&
-            isTokenOutAllowed[tokenOut] &&
             _passesThreshold(tokenOut, amountOut);
     }
 
-    function call(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut) external auth {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(tokenIn, tokenOut, amountIn, minAmountOut);
+    function call(uint256 amountIn, uint256 minAmountOut) external auth {
+        (isRelayer[msg.sender] ? _relayedCall : _call)(amountIn, minAmountOut);
     }
 
-    function _relayedCall(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut)
-        internal
-        redeemGas
-    {
-        _call(tokenIn, tokenOut, amountIn, minAmountOut);
+    function _relayedCall(uint256 amountIn, uint256 minAmountOut) internal redeemGas {
+        _call(amountIn, minAmountOut);
     }
 
-    function _call(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut) internal {
-        uint256 amountOut = _calcAmountOut(tokenIn, tokenOut, amountIn);
+    function _call(uint256 amountIn, uint256 minAmountOut) internal {
+        require(tokenIn != address(0), 'SWAPPER_TOKEN_IN_NOT_SET');
+        require(tokenOut != address(0), 'SWAPPER_TOKEN_OUT_NOT_SET');
+
+        uint256 amountOut = _calcAmountOut(amountIn);
         require(amountOut >= minAmountOut, 'SWAPPER_MIN_AMOUNT_OUT');
-        require(isTokenInAllowed[tokenIn], 'SWAPPER_TOKEN_IN_NOT_ALLOWED');
-        require(isTokenOutAllowed[tokenOut], 'SWAPPER_TOKEN_OUT_NOT_ALLOWED');
         _validateThreshold(tokenOut, amountOut);
 
         smartVault.collect(tokenIn, msg.sender, amountIn, new bytes(0));
@@ -66,7 +60,7 @@ contract OTCSwapper is BaseSwapper {
         emit Executed();
     }
 
-    function _calcAmountOut(address tokenIn, address tokenOut, uint256 amountIn) internal view returns (uint256) {
+    function _calcAmountOut(uint256 amountIn) internal view returns (uint256) {
         uint256 price = smartVault.getPrice(tokenIn, tokenOut);
         uint256 maxAmountOut = amountIn.mulDown(price);
         return maxAmountOut.mulDown(FixedPoint.ONE.uncheckedSub(maxSlippage));
