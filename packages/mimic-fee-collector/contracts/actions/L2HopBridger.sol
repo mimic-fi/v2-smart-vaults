@@ -34,7 +34,7 @@ contract L2HopBridger is BaseHopBridger {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function getTokensLength() external view returns (uint256) {
+    function getTokensLength() external view override returns (uint256) {
         return tokenAmms.length();
     }
 
@@ -42,7 +42,7 @@ contract L2HopBridger is BaseHopBridger {
         (, amm) = tokenAmms.tryGet(token);
     }
 
-    function getTokens() external view returns (address[] memory tokens) {
+    function getTokens() external view override returns (address[] memory tokens) {
         tokens = new address[](tokenAmms.length());
         for (uint256 i = 0; i < tokens.length; i++) {
             (address token, ) = tokenAmms.at(i);

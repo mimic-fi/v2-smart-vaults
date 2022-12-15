@@ -35,6 +35,10 @@ abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAc
     event MaxSlippageSet(uint256 maxSlippage);
     event AllowedChainSet(uint256 indexed chainId, bool allowed);
 
+    function getTokens() external view virtual returns (address[] memory);
+
+    function getTokensLength() external view virtual returns (uint256);
+
     function setMaxDeadline(uint256 newMaxDeadline) external auth {
         require(newMaxDeadline > 0, 'BRIDGER_MAX_DEADLINE_ZERO');
         maxDeadline = newMaxDeadline;
