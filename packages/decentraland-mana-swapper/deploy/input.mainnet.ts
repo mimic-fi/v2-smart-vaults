@@ -51,10 +51,10 @@ export default {
       managers: accounts.managers,
       tokenIn: MANA,
       tokenOut: DAI,
-      maxSlippage: fp(0.001), // 0.1 %
+      maxSlippage: fp(0.005), // 0.5 %
       tokenThresholdActionParams: {
         token: MANA,
-        amount: fp(10),
+        amount: fp(100),
       },
       relayedActionParams: {
         relayers: accounts.relayers,
@@ -69,10 +69,10 @@ export default {
       managers: accounts.managers,
       tokenIn: DAI,
       tokenOut: MANA,
-      maxSlippage: fp(0.001), // 0.1 %
+      maxSlippage: fp(0.005), // 0.5 %
       tokenThresholdActionParams: {
         token: MANA,
-        amount: fp(10),
+        amount: fp(100),
       },
       relayedActionParams: {
         relayers: accounts.relayers,
@@ -91,7 +91,7 @@ export default {
       },
       tokenThresholdActionParams: {
         token: DAI,
-        amount: fp(100),
+        amount: fp(50),
       },
       relayedActionParams: {
         relayers: accounts.relayers,

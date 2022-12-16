@@ -30,6 +30,10 @@ contract OTCSwapper is BaseSwapper {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function getAmountOut(uint256 amountIn) external view returns (uint256) {
+        return _calcAmountOut(amountIn);
+    }
+
     function canExecute(uint256 amountIn, uint256 minAmountOut) external view returns (bool) {
         uint256 amountOut = _calcAmountOut(amountIn);
         return
@@ -62,7 +66,7 @@ contract OTCSwapper is BaseSwapper {
 
     function _calcAmountOut(uint256 amountIn) internal view returns (uint256) {
         uint256 price = smartVault.getPrice(tokenIn, tokenOut);
-        uint256 maxAmountOut = amountIn.mulDown(price);
-        return maxAmountOut.mulDown(FixedPoint.ONE.uncheckedSub(maxSlippage));
+        uint256 amountOut = amountIn.mulDown(price);
+        return amountOut.mulDown(FixedPoint.ONE.uncheckedAdd(maxSlippage));
     }
 }

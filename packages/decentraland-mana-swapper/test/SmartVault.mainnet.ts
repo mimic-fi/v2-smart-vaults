@@ -153,12 +153,12 @@ describe('SmartVault', () => {
     it('sets the expected swapper params', async () => {
       expect(await dexSwapper.tokenIn()).to.be.equal(MANA)
       expect(await dexSwapper.tokenOut()).to.be.equal(DAI)
-      expect(await dexSwapper.maxSlippage()).to.be.equal(fp(0.001))
+      expect(await dexSwapper.maxSlippage()).to.be.equal(fp(0.005))
     })
 
     it('sets the expected threshold', async () => {
       expect(await dexSwapper.thresholdToken()).to.be.equal(MANA)
-      expect(await dexSwapper.thresholdAmount()).to.be.equal(fp(10))
+      expect(await dexSwapper.thresholdAmount()).to.be.equal(fp(100))
     })
 
     it('sets the expected gas limits', async () => {
@@ -183,7 +183,7 @@ describe('SmartVault', () => {
       let bot: SignerWithAddress, mana: Contract, dai: Contract, whale: SignerWithAddress
 
       const source = 1 // uniswap v3
-      const amountIn = fp(20)
+      const amountIn = fp(200)
       const slippage = fp(0.02) // 2 %
       const data = defaultAbiCoder.encode(['address[]', 'uint24[]'], [[WETH], [3000, 500]])
 
@@ -221,7 +221,7 @@ describe('SmartVault', () => {
 
         const daiWethPrice = await smartVault.getPrice(DAI, WETH)
         const redeemedCost = currentFeeCollectorBalance.sub(previousFeeCollectorBalance).mul(daiWethPrice).div(fp(1))
-        await assertRelayedBaseCost(tx, redeemedCost, 0.1)
+        await assertRelayedBaseCost(tx, redeemedCost, 0.35)
       })
     })
   })
@@ -260,12 +260,12 @@ describe('SmartVault', () => {
     it('sets the expected swapper params', async () => {
       expect(await otcSwapper.tokenIn()).to.be.equal(DAI)
       expect(await otcSwapper.tokenOut()).to.be.equal(MANA)
-      expect(await otcSwapper.maxSlippage()).to.be.equal(fp(0.001))
+      expect(await otcSwapper.maxSlippage()).to.be.equal(fp(0.005))
     })
 
     it('sets the expected threshold', async () => {
       expect(await otcSwapper.thresholdToken()).to.be.equal(MANA)
-      expect(await otcSwapper.thresholdAmount()).to.be.equal(fp(10))
+      expect(await otcSwapper.thresholdAmount()).to.be.equal(fp(100))
     })
 
     it('sets the expected gas limits', async () => {
@@ -290,8 +290,7 @@ describe('SmartVault', () => {
       let expectedAmountOut: BigNumber
       let mana: Contract, dai: Contract, whale: SignerWithAddress
 
-      const amountIn = fp(200)
-      const slippage = fp(0.001)
+      const amountIn = fp(50)
 
       before('load accounts', async () => {
         dai = await instanceAt('IERC20', DAI)
@@ -302,8 +301,8 @@ describe('SmartVault', () => {
       beforeEach('fund smart vault', async () => {
         const price = await smartVault.getPrice(DAI, MANA)
         const maxAmountOut = amountIn.mul(price).div(fp(1))
-        expectedAmountOut = maxAmountOut.mul(fp(1).sub(slippage)).div(fp(1))
-        console.log('expectedAmountOut:', expectedAmountOut.toString())
+        const maxSlippage = await otcSwapper.maxSlippage()
+        expectedAmountOut = maxAmountOut.mul(fp(1).add(maxSlippage)).div(fp(1)) // rounding error
         await mana.connect(whale).transfer(smartVault.address, expectedAmountOut)
       })
 
@@ -320,13 +319,13 @@ describe('SmartVault', () => {
         expect(currentSenderDaiBalance).to.be.equal(previousSenderDaiBalance.sub(amountIn))
 
         const currentSenderManaBalance = await mana.balanceOf(whale.address)
-        expect(currentSenderManaBalance).to.be.at.least(previousSenderManaBalance.add(expectedAmountOut))
+        expect(currentSenderManaBalance).to.be.at.equal(previousSenderManaBalance.add(expectedAmountOut))
 
         const currentSmartVaultDaiBalance = await dai.balanceOf(smartVault.address)
         expect(currentSmartVaultDaiBalance).to.be.equal(previousSmartVaultDaiBalance.add(amountIn))
 
         const currentSmartVaultManaBalance = await mana.balanceOf(smartVault.address)
-        expect(currentSmartVaultManaBalance).to.be.at.least(previousSmartVaultManaBalance.sub(expectedAmountOut))
+        expect(currentSmartVaultManaBalance).to.be.at.equal(previousSmartVaultManaBalance.sub(expectedAmountOut))
       })
 
       it('covers gas cost when relaying txs', async () => {
@@ -385,7 +384,7 @@ describe('SmartVault', () => {
 
     it('sets the expected threshold', async () => {
       expect(await withdrawer.thresholdToken()).to.be.equal(DAI)
-      expect(await withdrawer.thresholdAmount()).to.be.equal(fp(100))
+      expect(await withdrawer.thresholdAmount()).to.be.equal(fp(50))
     })
 
     it('sets the expected gas limits', async () => {
