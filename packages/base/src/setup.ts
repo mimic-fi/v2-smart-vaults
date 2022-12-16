@@ -21,6 +21,8 @@ export const MOCKS = {
   SWAP_CONNECTOR: `${SMART_VAULTS_BASE_PATH}/core/SwapConnectorMock.sol/SwapConnectorMock`,
   BRIDGE_CONNECTOR: `${SMART_VAULTS_BASE_PATH}/core/BridgeConnectorMock.sol/BridgeConnectorMock`,
   WRAPPED_NATIVE_TOKEN: `${SMART_VAULTS_BASE_PATH}/samples/WrappedNativeTokenMock.sol/WrappedNativeTokenMock`,
+  HOP_L1_BRIDGE: `${SMART_VAULTS_BASE_PATH}/samples/HopL1BridgeMock.sol/HopL1BridgeMock`,
+  HOP_L2_AMM: `${SMART_VAULTS_BASE_PATH}/samples/HopL2AmmMock.sol/HopL2AmmMock`,
 }
 
 export const ARTIFACTS = {
