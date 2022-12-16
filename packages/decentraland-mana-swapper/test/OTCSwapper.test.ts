@@ -308,7 +308,7 @@ describe('OTCSwapper', () => {
 
               context('when the amount out passes the threshold', () => {
                 const amountOut = threshold
-                const amountIn = amountOut.mul(fp(1)).div(fp(1).sub(maxSlippage)).mul(priceRate).add(2) // rounding error
+                const amountIn = amountOut.mul(fp(1)).div(fp(1).add(maxSlippage)).mul(priceRate).add(2) // rounding error
 
                 beforeEach('fund smart vault', async () => {
                   await tokenOut.mint(smartVault.address, amountOut)

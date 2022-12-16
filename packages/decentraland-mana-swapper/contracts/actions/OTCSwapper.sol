@@ -62,7 +62,7 @@ contract OTCSwapper is BaseSwapper {
 
     function _calcAmountOut(uint256 amountIn) internal view returns (uint256) {
         uint256 price = smartVault.getPrice(tokenIn, tokenOut);
-        uint256 maxAmountOut = amountIn.mulDown(price);
-        return maxAmountOut.mulDown(FixedPoint.ONE.uncheckedSub(maxSlippage));
+        uint256 amountOut = amountIn.mulDown(price);
+        return amountOut.mulDown(FixedPoint.ONE.uncheckedAdd(maxSlippage));
     }
 }
