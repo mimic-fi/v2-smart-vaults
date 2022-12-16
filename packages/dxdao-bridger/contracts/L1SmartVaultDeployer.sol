@@ -40,7 +40,7 @@ contract L1SmartVaultDeployer {
         address[] managers;
         uint256 maxDeadline;
         uint256 maxSlippage;
-        uint256[] allowedChainIds;
+        uint256 destinationChainId;
         HopBridgeParams[] hopBridgeParams;
         HopRelayerParams[] hopRelayerParams;
         Deployer.RelayedActionParams relayedActionParams;
@@ -65,7 +65,7 @@ contract L1SmartVaultDeployer {
 
     function _setupL2HopBridgerAction(SmartVault smartVault, L1HopBridgerActionParams memory params) internal {
         // Create and setup action
-        L1HopBridger bridger = L1HopBridger(params.impl);
+        L1HopBridger bridger = L1HopBridger(payable(params.impl));
         Deployer.setupBaseAction(bridger, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         Deployer.setupActionExecutors(bridger, executors, bridger.call.selector);
@@ -102,18 +102,20 @@ contract L1SmartVaultDeployer {
         }
         bridger.unauthorize(address(this), bridger.setTokenBridge.selector);
 
-        // Set bridger chain IDs
-        bridger.authorize(params.admin, bridger.setAllowedChain.selector);
-        bridger.authorize(address(this), bridger.setAllowedChain.selector);
-        for (uint256 i = 0; i < params.allowedChainIds.length; i = i.uncheckedAdd(1)) {
-            bridger.setAllowedChain(params.allowedChainIds[i], true);
-        }
-        bridger.unauthorize(address(this), bridger.setAllowedChain.selector);
+        // Set bridger destination chain ID
+        bridger.authorize(params.admin, bridger.setDestinationChainId.selector);
+        bridger.authorize(address(this), bridger.setDestinationChainId.selector);
+        bridger.setDestinationChainId(params.destinationChainId);
+        bridger.unauthorize(address(this), bridger.setDestinationChainId.selector);
+
+        // Authorize admin to withdraw funds from action
+        bridger.authorize(params.admin, bridger.withdraw.selector);
 
         // Transfer admin permissions to admin
         Deployer.transferAdminPermissions(bridger, params.admin);
 
-        // Authorize action to bridge and withdraw from Smart Vault
+        // Authorize action to collect, bridge, and withdraw from Smart Vault
+        smartVault.authorize(address(bridger), smartVault.collect.selector);
         smartVault.authorize(address(bridger), smartVault.bridge.selector);
         smartVault.authorize(address(bridger), smartVault.withdraw.selector);
     }

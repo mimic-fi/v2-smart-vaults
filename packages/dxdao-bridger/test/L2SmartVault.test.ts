@@ -75,7 +75,7 @@ describe('L2SmartVault', () => {
         maxDeadline: 2 * HOUR,
         maxSlippage: fp(0.002), // 0.2 %
         maxBonderFeePct: fp(0.03), // 3 %
-        allowedChainIds: [1], // ethereum mainnet
+        destinationChainId: 1, // ethereum mainnet
         hopAmmParams: [{ token: mimic.wrappedNativeToken.address, amm: hopL2Amm.address }],
         tokenThresholdActionParams: {
           amount: fp(10),
@@ -131,7 +131,7 @@ describe('L2SmartVault', () => {
         },
         { name: 'mimic', account: mimic.admin, roles: ['setFeeCollector'] },
         { name: 'swapper', account: swapper, roles: ['swap', 'withdraw'] },
-        { name: 'bridger', account: bridger, roles: ['bridge', 'withdraw'] },
+        { name: 'bridger', account: bridger, roles: ['collect', 'bridge', 'withdraw'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },
@@ -265,8 +265,9 @@ describe('L2SmartVault', () => {
             'setMaxSlippage',
             'setMaxDeadline',
             'setMaxBonderFeePct',
-            'setAllowedChain',
+            'setDestinationChainId',
             'setTokenAmm',
+            'withdraw',
             'call',
           ],
         },
@@ -294,9 +295,8 @@ describe('L2SmartVault', () => {
       expect(await bridger.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
     })
 
-    it('allows the requested chains', async () => {
-      expect(await bridger.isChainAllowed(1)).to.be.true
-      expect(await bridger.isChainAllowed(10)).to.be.false
+    it('allows the requested destination chain ID', async () => {
+      expect(await bridger.destinationChainId()).to.be.equal(1)
     })
 
     it('sets the requested AMMs', async () => {

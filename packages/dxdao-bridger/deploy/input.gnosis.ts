@@ -4,9 +4,11 @@ import { bn, fp, HOUR, toUSDC, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 
 const USDC = '0xDDAfbb505ad214D7b80b1f830fcCc89B60fb7A83'
 const WETH = '0x6A023CCd1ff6F2045C3309768eAd9E68F978f6e1'
+const WXDAI = '0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d'
+const CHAINLINK_ORACLE_ETH_USD = '0xa767f745331D267c7751297D982b050c93985627'
 
 const HOP_USDC_AMM = '0x76b22b8C1079A44F1211D867D68b1eda76a635A7'
-const HOP_WETH_AMM = '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'
+const HOP_WETH_AMM = '0x03D7f750777eC48d39D080b020D83Eb2CB4e3547'
 
 const accounts = {
   owner: '0x519b70055af55A007110B4Ff99b0eA33071c720a', // DXdao
@@ -36,7 +38,10 @@ export default {
       admin: accounts.owner,
       feeCollector: accounts.feeCollector,
       strategies: [],
-      priceFeedParams: [],
+      priceFeedParams: [
+        { base: WETH, quote: USDC, feed: CHAINLINK_ORACLE_ETH_USD },
+        { base: WETH, quote: WXDAI, feed: CHAINLINK_ORACLE_ETH_USD },
+      ],
       priceOracle: mimic.PriceOracle,
       swapConnector: mimic.SwapConnector,
       bridgeConnector: mimic.BridgeConnector,
@@ -70,7 +75,7 @@ export default {
       maxDeadline: 2 * HOUR,
       maxSlippage: fp(0.002), // 0.2 %
       maxBonderFeePct: fp(0.03), // 3 %
-      allowedChainIds: [1], // ethereum mainnet
+      destinationChainId: 1, // ethereum mainnet
       hopAmmParams: [
         { token: USDC, amm: HOP_USDC_AMM },
         { token: WETH, amm: HOP_WETH_AMM },

@@ -16,17 +16,19 @@ pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-bridge-connector/contracts/interfaces/IHopL1Bridge.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/EnumerableMap.sol';
 
 import './BaseHopBridger.sol';
 
 contract L1HopBridger is BaseHopBridger {
     using FixedPoint for uint256;
+    using EnumerableMap for EnumerableMap.AddressToAddressMap;
 
     // Base gas amount charged to cover gas payment
     uint256 public constant override BASE_GAS = 80e3;
 
-    mapping (address => address) public getTokenBridge;
     mapping (address => uint256) public getMaxRelayerFeePct;
+    EnumerableMap.AddressToAddressMap private tokenBridges;
 
     event TokenBridgeSet(address indexed token, address indexed bridge);
     event MaxRelayerFeePctSet(address indexed relayer, uint256 maxFeePct);
@@ -35,17 +37,40 @@ contract L1HopBridger is BaseHopBridger {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function canExecute(
-        uint256 chainId,
-        address token,
-        uint256 amount,
-        uint256 slippage,
-        address relayer,
-        uint256 relayerFee
-    ) external view returns (bool) {
+    function getTokensLength() external view override returns (uint256) {
+        return tokenBridges.length();
+    }
+
+    function getTokenBridge(address token) external view returns (address bridge) {
+        (, bridge) = tokenBridges.tryGet(token);
+    }
+
+    function getTokens() external view override returns (address[] memory tokens) {
+        tokens = new address[](tokenBridges.length());
+        for (uint256 i = 0; i < tokens.length; i++) {
+            (address token, ) = tokenBridges.at(i);
+            tokens[i] = token;
+        }
+    }
+
+    function getTokenBridges() external view returns (address[] memory tokens, address[] memory bridges) {
+        tokens = new address[](tokenBridges.length());
+        bridges = new address[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            (address token, address bridge) = tokenBridges.at(i);
+            tokens[i] = token;
+            bridges[i] = bridge;
+        }
+    }
+
+    function canExecute(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee)
+        external
+        view
+        returns (bool)
+    {
         return
-            getTokenBridge[token] != address(0) &&
-            isChainAllowed[chainId] &&
+            tokenBridges.contains(token) &&
+            destinationChainId != 0 &&
             slippage <= maxSlippage &&
             relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer] &&
             _passesThreshold(token, amount);
@@ -61,45 +86,32 @@ contract L1HopBridger is BaseHopBridger {
         require(token != address(0), 'BRIDGER_TOKEN_ZERO');
         bool isValidBridgeToken = bridge == address(0) || IHopL1Bridge(bridge).l1CanonicalToken() == token;
         require(isValidBridgeToken, 'BRIDGER_BRIDGE_TOKEN_DONT_MATCH');
-        getTokenBridge[token] = bridge;
+        bridge == address(0) ? tokenBridges.remove(token) : tokenBridges.set(token, bridge);
         emit TokenBridgeSet(token, bridge);
     }
 
-    function call(uint256 chainId, address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee)
-        external
-        auth
+    function call(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee) external auth {
+        (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, slippage, relayer, relayerFee);
+    }
+
+    function _relayedCall(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee)
+        internal
+        redeemGas
     {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(chainId, token, amount, slippage, relayer, relayerFee);
+        _call(token, amount, slippage, relayer, relayerFee);
     }
 
-    function _relayedCall(
-        uint256 chainId,
-        address token,
-        uint256 amount,
-        uint256 slippage,
-        address relayer,
-        uint256 relayerFee
-    ) internal redeemGas {
-        _call(chainId, token, amount, slippage, relayer, relayerFee);
-    }
-
-    function _call(
-        uint256 chainId,
-        address token,
-        uint256 amount,
-        uint256 slippage,
-        address relayer,
-        uint256 relayerFee
-    ) internal {
-        address bridge = getTokenBridge[token];
-        require(bridge != address(0), 'BRIDGER_TOKEN_BRIDGE_NOT_SET');
-        require(isChainAllowed[chainId], 'BRIDGER_CHAIN_NOT_ALLOWED');
+    function _call(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee) internal {
+        (bool existsBridge, address bridge) = tokenBridges.tryGet(token);
+        require(existsBridge, 'BRIDGER_TOKEN_BRIDGE_NOT_SET');
+        require(destinationChainId != 0, 'BRIDGER_CHAIN_NOT_SET');
         require(slippage <= maxSlippage, 'BRIDGER_SLIPPAGE_ABOVE_MAX');
         require(relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer], 'BRIDGER_RELAYER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
+        _collect(token, amount);
         bytes memory data = abi.encode(bridge, maxDeadline, relayer, relayerFee);
-        smartVault.bridge(HOP_SOURCE, chainId, token, amount, ISmartVault.BridgeLimit.Slippage, slippage, data);
+        _bridge(token, amount, slippage, data);
         emit Executed();
     }
 }

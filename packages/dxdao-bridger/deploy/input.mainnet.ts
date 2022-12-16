@@ -53,7 +53,7 @@ export default {
       maxDeadline: 2 * HOUR,
       maxSlippage: fp(0.002), // 0.2 %
       hopRelayerParams: [], // no relayer fees
-      allowedChainIds: [100], // gnosis chain
+      destinationChainId: 100, // gnosis chain
       hopAmmParams: [
         { token: USDC, amm: HOP_USDC_BRIDGE },
         { token: WETH, amm: HOP_ETH_BRIDGE },
