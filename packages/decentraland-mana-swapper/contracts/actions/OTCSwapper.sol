@@ -30,6 +30,10 @@ contract OTCSwapper is BaseSwapper {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function getAmountOut(uint256 amountIn) external view returns (uint256) {
+        return _calcAmountOut(amountIn);
+    }
+
     function canExecute(uint256 amountIn, uint256 minAmountOut) external view returns (bool) {
         uint256 amountOut = _calcAmountOut(amountIn);
         return

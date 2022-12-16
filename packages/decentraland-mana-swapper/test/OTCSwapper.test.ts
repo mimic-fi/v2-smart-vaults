@@ -323,6 +323,10 @@ describe('OTCSwapper', () => {
                   expect(await action.canExecute(amountIn, minAmountOut)).to.be.true
                 })
 
+                it('estimates amount out correctly', async () => {
+                  expect(await action.getAmountOut(amountIn)).to.be.equal(amountOut)
+                })
+
                 it('calls collect primitive', async () => {
                   const tx = await action.call(amountIn, minAmountOut)
 
