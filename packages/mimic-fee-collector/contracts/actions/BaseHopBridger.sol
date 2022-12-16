@@ -21,7 +21,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
 abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAction {
     // Hop Exchange source number
-    uint8 internal constant HOP = 0;
+    uint8 internal constant HOP_SOURCE = 0;
 
     // Chain IDs
     uint256 internal constant MAINNET_CHAIN_ID = 1;
@@ -59,5 +59,18 @@ abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAc
 
     function _bridgingToL1() internal view returns (bool) {
         return destinationChainId == MAINNET_CHAIN_ID || destinationChainId == GOERLI_CHAIN_ID;
+    }
+
+    function _bridge(address token, uint256 amount, uint256 slippage, bytes memory data) internal {
+        smartVault.bridge(
+            HOP_SOURCE,
+            destinationChainId,
+            token,
+            amount,
+            ISmartVault.BridgeLimit.Slippage,
+            slippage,
+            address(smartVault),
+            data
+        );
     }
 }

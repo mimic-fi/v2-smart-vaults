@@ -14,10 +14,10 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-smart-vaults-base/contracts/utils/EnumerableMap.sol';
 import '@mimic-fi/v2-bridge-connector/contracts/interfaces/IHopL2AMM.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/EnumerableMap.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
@@ -28,7 +28,7 @@ contract L2HopSwapper is BaseAction {
     using EnumerableMap for EnumerableMap.AddressToAddressMap;
 
     // Hop Exchange source number
-    uint8 internal constant HOP = 5;
+    uint8 internal constant HOP_SOURCE = 5;
 
     uint256 public maxSlippage;
     EnumerableMap.AddressToAddressMap private tokenAmms;
@@ -92,7 +92,7 @@ contract L2HopSwapper is BaseAction {
         uint256 balance = _balanceOf(hToken);
         bytes memory data = abi.encode(IHopL2AMM(amm).exchangeAddress());
         uint256 minAmountOut = balance.mulUp(FixedPoint.ONE.uncheckedSub(slippage));
-        smartVault.swap(HOP, hToken, token, balance, ISmartVault.SwapLimit.MinAmountOut, minAmountOut, data);
+        smartVault.swap(HOP_SOURCE, hToken, token, balance, ISmartVault.SwapLimit.MinAmountOut, minAmountOut, data);
         emit Executed();
     }
 }

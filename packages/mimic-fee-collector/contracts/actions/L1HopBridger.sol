@@ -14,9 +14,9 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-smart-vaults-base/contracts/utils/EnumerableMap.sol';
 import '@mimic-fi/v2-bridge-connector/contracts/interfaces/IHopL1Bridge.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/EnumerableMap.sol';
 
 import './BaseHopBridger.sol';
 
@@ -97,7 +97,7 @@ contract L1HopBridger is BaseHopBridger {
 
         _collect(token, amount);
         bytes memory data = abi.encode(bridge, maxDeadline, relayer, relayerFee);
-        smartVault.bridge(HOP, destinationChainId, token, amount, ISmartVault.BridgeLimit.Slippage, slippage, data);
+        _bridge(token, amount, slippage, data);
         emit Executed();
     }
 }
