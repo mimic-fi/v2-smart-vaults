@@ -8,8 +8,4 @@ contract ReceiverActionMock is ReceiverAction {
     constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
-
-    function collect(address token, uint256 amount) external {
-        _collect(token, amount);
-    }
 }

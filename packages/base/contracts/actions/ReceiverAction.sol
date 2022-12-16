@@ -30,19 +30,12 @@ abstract contract ReceiverAction is BaseAction {
     }
 
     function withdraw(address token, uint256 amount) external auth {
-        require(amount >= _balanceOf(token), 'RECEIVE_INSUFFICIENT_BALANCE');
+        _withdraw(token, amount);
+    }
+
+    function _withdraw(address token, uint256 amount) internal {
         Denominations.isNativeToken(token)
             ? Address.sendValue(payable(address(smartVault)), amount)
             : IERC20(token).safeTransfer(address(smartVault), amount);
-    }
-
-    function _collect(address token, uint256 amount) internal {
-        if (Denominations.isNativeToken(token)) {
-            token = smartVault.wrappedNativeToken();
-            IWrappedNativeToken(token).deposit{ value: amount }();
-        }
-
-        IERC20(token).safeApprove(address(smartVault), amount);
-        smartVault.collect(token, address(this), amount, new bytes(0));
     }
 }
