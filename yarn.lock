@@ -501,12 +501,12 @@
     tweetnacl "^1.0.3"
     tweetnacl-util "^0.15.1"
 
-"@mimic-fi/v2-bridge-connector@0.0.2":
-  version "0.0.2"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-bridge-connector/-/v2-bridge-connector-0.0.2.tgz#18f5b90accc6f4d77f4be02b4b2ad466a3926602"
-  integrity sha512-BELsxlXknOY3yblNuv5H1NCSNb9pfFVi8Dq316227oAOKkwtN2PBzxThEoKskJXnLWOxoATAlI8yDb+zkzKAXA==
+"@mimic-fi/v2-bridge-connector@0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-bridge-connector/-/v2-bridge-connector-0.0.3.tgz#e6ba92958986a420ffdb5563e2197268c34b3102"
+  integrity sha512-Pngg3lbSUy6w+UVovyHErN0tWhur/EqJuQeSanlMrCJ7xEeG2mLLuw0eRIKfOXU/lWYI0lFm8d+EU7F6/yBOzQ==
   dependencies:
-    "@mimic-fi/v2-helpers" "0.0.12"
+    "@mimic-fi/v2-helpers" "0.0.13"
     "@mimic-fi/v2-registry" "0.0.7"
     "@openzeppelin/contracts" "4.7.0"
 
@@ -538,10 +538,10 @@
     ethers "^5.0.8"
     hardhat "^2.4.1"
 
-"@mimic-fi/v2-helpers@0.0.12":
-  version "0.0.12"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.12.tgz#f9b1fd940701177b850b7c68e4953914043310b0"
-  integrity sha512-9cd4kwOCxW5ESPgpHnMX/eHCRdDKhZHiZu0lRsEbNUG8GheSnNUwCtbt/pqC7tNA4yYtGyFTTrhk7SqSQ+hk9A==
+"@mimic-fi/v2-helpers@0.0.13":
+  version "0.0.13"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.13.tgz#88d79018fc7f31e8b78b2f3430b1880d10d47ed6"
+  integrity sha512-cYA5MAmvCKMYKe+5GgAAmzhuGMh8OLh9mnBWfq/LwxAC/MyANrRac4U//DFhX5e5UZ7G0SrE9vWRpkUESKbUfw==
   dependencies:
     "@nomiclabs/hardhat-ethers" "^2.2.1"
     "@nomiclabs/hardhat-waffle" "^2.0.3"
@@ -590,17 +590,17 @@
     "@mimic-fi/v2-swap-connector" "0.0.15"
     "@openzeppelin/contracts" "4.7.0"
 
-"@mimic-fi/v2-smart-vault@0.0.13":
-  version "0.0.13"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-smart-vault/-/v2-smart-vault-0.0.13.tgz#9343ad218b4786cf5b09aedc18bc6aaed56bd3a3"
-  integrity sha512-LbfYOEkGF2SxOg7m+faY08XASveXYw3TT0ApuZ3qijGfwFQd/MmriPVCXpDHRpw7VzbsKt92Zbx5pyCQjnBi7w==
+"@mimic-fi/v2-smart-vault@0.0.14":
+  version "0.0.14"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-smart-vault/-/v2-smart-vault-0.0.14.tgz#7967940b915b21b81635e5cfc704a7a519fde8e0"
+  integrity sha512-BFFn9z+3JcXIuTYvIwECT7KqWopyvpR+zZRx23iWMiupjZ/8rVacfUG3d15dXpfSUtQOk8qybyJc/oeyGOgs/Q==
   dependencies:
-    "@mimic-fi/v2-bridge-connector" "0.0.2"
-    "@mimic-fi/v2-helpers" "0.0.12"
+    "@mimic-fi/v2-bridge-connector" "0.0.3"
+    "@mimic-fi/v2-helpers" "0.0.13"
     "@mimic-fi/v2-price-oracle" "0.0.8"
     "@mimic-fi/v2-registry" "0.0.7"
-    "@mimic-fi/v2-strategies" "0.0.8"
-    "@mimic-fi/v2-swap-connector" "0.0.17"
+    "@mimic-fi/v2-strategies" "0.0.9"
+    "@mimic-fi/v2-swap-connector" "0.0.18"
     "@openzeppelin/contracts" "4.7.0"
 
 "@mimic-fi/v2-smart-vault@0.0.9":
@@ -672,12 +672,12 @@
     "@mimic-fi/v2-registry" "0.0.7"
     "@openzeppelin/contracts" "4.7.0"
 
-"@mimic-fi/v2-strategies@0.0.8":
-  version "0.0.8"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-strategies/-/v2-strategies-0.0.8.tgz#922c48b8adb00707d965b0bd9ddcb6223b5b964a"
-  integrity sha512-99cNSM7ACnICWH/+kPAvTyyERQoVtT8X7B76bpjG1pp0v7l9Ct8U7NQU9D7HsG/UYCUQq2kjXCpEDY+JgGPrzQ==
+"@mimic-fi/v2-strategies@0.0.9":
+  version "0.0.9"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-strategies/-/v2-strategies-0.0.9.tgz#7230eeb0b5e2087f10f95964aed66a5f2a5f0879"
+  integrity sha512-Vvq1YIjq1DfoYLax3EOKpmJvNiyK+U3tCoyDv6Ync4zrtmebj3jcOxkOlFg8MVkZkNoMhUPcwi6qg+3RVH/FMA==
   dependencies:
-    "@mimic-fi/v2-helpers" "0.0.12"
+    "@mimic-fi/v2-helpers" "0.0.13"
     "@mimic-fi/v2-registry" "0.0.7"
     "@openzeppelin/contracts" "4.7.0"
 
@@ -720,12 +720,12 @@
     "@uniswap/v3-core" "^1.0.1"
     "@uniswap/v3-periphery" "^1.4.1"
 
-"@mimic-fi/v2-swap-connector@0.0.17":
-  version "0.0.17"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-swap-connector/-/v2-swap-connector-0.0.17.tgz#219c0ce64997b3d659b42acc0b24f37aa661d88e"
-  integrity sha512-+/rrmZLewNpracqSWDWFwD8DID4krWK+yAiQGcxThMkxEmXQSlbvnYbCSbfGMcQbNZQv02Vd6i838xZrfnFTnQ==
+"@mimic-fi/v2-swap-connector@0.0.18":
+  version "0.0.18"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-swap-connector/-/v2-swap-connector-0.0.18.tgz#b20b8567f2ec9f2f0c060b9ae2e928d27e055e74"
+  integrity sha512-aSdlds8owyJpIaTVtrbPOX2rnUcBreDtrRC/7e85f8IEOrgX9RNn09L0AuMtWhDR2m4es3HqB0eq5B5D/KMt4g==
   dependencies:
-    "@mimic-fi/v2-helpers" "0.0.12"
+    "@mimic-fi/v2-helpers" "0.0.13"
     "@mimic-fi/v2-registry" "0.0.7"
     "@openzeppelin/contracts" "4.7.0"
     "@uniswap/v2-core" "^1.0.1"
