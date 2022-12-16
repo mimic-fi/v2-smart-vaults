@@ -41,8 +41,6 @@ describe('L1HopBridger', () => {
   })
 
   beforeEach('authorize action', async () => {
-    const collectRole = smartVault.interface.getSighash('collect')
-    await smartVault.connect(owner).authorize(action.address, collectRole)
     const bridgeRole = smartVault.interface.getSighash('bridge')
     await smartVault.connect(owner).authorize(action.address, bridgeRole)
     const withdrawRole = smartVault.interface.getSighash('withdraw')
@@ -458,17 +456,6 @@ describe('L1HopBridger', () => {
                   it('can executes', async () => {
                     const canExecute = await action.canExecute(token.address, balance, SLIPPAGE, RELAYER, relayerFee)
                     expect(canExecute).to.be.true
-                  })
-
-                  it('calls the collect primitive', async () => {
-                    const tx = await action.call(token.address, balance, SLIPPAGE, RELAYER, relayerFee)
-
-                    await assertIndirectEvent(tx, smartVault.interface, 'Collect', {
-                      from: action,
-                      token,
-                      collected: balance,
-                      data: '0x',
-                    })
                   })
 
                   it('calls the bridge primitive', async () => {
