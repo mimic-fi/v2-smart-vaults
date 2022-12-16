@@ -20,6 +20,8 @@
       "packages/*"
     ],
     "nohoist": [
+      "**/hardhat",
+      "**/hardhat/**",
       "**/@mimic-fi/v2-helpers",
       "**/@mimic-fi/v2-helpers/**"
     ]
