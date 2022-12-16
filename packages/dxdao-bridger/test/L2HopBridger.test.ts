@@ -26,8 +26,6 @@ describe('L2HopBridger', () => {
   })
 
   beforeEach('authorize action', async () => {
-    const collectRole = smartVault.interface.getSighash('collect')
-    await smartVault.connect(owner).authorize(action.address, collectRole)
     const bridgeRole = smartVault.interface.getSighash('bridge')
     await smartVault.connect(owner).authorize(action.address, bridgeRole)
     const withdrawRole = smartVault.interface.getSighash('withdraw')
