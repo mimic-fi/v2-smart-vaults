@@ -114,7 +114,7 @@ describe('L1SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: ['setFeeCollector'] },
-        { name: 'bridger', account: bridger, roles: ['collect', 'bridge', 'withdraw'] },
+        { name: 'bridger', account: bridger, roles: ['bridge', 'withdraw'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },

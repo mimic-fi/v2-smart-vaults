@@ -464,17 +464,6 @@ describe('L1HopBridger', () => {
                     expect(canExecute).to.be.true
                   })
 
-                  it('calls the collect primitive', async () => {
-                    const tx = await action.call(token.address, balance, SLIPPAGE, RELAYER, relayerFee)
-
-                    await assertIndirectEvent(tx, smartVault.interface, 'Collect', {
-                      token,
-                      from: action.address,
-                      collected: balance,
-                      data: '0x',
-                    })
-                  })
-
                   it('calls the bridge primitive', async () => {
                     const tx = await action.call(token.address, balance, SLIPPAGE, RELAYER, relayerFee)
 

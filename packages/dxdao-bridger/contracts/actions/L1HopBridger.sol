@@ -109,7 +109,7 @@ contract L1HopBridger is BaseHopBridger {
         require(relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer], 'BRIDGER_RELAYER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
-        _collect(token, amount);
+        _withdraw(token, amount);
         bytes memory data = abi.encode(bridge, maxDeadline, relayer, relayerFee);
         _bridge(token, amount, slippage, data);
         emit Executed();
