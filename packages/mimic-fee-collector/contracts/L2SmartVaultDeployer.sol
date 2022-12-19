@@ -19,19 +19,21 @@ import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 
 import './actions/L2HopBridger.sol';
 import './actions/L2HopSwapper.sol';
+import './BaseSmartVaultDeployer.sol';
 
 // solhint-disable avoid-low-level-calls
 
-contract L2SmartVaultDeployer {
+contract L2SmartVaultDeployer is BaseSmartVaultDeployer {
     using UncheckedMath for uint256;
 
     struct Params {
         IRegistry registry;
         Deployer.SmartVaultParams smartVaultParams;
+        FunderActionParams funderActionParams;
+        HolderActionParams holderActionParams;
         L2HopSwapperActionParams l2HopSwapperActionParams;
         L2HopBridgerActionParams l2HopBridgerActionParams;
     }
@@ -63,6 +65,8 @@ contract L2SmartVaultDeployer {
 
     function deploy(Params memory params) external {
         SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
+        _setupFunderAction(smartVault, params.funderActionParams);
+        _setupHolderAction(smartVault, params.holderActionParams);
         _setupL2HopSwapperAction(smartVault, params.l2HopSwapperActionParams);
         _setupL2HopBridgerAction(smartVault, params.l2HopBridgerActionParams);
         Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);

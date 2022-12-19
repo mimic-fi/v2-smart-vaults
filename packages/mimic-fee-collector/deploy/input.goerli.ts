@@ -10,6 +10,7 @@ const HOP_ETH_BRIDGE = '0xb8901acB165ed027E32754E0FFe830802919727f'
 const HOP_USDC_BRIDGE = '0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a'
 
 const accounts = {
+  bot: '0xB3AfB6DB38a8E72905165c1fBB96772e63560790', // mimic bot
   owner: '0xB3AfB6DB38a8E72905165c1fBB96772e63560790', // mimic bot
   managers: [],
 }
@@ -43,6 +44,28 @@ export default {
       bridgeFee: { pct: fp(0), cap: 0, token: ZERO_ADDRESS, period: 0 },
       withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
       performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+    },
+    funderActionParams: {
+      impl: undefined,
+      admin: accounts.owner,
+      managers: accounts.managers,
+      minBalance: fp(0.3),
+      maxBalance: fp(2),
+      maxSlippage: fp(0.001),
+      withdrawalActionParams: {
+        recipient: accounts.bot,
+      },
+    },
+    holderActionParams: {
+      impl: undefined,
+      admin: accounts.owner,
+      managers: accounts.managers,
+      maxSlippage: fp(0.002),
+      tokenOut: USDC,
+      tokenThresholdActionParams: {
+        amount: fp(50),
+        token: USDC,
+      },
     },
     l1HopBridgerActionParams: {
       impl: undefined,

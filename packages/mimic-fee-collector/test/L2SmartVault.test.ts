@@ -8,31 +8,36 @@ import {
   instanceAt,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
-import { assertPermissions, Mimic, MOCKS, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import { assertPermissions, createTokenMock, Mimic, MOCKS, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 describe('L2SmartVault', () => {
-  let smartVault: Contract, bridger: Contract, swapper: Contract, hopL2Amm: Contract, mimic: Mimic
-  let other: SignerWithAddress, owner: SignerWithAddress, managers: SignerWithAddress[]
+  let smartVault: Contract, bridger: Contract, swapper: Contract, holder: Contract, funder: Contract
+  let holdingToken: Contract, hopL2Amm: Contract, mimic: Mimic
+  let other: SignerWithAddress, owner: SignerWithAddress, managers: SignerWithAddress[], recipient: SignerWithAddress
 
   beforeEach('set up signers', async () => {
     other = await getSigner(1)
     owner = await getSigner(2)
     managers = await getSigners(3, 3)
+    recipient = await getSigner(9)
   })
 
   beforeEach('setup mimic', async () => {
     mimic = await setupMimic(false)
   })
 
-  beforeEach('deploy hop l2 amm mock', async () => {
+  beforeEach('deploy mocks', async () => {
+    holdingToken = await createTokenMock()
     hopL2Amm = await deploy(MOCKS.HOP_L2_AMM, [mimic.wrappedNativeToken.address, mimic.wrappedNativeToken.address])
   })
 
   beforeEach('deploy smart vault', async () => {
     const deployer = await deploy('L2SmartVaultDeployer', [], owner, { Deployer: mimic.deployer.address })
+    funder = await deploy('Funder', [deployer.address, mimic.registry.address])
+    holder = await deploy('Holder', [deployer.address, mimic.registry.address])
     swapper = await deploy('L2HopSwapper', [deployer.address, mimic.registry.address])
     bridger = await deploy('L2HopBridger', [deployer.address, mimic.registry.address])
 
@@ -51,6 +56,28 @@ describe('L2SmartVault', () => {
         swapFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
         withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
         performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
+      },
+      funderActionParams: {
+        impl: funder.address,
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        minBalance: fp(10),
+        maxBalance: fp(20),
+        maxSlippage: fp(0.001),
+        withdrawalActionParams: {
+          recipient: recipient.address,
+        },
+      },
+      holderActionParams: {
+        impl: holder.address,
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        maxSlippage: fp(0.002),
+        tokenOut: holdingToken.address,
+        tokenThresholdActionParams: {
+          amount: fp(10),
+          token: mimic.wrappedNativeToken.address,
+        },
       },
       l2HopSwapperActionParams: {
         impl: swapper.address,
@@ -114,6 +141,8 @@ describe('L2SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
+        { name: 'funder', account: funder, roles: ['swap', 'unwrap', 'withdraw'] },
+        { name: 'holder', account: holder, roles: ['wrap', 'swap'] },
         { name: 'swapper', account: swapper, roles: ['swap'] },
         { name: 'bridger', account: bridger, roles: ['bridge'] },
         { name: 'other', account: other, roles: [] },
@@ -174,6 +203,84 @@ describe('L2SmartVault', () => {
     })
   })
 
+  describe('funder', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(funder, [
+        {
+          name: 'owner',
+          account: owner,
+          roles: [
+            'authorize',
+            'unauthorize',
+            'setSmartVault',
+            'setMaxSlippage',
+            'setBalanceLimits',
+            'setRecipient',
+            'call',
+          ],
+        },
+        { name: 'mimic', account: mimic.admin, roles: [] },
+        { name: 'funder', account: funder, roles: [] },
+        { name: 'holder', account: holder, roles: [] },
+        { name: 'bridger', account: bridger, roles: [] },
+        { name: 'other', account: other, roles: [] },
+        { name: 'managers', account: managers, roles: ['call'] },
+      ])
+    })
+
+    it('has the proper smart vault set', async () => {
+      expect(await funder.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('sets the expected token balance limits', async () => {
+      expect(await funder.minBalance()).to.be.equal(fp(10))
+      expect(await funder.maxBalance()).to.be.equal(fp(20))
+    })
+
+    it('sets the requested max slippage', async () => {
+      expect(await funder.maxSlippage()).to.be.equal(fp(0.001))
+    })
+
+    it('sets the requested recipient', async () => {
+      expect(await funder.recipient()).to.be.equal(recipient.address)
+    })
+  })
+
+  describe('holder', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(holder, [
+        {
+          name: 'owner',
+          account: owner,
+          roles: ['authorize', 'unauthorize', 'setSmartVault', 'setThreshold', 'setMaxSlippage', 'setTokenOut', 'call'],
+        },
+        { name: 'mimic', account: mimic.admin, roles: [] },
+        { name: 'funder', account: funder, roles: [] },
+        { name: 'holder', account: holder, roles: [] },
+        { name: 'bridger', account: bridger, roles: [] },
+        { name: 'other', account: other, roles: [] },
+        { name: 'managers', account: managers, roles: ['call'] },
+      ])
+    })
+
+    it('has the proper smart vault set', async () => {
+      expect(await holder.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('sets the expected token threshold params', async () => {
+      expect(await holder.thresholdToken()).to.be.equal(mimic.wrappedNativeToken.address)
+      expect(await holder.thresholdAmount()).to.be.equal(fp(10))
+    })
+
+    it('sets the requested token out', async () => {
+      expect(await holder.tokenOut()).to.be.equal(holdingToken.address)
+    })
+
+    it('sets the requested max slippage', async () => {
+      expect(await holder.maxSlippage()).to.be.equal(fp(0.002))
+    })
+  })
+
   describe('swapper', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(swapper, [
@@ -183,6 +290,8 @@ describe('L2SmartVault', () => {
           roles: ['authorize', 'unauthorize', 'setSmartVault', 'setMaxSlippage', 'setTokenAmm', 'call'],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
+        { name: 'funder', account: funder, roles: [] },
+        { name: 'holder', account: holder, roles: [] },
         { name: 'swapper', account: swapper, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
         { name: 'other', account: other, roles: [] },
@@ -225,6 +334,8 @@ describe('L2SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
+        { name: 'funder', account: funder, roles: [] },
+        { name: 'holder', account: holder, roles: [] },
         { name: 'swapper', account: swapper, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
         { name: 'other', account: other, roles: [] },
