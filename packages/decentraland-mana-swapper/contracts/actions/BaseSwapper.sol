@@ -16,7 +16,6 @@ pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
-import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
