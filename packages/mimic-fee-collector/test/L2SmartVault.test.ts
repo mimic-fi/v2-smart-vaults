@@ -114,8 +114,8 @@ describe('L2SmartVault', () => {
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
-        { name: 'swapper', account: swapper, roles: ['swap', 'withdraw'] },
-        { name: 'bridger', account: bridger, roles: ['bridge', 'withdraw'] },
+        { name: 'swapper', account: swapper, roles: ['swap'] },
+        { name: 'bridger', account: bridger, roles: ['bridge'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
       ])

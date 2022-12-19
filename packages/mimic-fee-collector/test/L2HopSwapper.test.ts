@@ -36,8 +36,6 @@ describe('L2HopSwapper', () => {
   beforeEach('authorize action', async () => {
     const swapRole = smartVault.interface.getSighash('swap')
     await smartVault.connect(owner).authorize(action.address, swapRole)
-    const withdrawRole = smartVault.interface.getSighash('withdraw')
-    await smartVault.connect(owner).authorize(action.address, withdrawRole)
   })
 
   describe('setTokenAmm', () => {

@@ -93,9 +93,8 @@ contract L2SmartVaultDeployer {
         // Transfer admin permissions to admin
         Deployer.transferAdminPermissions(swapper, params.admin);
 
-        // Authorize action to wap and withdraw from Smart Vault
+        // Authorize action to swap from Smart Vault
         smartVault.authorize(address(swapper), smartVault.swap.selector);
-        smartVault.authorize(address(swapper), smartVault.withdraw.selector);
     }
 
     function _setupL2HopBridgerAction(SmartVault smartVault, L2HopBridgerActionParams memory params) internal {
@@ -145,8 +144,7 @@ contract L2SmartVaultDeployer {
         // Transfer admin permissions to admin
         Deployer.transferAdminPermissions(bridger, params.admin);
 
-        // Authorize action to bridge and withdraw from Smart Vault
+        // Authorize action to bridge from Smart Vault
         smartVault.authorize(address(bridger), smartVault.bridge.selector);
-        smartVault.authorize(address(bridger), smartVault.withdraw.selector);
     }
 }
