@@ -41,7 +41,7 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   await registry.connect(admin).register(await swapConnector.NAMESPACE(), swapConnector.address, true)
   writeOutput('SwapConnector', swapConnector.address)
 
-  const bridgeConnector = await create3(input.namespace, 'v1', create3Factory, ARTIFACTS.BRIDGE_CONNECTOR, [
+  const bridgeConnector = await create3(input.namespace, 'v2', create3Factory, ARTIFACTS.BRIDGE_CONNECTOR, [
     registry.address,
   ])
   await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
