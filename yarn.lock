@@ -510,6 +510,15 @@
     "@mimic-fi/v2-registry" "0.0.7"
     "@openzeppelin/contracts" "4.7.0"
 
+"@mimic-fi/v2-bridge-connector@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-bridge-connector/-/v2-bridge-connector-0.0.4.tgz#efe17a320385000faf43c68160295aca11bf6f76"
+  integrity sha512-x67qG827krblyE6t0sPn422FdOGhFPgFrsm/ZHsU4uHCasgaGa8Pw+bLolVLjxdfKZX05BITZC0CGX2FGTM30Q==
+  dependencies:
+    "@mimic-fi/v2-helpers" "0.0.13"
+    "@mimic-fi/v2-registry" "0.0.7"
+    "@openzeppelin/contracts" "4.7.0"
+
 "@mimic-fi/v2-helpers@0.0.10":
   version "0.0.10"
   resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.10.tgz#bf1aefe40abbc9ee240fb452e3fa6310a67200c8"
