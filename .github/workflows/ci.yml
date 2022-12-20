@@ -17,7 +17,14 @@ jobs:
         with:
           node-version: 16
           cache: yarn
+      - name: Cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: '**/node_modules'
+          key: yarn-v1-${{ hashFiles('**/yarn.lock') }}
       - name: Install
+        if: steps.cache.outputs.cache-hit != 'true'
         run: yarn --prefer-offline
       - name: Lint
         run: yarn lint
@@ -46,7 +53,14 @@ jobs:
         with:
           node-version: 16
           cache: yarn
+      - name: Cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: '**/node_modules'
+          key: yarn-v1-${{ hashFiles('**/yarn.lock') }}
       - name: Install
+        if: steps.cache.outputs.cache-hit != 'true'
         run: yarn --prefer-offline
       - name: Build
         run: yarn build
@@ -75,7 +89,14 @@ jobs:
         with:
           node-version: 16
           cache: yarn
+      - name: Cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: '**/node_modules'
+          key: yarn-v1-${{ hashFiles('**/yarn.lock') }}
       - name: Install
+        if: steps.cache.outputs.cache-hit != 'true'
         run: yarn --prefer-offline
       - name: Build
         run: yarn build
@@ -106,7 +127,14 @@ jobs:
         with:
           node-version: 16
           cache: yarn
+      - name: Cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: '**/node_modules'
+          key: yarn-v1-${{ hashFiles('**/yarn.lock') }}
       - name: Install
+        if: steps.cache.outputs.cache-hit != 'true'
         run: yarn --prefer-offline
       - name: Setup hardhat config
         run: .github/scripts/setup-hardhat-config.sh ${{secrets.GOERLI_RPC}} ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}}
@@ -139,7 +167,14 @@ jobs:
         with:
           node-version: 16
           cache: yarn
+      - name: Cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: '**/node_modules'
+          key: yarn-v1-${{ hashFiles('**/yarn.lock') }}
       - name: Install
+        if: steps.cache.outputs.cache-hit != 'true'
         run: yarn --prefer-offline
       - name: Setup hardhat config
         run: .github/scripts/setup-hardhat-config.sh ${{secrets.GOERLI_RPC}} ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}}
