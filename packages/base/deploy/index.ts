@@ -1,4 +1,4 @@
-import { deploy, getSigner } from '@mimic-fi/v2-helpers'
+import { deploy, getSigner, instanceAt } from '@mimic-fi/v2-helpers'
 
 import { create3 } from '../src/deployment'
 import { ARTIFACTS } from '../src/setup'
@@ -30,7 +30,7 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   await registry.connect(admin).register(await priceOracle.NAMESPACE(), priceOracle.address, true)
   writeOutput('PriceOracle', priceOracle.address)
 
-  const swapConnector = await create3(input.namespace, 'v4', create3Factory, ARTIFACTS.SWAP_CONNECTOR, [
+  const swapConnector = await create3(input.namespace, 'v5', create3Factory, ARTIFACTS.SWAP_CONNECTOR, [
     input.uniswapV2Router,
     input.uniswapV3Router,
     input.balancerV2Vault,

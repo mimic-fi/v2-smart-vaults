@@ -28,12 +28,12 @@ export default {
   goerli: {
     namespace: 'mimic-v2',
     admin: '0x82109Cc00922A515D5FA14eE05a6880c6FAB5E19',
-    uniswapV2Router: ZERO_ADDRESS,
-    uniswapV3Router: ZERO_ADDRESS,
-    balancerV2Vault: ZERO_ADDRESS,
+    uniswapV2Router: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
+    uniswapV3Router: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
+    balancerV2Vault: '0xBA12222222228d8Ba445958a75a0704d566BF2C8',
     paraswapV5Augustus: ZERO_ADDRESS,
     oneInchV5Router: ZERO_ADDRESS,
     wrappedNativeToken: '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6',
-    priceOraclePivot: '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6',
+    priceOraclePivot: '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6', // WETH
   },
 }
