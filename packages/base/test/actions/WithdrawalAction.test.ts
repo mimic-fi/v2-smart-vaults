@@ -3,7 +3,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '..'
+import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
 
 describe('WithdrawalAction', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic

@@ -13,8 +13,8 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
-import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '..'
-import { createPriceFeedMock } from '../src/samples'
+import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
+import { createPriceFeedMock } from '../../src/samples'
 
 describe('RelayedAction', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic

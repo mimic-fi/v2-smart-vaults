@@ -4,7 +4,7 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
-import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '..'
+import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
 
 describe('WithdrawalAction', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic
