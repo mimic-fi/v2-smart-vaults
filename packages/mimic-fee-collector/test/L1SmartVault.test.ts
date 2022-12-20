@@ -84,7 +84,7 @@ describe('L1SmartVault', () => {
         managers: managers.map((m) => m.address),
         maxDeadline: 2 * HOUR,
         maxSlippage: fp(0.002), // 0.2 %
-        destinationChainId: 100, // gnosis chain
+        allowedChainIds: [100], // gnosis chain
         hopBridgeParams: [{ token: mimic.wrappedNativeToken.address, bridge: hopL1Bridge.address }],
         hopRelayerParams: [{ relayer: other.address, maxFeePct: fp(0.02) }],
         tokenThresholdActionParams: {
@@ -286,9 +286,8 @@ describe('L1SmartVault', () => {
             'setMaxSlippage',
             'setMaxDeadline',
             'setMaxRelayerFeePct',
-            'setDestinationChainId',
+            'setAllowedChain',
             'setTokenBridge',
-            'withdraw',
             'call',
           ],
         },
@@ -310,8 +309,9 @@ describe('L1SmartVault', () => {
       expect(await bridger.thresholdAmount()).to.be.equal(fp(10))
     })
 
-    it('allows the requested chain ID', async () => {
-      expect(await bridger.destinationChainId()).to.be.equal(100)
+    it('allows the requested chains', async () => {
+      expect(await bridger.isChainAllowed(1)).to.be.false
+      expect(await bridger.isChainAllowed(100)).to.be.true
     })
 
     it('sets the requested bridges', async () => {

@@ -83,7 +83,7 @@ export default {
       maxDeadline: 2 * HOUR,
       maxSlippage: fp(0.002), // 0.2 %
       maxBonderFeePct: fp(0.03), // 3 %
-      destinationChainId: 5, // goerli
+      allowedChainIds: [5], // goerli
       hopAmmParams: [
         { token: USDC, amm: HOP_USDC_AMM },
         { token: WETH, amm: HOP_WETH_AMM },

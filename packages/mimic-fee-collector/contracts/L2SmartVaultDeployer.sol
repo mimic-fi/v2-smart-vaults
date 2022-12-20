@@ -53,7 +53,7 @@ contract L2SmartVaultDeployer is BaseSmartVaultDeployer {
         uint256 maxDeadline;
         uint256 maxSlippage;
         uint256 maxBonderFeePct;
-        uint256 destinationChainId;
+        uint256[] allowedChainIds;
         HopAmmParams[] hopAmmParams;
         Deployer.TokenThresholdActionParams tokenThresholdActionParams;
     }
@@ -136,14 +136,13 @@ contract L2SmartVaultDeployer is BaseSmartVaultDeployer {
         }
         bridger.unauthorize(address(this), bridger.setTokenAmm.selector);
 
-        // Set bridger destination chain ID
-        bridger.authorize(params.admin, bridger.setDestinationChainId.selector);
-        bridger.authorize(address(this), bridger.setDestinationChainId.selector);
-        bridger.setDestinationChainId(params.destinationChainId);
-        bridger.unauthorize(address(this), bridger.setDestinationChainId.selector);
-
-        // Authorize admin to withdraw funds from action
-        bridger.authorize(params.admin, bridger.withdraw.selector);
+        // Set bridger chain IDs
+        bridger.authorize(params.admin, bridger.setAllowedChain.selector);
+        bridger.authorize(address(this), bridger.setAllowedChain.selector);
+        for (uint256 i = 0; i < params.allowedChainIds.length; i = i.uncheckedAdd(1)) {
+            bridger.setAllowedChain(params.allowedChainIds[i], true);
+        }
+        bridger.unauthorize(address(this), bridger.setAllowedChain.selector);
 
         // Transfer admin permissions to admin
         Deployer.transferAdminPermissions(bridger, params.admin);

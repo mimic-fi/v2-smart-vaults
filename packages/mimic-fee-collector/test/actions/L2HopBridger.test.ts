@@ -145,87 +145,87 @@ describe('L2HopBridger', () => {
     })
   })
 
-  describe('setDestinationChainId', () => {
+  describe('setAllowedChain', () => {
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
-        const setDestinationChainRole = action.interface.getSighash('setDestinationChainId')
-        await action.connect(owner).authorize(owner.address, setDestinationChainRole)
+        const setAllowedChainRole = action.interface.getSighash('setAllowedChain')
+        await action.connect(owner).authorize(owner.address, setAllowedChainRole)
         action = action.connect(owner)
       })
 
-      context('when setting the chain ID', () => {
-        const itSetsTheChainCorrectly = () => {
-          context('when the chain ID is not the current one', () => {
-            const chainId = 1
+      context('when the chain ID is not zero', () => {
+        context('when the chain ID is not the current one', () => {
+          const chainId = 1
 
-            it('sets the chain ID', async () => {
-              await action.setDestinationChainId(chainId)
+          const itConfigsTheChainCorrectly = (allowed: boolean) => {
+            it(`${allowed ? 'allows' : 'disallows'} the chain ID`, async () => {
+              await action.setAllowedChain(chainId, allowed)
 
-              expect(await action.destinationChainId()).to.be.equal(chainId)
+              expect(await action.isChainAllowed(chainId)).to.be.equal(allowed)
             })
 
             it('emits an event', async () => {
-              const tx = await action.setDestinationChainId(chainId)
+              const tx = await action.setAllowedChain(chainId, allowed)
 
-              await assertEvent(tx, 'DestinationChainIdSet', { chainId })
+              await assertEvent(tx, 'AllowedChainSet', { chainId, allowed })
+            })
+          }
+
+          context('when allowing the chain', () => {
+            const allowed = true
+
+            context('when the chain was allowed', () => {
+              beforeEach('allow the chain', async () => {
+                await action.setAllowedChain(chainId, true)
+              })
+
+              itConfigsTheChainCorrectly(allowed)
+            })
+
+            context('when the chain was not allowed', () => {
+              beforeEach('disallow the chain', async () => {
+                await action.setAllowedChain(chainId, false)
+              })
+
+              itConfigsTheChainCorrectly(allowed)
             })
           })
 
-          context('when the chain ID is the current one', () => {
-            const chainId = 31337 // Hardhat chain ID
+          context('when disallowing the chain', () => {
+            const allowed = false
 
-            it('reverts', async () => {
-              await expect(action.setDestinationChainId(chainId)).to.be.revertedWith('BRIDGER_SAME_CHAIN_ID')
+            context('when the chain was allowed', () => {
+              beforeEach('allow the chain', async () => {
+                await action.setAllowedChain(chainId, true)
+              })
+
+              itConfigsTheChainCorrectly(allowed)
+            })
+
+            context('when the chain was not allowed', () => {
+              beforeEach('disallow the chain', async () => {
+                await action.setAllowedChain(chainId, false)
+              })
+
+              itConfigsTheChainCorrectly(allowed)
             })
           })
-        }
-
-        context('when the chain ID was set', () => {
-          beforeEach('set chain ID', async () => {
-            await action.setDestinationChainId(1)
-          })
-
-          itSetsTheChainCorrectly()
         })
 
-        context('when the chain ID was not set', () => {
-          beforeEach('unset chain ID', async () => {
-            await action.setDestinationChainId(0)
-          })
+        context('when the chain ID is the current one', () => {
+          const chainId = 31337 // Hardhat chain ID
 
-          itSetsTheChainCorrectly()
+          it('reverts', async () => {
+            await expect(action.setAllowedChain(chainId, true)).to.be.revertedWith('BRIDGER_SAME_CHAIN_ID')
+          })
         })
       })
 
-      context('when unsetting the chain ID', () => {
-        const itUnsetsTheChainCorrectly = () => {
-          it('unsets the chain ID', async () => {
-            await action.setDestinationChainId(0)
+      context('when the chain ID is zero', () => {
+        const chainId = 0
 
-            expect(await action.destinationChainId()).to.be.equal(0)
-          })
-
-          it('emits an event', async () => {
-            const tx = await action.setDestinationChainId(0)
-
-            await assertEvent(tx, 'DestinationChainIdSet', { chainId: 0 })
-          })
-        }
-
-        context('when the chain ID was set', () => {
-          beforeEach('set chain ID', async () => {
-            await action.setDestinationChainId(1)
-          })
-
-          itUnsetsTheChainCorrectly()
-        })
-
-        context('when the chain ID was not set', () => {
-          beforeEach('unset chain ID', async () => {
-            await action.setDestinationChainId(0)
-          })
-
-          itUnsetsTheChainCorrectly()
+        it('reverts', async () => {
+          await expect(action.setAllowedChain(chainId, true)).to.be.revertedWith('BRIDGER_CHAIN_ID_ZERO')
         })
       })
     })
@@ -236,7 +236,7 @@ describe('L2HopBridger', () => {
       })
 
       it('reverts', async () => {
-        await expect(action.setDestinationChainId(1)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.setAllowedChain(1, true)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -375,7 +375,6 @@ describe('L2HopBridger', () => {
 
   describe('call', () => {
     const SOURCE = 0
-    const CHAIN_ID = 1
     const SLIPPAGE = fp(0.01)
     const BONDER_FEE_PCT = fp(0.002)
 
@@ -402,11 +401,13 @@ describe('L2HopBridger', () => {
             await action.connect(owner).setTokenAmm(token.address, hopL2Amm.address)
           })
 
-          context('when the destination chain ID was set', () => {
+          context('when the chain ID was allowed', () => {
+            const chainId = 1
+
             beforeEach('allow chain ID', async () => {
-              const setDestinationChainRole = action.interface.getSighash('setDestinationChainId')
-              await action.connect(owner).authorize(owner.address, setDestinationChainRole)
-              await action.connect(owner).setDestinationChainId(CHAIN_ID)
+              const setAllowedChainRole = action.interface.getSighash('setAllowedChain')
+              await action.connect(owner).authorize(owner.address, setAllowedChainRole)
+              await action.connect(owner).setAllowedChain(chainId, true)
             })
 
             context('when the slippage is below the limit', () => {
@@ -428,22 +429,22 @@ describe('L2HopBridger', () => {
                   const bonderFee = balance.mul(BONDER_FEE_PCT).div(fp(1))
 
                   beforeEach('transfer tokens to action', async () => {
-                    await token.mint(action.address, balance)
+                    await token.mint(smartVault.address, balance)
                   })
 
                   it('can executes', async () => {
-                    const canExecute = await action.canExecute(token.address, balance, SLIPPAGE, bonderFee)
+                    const canExecute = await action.canExecute(chainId, token.address, balance, SLIPPAGE, bonderFee)
                     expect(canExecute).to.be.true
                   })
 
                   it('calls the bridge primitive', async () => {
-                    const tx = await action.call(token.address, balance, SLIPPAGE, bonderFee)
+                    const tx = await action.call(chainId, token.address, balance, SLIPPAGE, bonderFee)
 
                     const data = defaultAbiCoder.encode(['address', 'uint256'], [hopL2Amm.address, bonderFee])
 
                     await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
                       source: SOURCE,
-                      chainId: CHAIN_ID,
+                      chainId,
                       amountIn: balance,
                       minAmountOut: balance.sub(balance.mul(SLIPPAGE).div(fp(1))),
                       data,
@@ -451,7 +452,7 @@ describe('L2HopBridger', () => {
                   })
 
                   it('emits an Executed event', async () => {
-                    const tx = await action.call(token.address, balance, SLIPPAGE, bonderFee)
+                    const tx = await action.call(chainId, token.address, balance, SLIPPAGE, bonderFee)
 
                     await assertEvent(tx, 'Executed')
                   })
@@ -465,9 +466,9 @@ describe('L2HopBridger', () => {
                   })
 
                   it('reverts', async () => {
-                    await expect(action.call(token.address, balance, SLIPPAGE, BONDER_FEE_PCT)).to.be.revertedWith(
-                      'MIN_THRESHOLD_NOT_MET'
-                    )
+                    await expect(
+                      action.call(chainId, token.address, balance, SLIPPAGE, BONDER_FEE_PCT)
+                    ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
                   })
                 })
               })
@@ -477,7 +478,7 @@ describe('L2HopBridger', () => {
                 const bonderFee = fp(1)
 
                 it('reverts', async () => {
-                  await expect(action.call(token.address, balance, SLIPPAGE, bonderFee)).to.be.revertedWith(
+                  await expect(action.call(chainId, token.address, balance, SLIPPAGE, bonderFee)).to.be.revertedWith(
                     'BRIDGER_BONDER_FEE_ABOVE_MAX'
                   )
                 })
@@ -486,7 +487,7 @@ describe('L2HopBridger', () => {
 
             context('when the slippage is above the limit', () => {
               it('reverts', async () => {
-                await expect(action.call(token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
+                await expect(action.call(chainId, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
                   'BRIDGER_SLIPPAGE_ABOVE_MAX'
                 )
               })
@@ -494,15 +495,19 @@ describe('L2HopBridger', () => {
           })
 
           context('when the destination chain ID was not set', () => {
+            const chainId = 10
+
             it('reverts', async () => {
-              await expect(action.call(token.address, 0, SLIPPAGE, 0)).to.be.revertedWith('BRIDGER_CHAIN_NOT_SET')
+              await expect(action.call(chainId, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
+                'BRIDGER_CHAIN_NOT_ALLOWED'
+              )
             })
           })
         })
 
         context('when the given token does not have an AMM set', () => {
           it('reverts', async () => {
-            await expect(action.call(token.address, 0, SLIPPAGE, 0)).to.be.revertedWith('BRIDGER_TOKEN_AMM_NOT_SET')
+            await expect(action.call(0, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith('BRIDGER_TOKEN_AMM_NOT_SET')
           })
         })
       })
@@ -510,7 +515,7 @@ describe('L2HopBridger', () => {
 
     context('when the sender is authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(token.address, 0, SLIPPAGE, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.call(0, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
