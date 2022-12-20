@@ -36,4 +36,15 @@ export default {
     wrappedNativeToken: '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6',
     priceOraclePivot: '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6', // WETH
   },
+  mumbai: {
+    namespace: 'mimic-v2',
+    admin: '0x82109Cc00922A515D5FA14eE05a6880c6FAB5E19',
+    uniswapV2Router: '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff', // QuickSwap
+    uniswapV3Router: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
+    balancerV2Vault: ZERO_ADDRESS,
+    paraswapV5Augustus: ZERO_ADDRESS,
+    oneInchV5Router: ZERO_ADDRESS,
+    wrappedNativeToken: '0x9c3C9283D3e44854697Cd22D3Faa240Cfb032889', // wMATIC
+    priceOraclePivot: '0xa6fa4fb5f76172d178d61b04b0ecd319c5d1c0aa', // WETH
+  },
 }

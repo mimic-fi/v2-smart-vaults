@@ -1,4 +1,4 @@
-import { deploy, getSigner, instanceAt } from '@mimic-fi/v2-helpers'
+import { deploy, getSigner } from '@mimic-fi/v2-helpers'
 
 import { create3 } from '../src/deployment'
 import { ARTIFACTS } from '../src/setup'
