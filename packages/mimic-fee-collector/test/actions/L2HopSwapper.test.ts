@@ -47,81 +47,67 @@ describe('L2HopSwapper', () => {
       })
 
       context('when the token address is not zero', () => {
-        context('when the amm canonical token matches', () => {
-          context('when setting the token amm', () => {
-            const itSetsTheTokenAmm = () => {
-              it('sets the token amm', async () => {
-                await action.setTokenAmm(token.address, hopL2Amm.address)
+        context('when setting the token amm', () => {
+          const itSetsTheTokenAmm = () => {
+            it('sets the token amm', async () => {
+              await action.setTokenAmm(token.address, hopL2Amm.address)
 
-                expect(await action.getTokenAmm(token.address)).to.be.equal(hopL2Amm.address)
-              })
-
-              it('emits an event', async () => {
-                const tx = await action.setTokenAmm(token.address, hopL2Amm.address)
-
-                await assertEvent(tx, 'TokenAmmSet', { token, amm: hopL2Amm.address })
-              })
-            }
-
-            context('when the token amm was set', () => {
-              beforeEach('set token amm', async () => {
-                await action.setTokenAmm(token.address, hopL2Amm.address)
-              })
-
-              itSetsTheTokenAmm()
+              expect(await action.getTokenAmm(token.address)).to.be.equal(hopL2Amm.address)
             })
 
-            context('when the token amm was not set', () => {
-              beforeEach('unset token amm', async () => {
-                await action.setTokenAmm(token.address, ZERO_ADDRESS)
-              })
+            it('emits an event', async () => {
+              const tx = await action.setTokenAmm(token.address, hopL2Amm.address)
 
-              itSetsTheTokenAmm()
+              await assertEvent(tx, 'TokenAmmSet', { token, amm: hopL2Amm.address })
             })
+          }
+
+          context('when the token amm was set', () => {
+            beforeEach('set token amm', async () => {
+              await action.setTokenAmm(token.address, hopL2Amm.address)
+            })
+
+            itSetsTheTokenAmm()
           })
 
-          context('when unsetting the token amm', () => {
-            const itUnsetsTheTokenAmm = () => {
-              it('unsets the token amm', async () => {
-                await action.setTokenAmm(token.address, ZERO_ADDRESS)
-
-                expect(await action.getTokenAmm(token.address)).to.be.equal(ZERO_ADDRESS)
-              })
-
-              it('emits an event', async () => {
-                const tx = await action.setTokenAmm(token.address, ZERO_ADDRESS)
-
-                await assertEvent(tx, 'TokenAmmSet', { token, amm: ZERO_ADDRESS })
-              })
-            }
-
-            context('when the token amm was set', () => {
-              beforeEach('set token amm', async () => {
-                await action.setTokenAmm(token.address, hopL2Amm.address)
-              })
-
-              itUnsetsTheTokenAmm()
+          context('when the token amm was not set', () => {
+            beforeEach('unset token amm', async () => {
+              await action.setTokenAmm(token.address, ZERO_ADDRESS)
             })
 
-            context('when the token was not set', () => {
-              beforeEach('unset token amm', async () => {
-                await action.setTokenAmm(token.address, ZERO_ADDRESS)
-              })
-
-              itUnsetsTheTokenAmm()
-            })
+            itSetsTheTokenAmm()
           })
         })
 
-        context('when the amm canonical token matches', () => {
-          beforeEach('deploy another amm', async () => {
-            hopL2Amm = await deploy(MOCKS.HOP_L2_AMM, [owner.address, owner.address])
+        context('when unsetting the token amm', () => {
+          const itUnsetsTheTokenAmm = () => {
+            it('unsets the token amm', async () => {
+              await action.setTokenAmm(token.address, ZERO_ADDRESS)
+
+              expect(await action.getTokenAmm(token.address)).to.be.equal(ZERO_ADDRESS)
+            })
+
+            it('emits an event', async () => {
+              const tx = await action.setTokenAmm(token.address, ZERO_ADDRESS)
+
+              await assertEvent(tx, 'TokenAmmSet', { token, amm: ZERO_ADDRESS })
+            })
+          }
+
+          context('when the token amm was set', () => {
+            beforeEach('set token amm', async () => {
+              await action.setTokenAmm(token.address, hopL2Amm.address)
+            })
+
+            itUnsetsTheTokenAmm()
           })
 
-          it('reverts', async () => {
-            await expect(action.setTokenAmm(token.address, hopL2Amm.address)).to.be.revertedWith(
-              'SWAPPER_AMM_TOKEN_DOES_NOT_MATCH'
-            )
+          context('when the token was not set', () => {
+            beforeEach('unset token amm', async () => {
+              await action.setTokenAmm(token.address, ZERO_ADDRESS)
+            })
+
+            itUnsetsTheTokenAmm()
           })
         })
       })
