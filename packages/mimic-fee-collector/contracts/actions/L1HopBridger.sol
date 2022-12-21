@@ -84,8 +84,6 @@ contract L1HopBridger is BaseHopBridger {
 
     function setTokenBridge(address token, address bridge) external auth {
         require(token != address(0), 'BRIDGER_TOKEN_ZERO');
-        bool isValidBridgeToken = bridge == address(0) || IHopL1Bridge(bridge).l1CanonicalToken() == token;
-        require(isValidBridgeToken, 'BRIDGER_BRIDGE_TOKEN_DONT_MATCH');
         bridge == address(0) ? tokenBridges.remove(token) : tokenBridges.set(token, bridge);
         emit TokenBridgeSet(token, bridge);
     }
