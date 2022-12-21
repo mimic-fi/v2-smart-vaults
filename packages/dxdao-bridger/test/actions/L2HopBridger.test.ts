@@ -436,7 +436,7 @@ describe('L2HopBridger', () => {
                   })
 
                   it('calls the bridge primitive', async () => {
-                    const tx = await action.call(token.address, balance, SLIPPAGE, bonderFee)
+                    const tx = await action.call(token.address, balance, smartVault.address, SLIPPAGE, bonderFee)
 
                     const data = defaultAbiCoder.encode(['address', 'uint256'], [hopL2Amm.address, bonderFee])
 
@@ -450,7 +450,7 @@ describe('L2HopBridger', () => {
                   })
 
                   it('emits an Executed event', async () => {
-                    const tx = await action.call(token.address, balance, SLIPPAGE, bonderFee)
+                    const tx = await action.call(token.address, balance, smartVault.address, SLIPPAGE, bonderFee)
 
                     await assertEvent(tx, 'Executed')
                   })
@@ -458,7 +458,7 @@ describe('L2HopBridger', () => {
                   it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
                     const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-                    await action.call(token.address, balance, SLIPPAGE, bonderFee)
+                    await action.call(token.address, balance, smartVault.address, SLIPPAGE, bonderFee)
 
                     const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
                     expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
@@ -473,9 +473,9 @@ describe('L2HopBridger', () => {
                   })
 
                   it('reverts', async () => {
-                    await expect(action.call(token.address, balance, SLIPPAGE, BONDER_FEE_PCT)).to.be.revertedWith(
-                      'MIN_THRESHOLD_NOT_MET'
-                    )
+                    await expect(
+                      action.call(token.address, balance, smartVault.address, SLIPPAGE, BONDER_FEE_PCT)
+                    ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
                   })
                 })
               })
@@ -485,16 +485,16 @@ describe('L2HopBridger', () => {
                 const bonderFee = fp(1)
 
                 it('reverts', async () => {
-                  await expect(action.call(token.address, balance, SLIPPAGE, bonderFee)).to.be.revertedWith(
-                    'BRIDGER_BONDER_FEE_ABOVE_MAX'
-                  )
+                  await expect(
+                    action.call(token.address, balance, smartVault.address, SLIPPAGE, bonderFee)
+                  ).to.be.revertedWith('BRIDGER_BONDER_FEE_ABOVE_MAX')
                 })
               })
             })
 
             context('when the slippage is above the limit', () => {
               it('reverts', async () => {
-                await expect(action.call(token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
+                await expect(action.call(token.address, 0, smartVault.address, SLIPPAGE, 0)).to.be.revertedWith(
                   'BRIDGER_SLIPPAGE_ABOVE_MAX'
                 )
               })
@@ -503,14 +503,18 @@ describe('L2HopBridger', () => {
 
           context('when the destination chain ID was set', () => {
             it('reverts', async () => {
-              await expect(action.call(token.address, 0, SLIPPAGE, 0)).to.be.revertedWith('BRIDGER_CHAIN_NOT_SET')
+              await expect(action.call(token.address, 0, smartVault.address, SLIPPAGE, 0)).to.be.revertedWith(
+                'BRIDGER_CHAIN_NOT_SET'
+              )
             })
           })
         })
 
         context('when the given token does not have an AMM set', () => {
           it('reverts', async () => {
-            await expect(action.call(token.address, 0, SLIPPAGE, 0)).to.be.revertedWith('BRIDGER_TOKEN_AMM_NOT_SET')
+            await expect(action.call(token.address, 0, smartVault.address, SLIPPAGE, 0)).to.be.revertedWith(
+              'BRIDGER_TOKEN_AMM_NOT_SET'
+            )
           })
         })
       }
@@ -536,7 +540,9 @@ describe('L2HopBridger', () => {
 
     context('when the sender is authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(token.address, 0, SLIPPAGE, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.call(token.address, 0, smartVault.address, SLIPPAGE, 0)).to.be.revertedWith(
+          'AUTH_SENDER_NOT_ALLOWED'
+        )
       })
     })
   })

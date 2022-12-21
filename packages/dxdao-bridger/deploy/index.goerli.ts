@@ -9,12 +9,12 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   const { params, mimic } = input
 
   const create3Factory = await instanceAt(ARTIFACTS.CREATE3_FACTORY, mimic.Create3Factory)
-  const deployer = await deployment.create3(input.namespace, 'v2', create3Factory, 'L1SmartVaultDeployer', [], null, {
+  const deployer = await deployment.create3(input.namespace, 'v3', create3Factory, 'L1SmartVaultDeployer', [], null, {
     Deployer: mimic.Deployer,
   })
   writeOutput('L1Deployer', deployer.address)
 
-  const bridger = await deployment.create3(input.namespace, 'v2', create3Factory, 'L1HopBridger', [
+  const bridger = await deployment.create3(input.namespace, 'v3', create3Factory, 'L1HopBridger', [
     deployer.address,
     mimic.Registry,
   ])

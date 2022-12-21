@@ -88,18 +88,36 @@ contract L1HopBridger is BaseHopBridger {
         emit TokenBridgeSet(token, bridge);
     }
 
-    function call(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee) external auth {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, slippage, relayer, relayerFee);
+    function call(
+        address token,
+        uint256 amount,
+        address recipient,
+        uint256 slippage,
+        address relayer,
+        uint256 relayerFee
+    ) external auth {
+        (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, recipient, slippage, relayer, relayerFee);
     }
 
-    function _relayedCall(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee)
-        internal
-        redeemGas
-    {
-        _call(token, amount, slippage, relayer, relayerFee);
+    function _relayedCall(
+        address token,
+        uint256 amount,
+        address recipient,
+        uint256 slippage,
+        address relayer,
+        uint256 relayerFee
+    ) internal redeemGas {
+        _call(token, amount, recipient, slippage, relayer, relayerFee);
     }
 
-    function _call(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee) internal {
+    function _call(
+        address token,
+        uint256 amount,
+        address recipient,
+        uint256 slippage,
+        address relayer,
+        uint256 relayerFee
+    ) internal {
         (bool existsBridge, address bridge) = tokenBridges.tryGet(token);
         require(existsBridge, 'BRIDGER_TOKEN_BRIDGE_NOT_SET');
         require(destinationChainId != 0, 'BRIDGER_CHAIN_NOT_SET');
@@ -109,7 +127,7 @@ contract L1HopBridger is BaseHopBridger {
 
         _withdraw(token, amount);
         bytes memory data = abi.encode(bridge, maxDeadline, relayer, relayerFee);
-        _bridge(token, amount, slippage, data);
+        _bridge(token, amount, recipient, slippage, data);
         emit Executed();
     }
 }

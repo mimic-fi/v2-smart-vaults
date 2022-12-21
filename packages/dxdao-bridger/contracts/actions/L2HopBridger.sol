@@ -88,15 +88,18 @@ contract L2HopBridger is BaseHopBridger {
         emit TokenAmmSet(token, amm);
     }
 
-    function call(address token, uint256 amount, uint256 slippage, uint256 bonderFee) external auth {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, slippage, bonderFee);
+    function call(address token, uint256 amount, address recipient, uint256 slippage, uint256 bonderFee) external auth {
+        (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, recipient, slippage, bonderFee);
     }
 
-    function _relayedCall(address token, uint256 amount, uint256 slippage, uint256 bonderFee) internal redeemGas {
-        _call(token, amount, slippage, bonderFee);
+    function _relayedCall(address token, uint256 amount, address recipient, uint256 slippage, uint256 bonderFee)
+        internal
+        redeemGas
+    {
+        _call(token, amount, recipient, slippage, bonderFee);
     }
 
-    function _call(address token, uint256 amount, uint256 slippage, uint256 bonderFee) internal {
+    function _call(address token, uint256 amount, address recipient, uint256 slippage, uint256 bonderFee) internal {
         (bool existsAmm, address amm) = tokenAmms.tryGet(token);
         require(existsAmm, 'BRIDGER_TOKEN_AMM_NOT_SET');
         require(destinationChainId != 0, 'BRIDGER_CHAIN_NOT_SET');
@@ -106,7 +109,7 @@ contract L2HopBridger is BaseHopBridger {
 
         _withdraw(token, amount);
         bytes memory data = _bridgingToL1() ? abi.encode(amm, bonderFee) : abi.encode(amm, bonderFee, maxDeadline);
-        _bridge(token, amount, slippage, data);
+        _bridge(token, amount, recipient, slippage, data);
         emit Executed();
     }
 }
