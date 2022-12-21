@@ -11,6 +11,7 @@
     "lint": "yarn workspaces run lint",
     "test": "yarn workspaces run test",
     "test:goerli": "yarn workspaces run test:goerli",
+    "test:mumbai": "yarn workspaces run test:mumbai",
     "test:mainnet": "yarn workspaces run test:mainnet"
   },
   "dependencies": {},

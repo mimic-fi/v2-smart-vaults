@@ -62,11 +62,29 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/setup
       - name: Set up hardhat config
-        run: .github/scripts/setup-hardhat-config.sh ${{secrets.GOERLI_RPC}} ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}}
+        run: .github/scripts/setup-hardhat-config.sh ${{secrets.GOERLI_RPC}} ${{secrets.MUMBAI_RPC}} ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}}
       - name: Build
         run: yarn build
       - name: Test Goerli
         run: yarn test:goerli
+      - name: Notify discord
+        uses: ./.github/actions/notify-discord
+        with:
+          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+
+  integration-mumbai:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up environment
+        uses: ./.github/actions/setup
+      - name: Set up hardhat config
+        run: .github/scripts/setup-hardhat-config.sh ${{secrets.GOERLI_RPC}} ${{secrets.MUMBAI_RPC}} ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}}
+      - name: Build
+        run: yarn build
+      - name: Test Mumbai
+        run: yarn test:mumbai
       - name: Notify discord
         uses: ./.github/actions/notify-discord
         with:
@@ -80,7 +98,7 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/setup
       - name: Set up hardhat config
-        run: .github/scripts/setup-hardhat-config.sh ${{secrets.GOERLI_RPC}} ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}}
+        run: .github/scripts/setup-hardhat-config.sh ${{secrets.GOERLI_RPC}} ${{secrets.MUMBAI_RPC}} ${{secrets.MAINNET_RPC}} ${{secrets.POLYGON_RPC}}
       - name: Build
         run: yarn build
       - name: Test Mainnet
