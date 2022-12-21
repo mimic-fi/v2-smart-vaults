@@ -7,7 +7,14 @@ import {
   ONES_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
-import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import {
+  createAction,
+  createSmartVault,
+  createTokenMock,
+  Mimic,
+  MOCKS,
+  setupMimic,
+} from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -30,7 +37,7 @@ describe('L1HopBridger', () => {
 
   beforeEach('deploy token and bridge mock', async () => {
     token = await createTokenMock()
-    hopL1Bridge = await deploy('HopL1BridgeMock', [token.address])
+    hopL1Bridge = await deploy(MOCKS.HOP_L1_BRIDGE, [token.address])
   })
 
   beforeEach('authorize action', async () => {
@@ -55,81 +62,67 @@ describe('L1HopBridger', () => {
       })
 
       context('when the token address is not zero', () => {
-        context('when the bridge canonical token matches', () => {
-          context('when setting the token bridge', () => {
-            const itSetsTheTokenBridge = () => {
-              it('sets the token bridge', async () => {
-                await action.setTokenBridge(token.address, hopL1Bridge.address)
+        context('when setting the token bridge', () => {
+          const itSetsTheTokenBridge = () => {
+            it('sets the token bridge', async () => {
+              await action.setTokenBridge(token.address, hopL1Bridge.address)
 
-                expect(await action.getTokenBridge(token.address)).to.be.equal(hopL1Bridge.address)
-              })
-
-              it('emits an event', async () => {
-                const tx = await action.setTokenBridge(token.address, hopL1Bridge.address)
-
-                await assertEvent(tx, 'TokenBridgeSet', { token, bridge: hopL1Bridge.address })
-              })
-            }
-
-            context('when the token bridge was set', () => {
-              beforeEach('set token bridge', async () => {
-                await action.setTokenBridge(token.address, hopL1Bridge.address)
-              })
-
-              itSetsTheTokenBridge()
+              expect(await action.getTokenBridge(token.address)).to.be.equal(hopL1Bridge.address)
             })
 
-            context('when the token bridge was not set', () => {
-              beforeEach('unset token bridge', async () => {
-                await action.setTokenBridge(token.address, ZERO_ADDRESS)
-              })
+            it('emits an event', async () => {
+              const tx = await action.setTokenBridge(token.address, hopL1Bridge.address)
 
-              itSetsTheTokenBridge()
+              await assertEvent(tx, 'TokenBridgeSet', { token, bridge: hopL1Bridge.address })
             })
+          }
+
+          context('when the token bridge was set', () => {
+            beforeEach('set token bridge', async () => {
+              await action.setTokenBridge(token.address, hopL1Bridge.address)
+            })
+
+            itSetsTheTokenBridge()
           })
 
-          context('when unsetting the token bridge', () => {
-            const itUnsetsTheTokenBridge = () => {
-              it('unsets the token bridge', async () => {
-                await action.setTokenBridge(token.address, ZERO_ADDRESS)
-
-                expect(await action.getTokenBridge(token.address)).to.be.equal(ZERO_ADDRESS)
-              })
-
-              it('emits an event', async () => {
-                const tx = await action.setTokenBridge(token.address, ZERO_ADDRESS)
-
-                await assertEvent(tx, 'TokenBridgeSet', { token, bridge: ZERO_ADDRESS })
-              })
-            }
-
-            context('when the token bridge was set', () => {
-              beforeEach('set token bridge', async () => {
-                await action.setTokenBridge(token.address, hopL1Bridge.address)
-              })
-
-              itUnsetsTheTokenBridge()
+          context('when the token bridge was not set', () => {
+            beforeEach('unset token bridge', async () => {
+              await action.setTokenBridge(token.address, ZERO_ADDRESS)
             })
 
-            context('when the token was not set', () => {
-              beforeEach('unset token bridge', async () => {
-                await action.setTokenBridge(token.address, ZERO_ADDRESS)
-              })
-
-              itUnsetsTheTokenBridge()
-            })
+            itSetsTheTokenBridge()
           })
         })
 
-        context('when the bridge canonical token matches', () => {
-          beforeEach('deploy another bridge', async () => {
-            hopL1Bridge = await deploy('HopL1BridgeMock', [owner.address])
+        context('when unsetting the token bridge', () => {
+          const itUnsetsTheTokenBridge = () => {
+            it('unsets the token bridge', async () => {
+              await action.setTokenBridge(token.address, ZERO_ADDRESS)
+
+              expect(await action.getTokenBridge(token.address)).to.be.equal(ZERO_ADDRESS)
+            })
+
+            it('emits an event', async () => {
+              const tx = await action.setTokenBridge(token.address, ZERO_ADDRESS)
+
+              await assertEvent(tx, 'TokenBridgeSet', { token, bridge: ZERO_ADDRESS })
+            })
+          }
+
+          context('when the token bridge was set', () => {
+            beforeEach('set token bridge', async () => {
+              await action.setTokenBridge(token.address, hopL1Bridge.address)
+            })
+
+            itUnsetsTheTokenBridge()
           })
 
-          it('reverts', async () => {
-            await expect(action.setTokenBridge(token.address, hopL1Bridge.address)).to.be.revertedWith(
-              'BRIDGER_BRIDGE_TOKEN_DONT_MATCH'
-            )
+          context('when the token was not set', () => {
+            beforeEach('unset token bridge', async () => {
+              await action.setTokenBridge(token.address, ZERO_ADDRESS)
+            })
+
+            itUnsetsTheTokenBridge()
           })
         })
       })
