@@ -70,6 +70,7 @@ contract L2HopBridger is BaseHopBridger {
     {
         return
             tokenAmms.contains(token) &&
+            amount > 0 &&
             destinationChainId != 0 &&
             slippage <= maxSlippage &&
             bonderFee.divUp(amount) <= maxBonderFeePct &&
@@ -102,13 +103,16 @@ contract L2HopBridger is BaseHopBridger {
     function _call(address token, uint256 amount, address recipient, uint256 slippage, uint256 bonderFee) internal {
         (bool existsAmm, address amm) = tokenAmms.tryGet(token);
         require(existsAmm, 'BRIDGER_TOKEN_AMM_NOT_SET');
+        require(amount > 0, 'BRIDGER_AMOUNT_ZERO');
         require(destinationChainId != 0, 'BRIDGER_CHAIN_NOT_SET');
         require(slippage <= maxSlippage, 'BRIDGER_SLIPPAGE_ABOVE_MAX');
         require(bonderFee.divUp(amount) <= maxBonderFeePct, 'BRIDGER_BONDER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
         _withdraw(token, amount);
-        bytes memory data = _bridgingToL1() ? abi.encode(amm, bonderFee) : abi.encode(amm, bonderFee, maxDeadline);
+        bytes memory data = _bridgingToL1()
+            ? abi.encode(amm, bonderFee)
+            : abi.encode(amm, bonderFee, block.timestamp + maxDeadline);
         _bridge(token, amount, recipient, slippage, data);
         emit Executed();
     }
