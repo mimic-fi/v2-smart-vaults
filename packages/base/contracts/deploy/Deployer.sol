@@ -19,10 +19,11 @@ import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 
+import '../actions/ReceiverAction.sol';
 import '../actions/RelayedAction.sol';
-import '../actions/WithdrawalAction.sol';
 import '../actions/TimeLockedAction.sol';
 import '../actions/TokenThresholdAction.sol';
+import '../actions/WithdrawalAction.sol';
 
 /**
  * @title Deployer
@@ -382,6 +383,15 @@ library Deployer {
         action.authorize(address(this), action.setRecipient.selector);
         action.setRecipient(params.recipient);
         action.unauthorize(address(this), action.setRecipient.selector);
+    }
+
+    /**
+     * @dev Set up a Receiver action
+     * @param action Relayed action to be configured
+     * @param admin Address that will be granted with admin rights for the Receiver action
+     */
+    function setupReceiverAction(ReceiverAction action, address admin) external {
+        action.authorize(admin, action.withdraw.selector);
     }
 
     /**

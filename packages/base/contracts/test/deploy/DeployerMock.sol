@@ -17,6 +17,7 @@ pragma solidity ^0.8.0;
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
 
 import '../../deploy/Deployer.sol';
+import '../actions/ReceiverActionMock.sol';
 import '../actions/RelayedActionMock.sol';
 import '../actions/TokenThresholdActionMock.sol';
 import '../actions/TimeLockedActionMock.sol';
@@ -28,10 +29,16 @@ contract DeployerMock {
     struct Params {
         IRegistry registry;
         Deployer.SmartVaultParams smartVaultParams;
+        ReceiverActionParams receiverActionParams;
         RelayedActionParams relayedActionParams;
         TokenThresholdActionParams tokenThresholdActionParams;
         TimeLockedActionParams timeLockedActionParams;
         WithdrawalActionParams withdrawalActionParams;
+    }
+
+    struct ReceiverActionParams {
+        address impl;
+        address admin;
     }
 
     struct RelayedActionParams {
@@ -60,11 +67,20 @@ contract DeployerMock {
 
     function deploy(Params memory params) external {
         SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
+        _setupReceiverAction(smartVault, params.receiverActionParams);
         _setupRelayedAction(smartVault, params.relayedActionParams);
         _setupTokenThresholdAction(smartVault, params.tokenThresholdActionParams);
         _setupTimeLockedAction(smartVault, params.timeLockedActionParams);
         _setupWithdrawalAction(smartVault, params.withdrawalActionParams);
         Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
+    }
+
+    function _setupReceiverAction(SmartVault smartVault, ReceiverActionParams memory params) internal {
+        ReceiverActionMock action = ReceiverActionMock(payable(params.impl));
+        Deployer.setupBaseAction(action, params.admin, address(smartVault));
+        Deployer.setupActionExecutors(action, _arr(params.admin), action.withdraw.selector);
+        Deployer.setupReceiverAction(action, params.admin);
+        Deployer.transferAdminPermissions(action, params.admin);
     }
 
     function _setupRelayedAction(SmartVault smartVault, RelayedActionParams memory params) internal {

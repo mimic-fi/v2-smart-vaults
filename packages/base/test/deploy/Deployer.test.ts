@@ -7,8 +7,8 @@ import { ethers } from 'hardhat'
 const randomAddress = (): string => ethers.utils.getAddress(ethers.utils.hexlify(ethers.utils.randomBytes(20)))
 
 describe('Deployer', () => {
-  let mimic: Mimic
-  let smartVault: Contract, relayed: Contract, timeLocked: Contract, tokenThreshold: Contract, withdrawal: Contract
+  let smartVault: Contract, mimic: Mimic
+  let receiver: Contract, relayed: Contract, timeLocked: Contract, tokenThreshold: Contract, withdrawal: Contract
 
   const config = {
     registry: undefined,
@@ -28,6 +28,10 @@ describe('Deployer', () => {
       bridgeFee: { pct: fp(0.2), cap: fp(2), token: randomAddress(), period: 180 },
       withdrawFee: { pct: fp(0.3), cap: fp(3), token: randomAddress(), period: 240 },
       performanceFee: { pct: fp(0.4), cap: fp(4), token: randomAddress(), period: 300 },
+    },
+    receiverActionParams: {
+      impl: undefined,
+      admin: randomAddress(),
     },
     relayedActionParams: {
       impl: undefined,
@@ -71,6 +75,7 @@ describe('Deployer', () => {
 
   before('deploy smart vault', async () => {
     const deployer = await deploy('DeployerMock', [], undefined, { Deployer: mimic.deployer.address })
+    receiver = await deploy('ReceiverActionMock', [deployer.address, mimic.registry.address])
     relayed = await deploy('RelayedActionMock', [deployer.address, mimic.registry.address])
     timeLocked = await deploy('TimeLockedActionMock', [deployer.address, mimic.registry.address])
     tokenThreshold = await deploy('TokenThresholdActionMock', [deployer.address, mimic.registry.address])
@@ -81,6 +86,7 @@ describe('Deployer', () => {
     config.smartVaultParams.priceOracle = mimic.priceOracle.address
     config.smartVaultParams.swapConnector = mimic.swapConnector.address
     config.smartVaultParams.bridgeConnector = mimic.bridgeConnector.address
+    config.receiverActionParams.impl = receiver.address
     config.relayedActionParams.impl = relayed.address
     config.timeLockedActionParams.impl = timeLocked.address
     config.tokenThresholdActionParams.impl = tokenThreshold.address
@@ -124,6 +130,7 @@ describe('Deployer', () => {
           ],
         },
         { name: 'fee collector', account: config.smartVaultParams.feeCollector, roles: ['setFeeCollector'] },
+        { name: 'receiver action', account: receiver, roles: [] },
         { name: 'relayed action', account: relayed, roles: [] },
         { name: 'time locked action', account: timeLocked, roles: [] },
         { name: 'token threshold action', account: tokenThreshold, roles: [] },
@@ -185,6 +192,29 @@ describe('Deployer', () => {
     })
   })
 
+  describe('receiver action', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(receiver, [
+        {
+          name: 'owner',
+          account: config.receiverActionParams.admin,
+          roles: ['authorize', 'unauthorize', 'setSmartVault', 'withdraw', 'call'],
+        },
+        { name: 'fee collector', account: config.smartVaultParams.feeCollector, roles: [] },
+        { name: 'receiver action', account: receiver, roles: [] },
+        { name: 'relayed action', account: relayed, roles: [] },
+        { name: 'time locked action', account: timeLocked, roles: [] },
+        { name: 'token threshold action', account: tokenThreshold, roles: [] },
+        { name: 'withdrawal action', account: withdrawal, roles: [] },
+        { name: 'relayers', account: config.relayedActionParams.relayedActionParams.relayers, roles: [] },
+      ])
+    })
+
+    it('has the proper smart vault set', async () => {
+      expect(await relayed.smartVault()).to.be.equal(smartVault.address)
+    })
+  })
+
   describe('relayed action', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(relayed, [
@@ -194,6 +224,7 @@ describe('Deployer', () => {
           roles: ['authorize', 'unauthorize', 'setSmartVault', 'setLimits', 'setRelayer', 'call'],
         },
         { name: 'fee collector', account: config.smartVaultParams.feeCollector, roles: [] },
+        { name: 'receiver action', account: receiver, roles: [] },
         { name: 'relayed action', account: relayed, roles: [] },
         { name: 'time locked action', account: timeLocked, roles: [] },
         { name: 'token threshold action', account: tokenThreshold, roles: [] },
@@ -234,6 +265,7 @@ describe('Deployer', () => {
           roles: ['authorize', 'unauthorize', 'setSmartVault', 'setTimeLock', 'call'],
         },
         { name: 'fee collector', account: config.smartVaultParams.feeCollector, roles: [] },
+        { name: 'receiver action', account: receiver, roles: [] },
         { name: 'relayed action', account: relayed, roles: [] },
         { name: 'time locked action', account: timeLocked, roles: [] },
         { name: 'token threshold action', account: tokenThreshold, roles: [] },
@@ -261,6 +293,7 @@ describe('Deployer', () => {
           roles: ['authorize', 'unauthorize', 'setSmartVault', 'setThreshold', 'call'],
         },
         { name: 'fee collector', account: config.smartVaultParams.feeCollector, roles: [] },
+        { name: 'receiver action', account: receiver, roles: [] },
         { name: 'relayed action', account: relayed, roles: [] },
         { name: 'time locked action', account: timeLocked, roles: [] },
         { name: 'token threshold action', account: tokenThreshold, roles: [] },
@@ -292,6 +325,7 @@ describe('Deployer', () => {
           roles: ['authorize', 'unauthorize', 'setSmartVault', 'setRecipient', 'call'],
         },
         { name: 'fee collector', account: config.smartVaultParams.feeCollector, roles: [] },
+        { name: 'receiver action', account: receiver, roles: [] },
         { name: 'relayed action', account: relayed, roles: [] },
         { name: 'time locked action', account: timeLocked, roles: [] },
         { name: 'token threshold action', account: tokenThreshold, roles: [] },

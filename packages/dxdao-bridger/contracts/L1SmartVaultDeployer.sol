@@ -68,6 +68,7 @@ contract L1SmartVaultDeployer {
         Deployer.setupBaseAction(bridger, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         Deployer.setupActionExecutors(bridger, executors, bridger.call.selector);
+        Deployer.setupReceiverAction(bridger, params.admin);
         Deployer.setupRelayedAction(bridger, params.admin, params.relayedActionParams);
         Deployer.setupTokenThresholdAction(bridger, params.admin, params.tokenThresholdActionParams);
 
@@ -106,9 +107,6 @@ contract L1SmartVaultDeployer {
         bridger.authorize(address(this), bridger.setDestinationChainId.selector);
         bridger.setDestinationChainId(params.destinationChainId);
         bridger.unauthorize(address(this), bridger.setDestinationChainId.selector);
-
-        // Authorize admin to withdraw funds from action
-        bridger.authorize(params.admin, bridger.withdraw.selector);
 
         // Transfer admin permissions to admin
         Deployer.transferAdminPermissions(bridger, params.admin);
