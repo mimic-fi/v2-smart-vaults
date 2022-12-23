@@ -19,10 +19,10 @@ import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 
-import './actions/RelayedAction.sol';
-import './actions/WithdrawalAction.sol';
-import './actions/TimeLockedAction.sol';
-import './actions/TokenThresholdAction.sol';
+import '../actions/RelayedAction.sol';
+import '../actions/WithdrawalAction.sol';
+import '../actions/TimeLockedAction.sol';
+import '../actions/TokenThresholdAction.sol';
 
 /**
  * @title Deployer
