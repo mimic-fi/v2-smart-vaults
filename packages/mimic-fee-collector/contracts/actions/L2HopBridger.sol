@@ -67,6 +67,7 @@ contract L2HopBridger is BaseHopBridger {
     {
         return
             tokenAmms.contains(token) &&
+            amount > 0 &&
             isChainAllowed[chainId] &&
             slippage <= maxSlippage &&
             bonderFee.divUp(amount) <= maxBonderFeePct &&
@@ -88,6 +89,7 @@ contract L2HopBridger is BaseHopBridger {
     function call(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFee) external auth {
         (bool existsAmm, address amm) = tokenAmms.tryGet(token);
         require(existsAmm, 'BRIDGER_TOKEN_AMM_NOT_SET');
+        require(amount > 0, 'BRIDGER_AMOUNT_ZERO');
         require(isChainAllowed[chainId], 'BRIDGER_CHAIN_NOT_ALLOWED');
         require(slippage <= maxSlippage, 'BRIDGER_SLIPPAGE_ABOVE_MAX');
         require(bonderFee.divUp(amount) <= maxBonderFeePct, 'BRIDGER_BONDER_FEE_ABOVE_MAX');
@@ -95,7 +97,7 @@ contract L2HopBridger is BaseHopBridger {
 
         bytes memory data = _bridgingToL1(chainId)
             ? abi.encode(amm, bonderFee)
-            : abi.encode(amm, bonderFee, maxDeadline);
+            : abi.encode(amm, bonderFee, block.timestamp + maxDeadline);
 
         _bridge(chainId, token, amount, slippage, data);
         emit Executed();

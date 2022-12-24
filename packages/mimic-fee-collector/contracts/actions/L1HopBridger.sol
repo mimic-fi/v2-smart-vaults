@@ -70,6 +70,7 @@ contract L1HopBridger is BaseHopBridger {
     ) external view returns (bool) {
         return
             tokenBridges.contains(token) &&
+            amount > 0 &&
             isChainAllowed[chainId] &&
             slippage <= maxSlippage &&
             relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer] &&
@@ -94,12 +95,14 @@ contract L1HopBridger is BaseHopBridger {
     {
         (bool existsBridge, address bridge) = tokenBridges.tryGet(token);
         require(existsBridge, 'BRIDGER_TOKEN_BRIDGE_NOT_SET');
+        require(amount > 0, 'BRIDGER_AMOUNT_ZERO');
         require(isChainAllowed[chainId], 'BRIDGER_CHAIN_NOT_ALLOWED');
         require(slippage <= maxSlippage, 'BRIDGER_SLIPPAGE_ABOVE_MAX');
         require(relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer], 'BRIDGER_RELAYER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
-        bytes memory data = abi.encode(bridge, maxDeadline, relayer, relayerFee);
+        uint256 deadline = block.timestamp + maxDeadline;
+        bytes memory data = abi.encode(bridge, deadline, relayer, relayerFee);
         _bridge(chainId, token, amount, slippage, data);
         emit Executed();
     }

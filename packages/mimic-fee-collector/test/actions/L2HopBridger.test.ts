@@ -364,14 +364,6 @@ describe('L2HopBridger', () => {
     const SLIPPAGE = fp(0.01)
     const BONDER_FEE_PCT = fp(0.002)
 
-    const THRESHOLD = fp(50)
-
-    beforeEach('set threshold', async () => {
-      const setThresholdRole = action.interface.getSighash('setThreshold')
-      await action.connect(owner).authorize(owner.address, setThresholdRole)
-      await action.connect(owner).setThreshold(token.address, THRESHOLD)
-    })
-
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         const callRole = action.interface.getSighash('call')
@@ -387,106 +379,125 @@ describe('L2HopBridger', () => {
             await action.connect(owner).setTokenAmm(token.address, hopL2Amm.address)
           })
 
-          context('when the chain ID was allowed', () => {
-            const chainId = 1
+          context('when the amount is greater than zero', () => {
+            const amount = fp(50)
 
-            beforeEach('allow chain ID', async () => {
-              const setAllowedChainRole = action.interface.getSighash('setAllowedChain')
-              await action.connect(owner).authorize(owner.address, setAllowedChainRole)
-              await action.connect(owner).setAllowedChain(chainId, true)
+            beforeEach('fund smart vault', async () => {
+              await token.mint(smartVault.address, amount)
             })
 
-            context('when the slippage is below the limit', () => {
-              beforeEach('set max slippage', async () => {
-                const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
-                await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
-                await action.connect(owner).setMaxSlippage(SLIPPAGE)
+            context('when the chain ID was allowed', () => {
+              const chainId = 1
+
+              beforeEach('allow chain ID', async () => {
+                const setAllowedChainRole = action.interface.getSighash('setAllowedChain')
+                await action.connect(owner).authorize(owner.address, setAllowedChainRole)
+                await action.connect(owner).setAllowedChain(chainId, true)
               })
 
-              context('when the bonder fee is below the limit', () => {
-                beforeEach('set max bonder fee', async () => {
-                  const setMaxBonderFeePctRole = action.interface.getSighash('setMaxBonderFeePct')
-                  await action.connect(owner).authorize(owner.address, setMaxBonderFeePctRole)
-                  await action.connect(owner).setMaxBonderFeePct(BONDER_FEE_PCT)
+              context('when the slippage is below the limit', () => {
+                beforeEach('set max slippage', async () => {
+                  const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
+                  await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
+                  await action.connect(owner).setMaxSlippage(SLIPPAGE)
                 })
 
-                context('when the current balance passes the threshold', () => {
-                  const balance = THRESHOLD
-                  const bonderFee = balance.mul(BONDER_FEE_PCT).div(fp(1))
-
-                  beforeEach('transfer tokens to action', async () => {
-                    await token.mint(smartVault.address, balance)
+                context('when the bonder fee is below the limit', () => {
+                  beforeEach('set max bonder fee', async () => {
+                    const setMaxBonderFeePctRole = action.interface.getSighash('setMaxBonderFeePct')
+                    await action.connect(owner).authorize(owner.address, setMaxBonderFeePctRole)
+                    await action.connect(owner).setMaxBonderFeePct(BONDER_FEE_PCT)
                   })
 
-                  it('can executes', async () => {
-                    const canExecute = await action.canExecute(chainId, token.address, balance, SLIPPAGE, bonderFee)
-                    expect(canExecute).to.be.true
-                  })
+                  context('when the current balance passes the threshold', () => {
+                    const threshold = amount
+                    const bonderFee = amount.mul(BONDER_FEE_PCT).div(fp(1))
 
-                  it('calls the bridge primitive', async () => {
-                    const tx = await action.call(chainId, token.address, balance, SLIPPAGE, bonderFee)
+                    beforeEach('set threshold', async () => {
+                      const setThresholdRole = action.interface.getSighash('setThreshold')
+                      await action.connect(owner).authorize(owner.address, setThresholdRole)
+                      await action.connect(owner).setThreshold(token.address, threshold)
+                    })
 
-                    const data = defaultAbiCoder.encode(['address', 'uint256'], [hopL2Amm.address, bonderFee])
+                    it('can executes', async () => {
+                      const canExecute = await action.canExecute(chainId, token.address, amount, SLIPPAGE, bonderFee)
+                      expect(canExecute).to.be.true
+                    })
 
-                    await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
-                      source: SOURCE,
-                      chainId,
-                      amountIn: balance,
-                      minAmountOut: balance.sub(balance.mul(SLIPPAGE).div(fp(1))),
-                      data,
+                    it('calls the bridge primitive', async () => {
+                      const tx = await action.call(chainId, token.address, amount, SLIPPAGE, bonderFee)
+
+                      const data = defaultAbiCoder.encode(['address', 'uint256'], [hopL2Amm.address, bonderFee])
+
+                      await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
+                        source: SOURCE,
+                        chainId,
+                        amountIn: amount,
+                        minAmountOut: amount.sub(amount.mul(SLIPPAGE).div(fp(1))),
+                        data,
+                      })
+                    })
+
+                    it('emits an Executed event', async () => {
+                      const tx = await action.call(chainId, token.address, amount, SLIPPAGE, bonderFee)
+
+                      await assertEvent(tx, 'Executed')
                     })
                   })
 
-                  it('emits an Executed event', async () => {
-                    const tx = await action.call(chainId, token.address, balance, SLIPPAGE, bonderFee)
+                  context('when the current balance does not pass the threshold', () => {
+                    const threshold = amount.mul(2)
 
-                    await assertEvent(tx, 'Executed')
+                    beforeEach('set threshold', async () => {
+                      const setThresholdRole = action.interface.getSighash('setThreshold')
+                      await action.connect(owner).authorize(owner.address, setThresholdRole)
+                      await action.connect(owner).setThreshold(token.address, threshold)
+                    })
+
+                    it('reverts', async () => {
+                      await expect(
+                        action.call(chainId, token.address, amount, SLIPPAGE, BONDER_FEE_PCT)
+                      ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+                    })
                   })
                 })
 
-                context('when the current balance does not pass the threshold', () => {
-                  const balance = THRESHOLD.div(2)
-
-                  beforeEach('fund smart vault token', async () => {
-                    await token.mint(smartVault.address, balance)
-                  })
+                context('when the bonder fee is above the limit', () => {
+                  const bonderFee = fp(1)
 
                   it('reverts', async () => {
-                    await expect(
-                      action.call(chainId, token.address, balance, SLIPPAGE, BONDER_FEE_PCT)
-                    ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+                    await expect(action.call(chainId, token.address, amount, SLIPPAGE, bonderFee)).to.be.revertedWith(
+                      'BRIDGER_BONDER_FEE_ABOVE_MAX'
+                    )
                   })
                 })
               })
 
-              context('when the bonder fee is above the limit', () => {
-                const balance = fp(1)
-                const bonderFee = fp(1)
-
+              context('when the slippage is above the limit', () => {
                 it('reverts', async () => {
-                  await expect(action.call(chainId, token.address, balance, SLIPPAGE, bonderFee)).to.be.revertedWith(
-                    'BRIDGER_BONDER_FEE_ABOVE_MAX'
+                  await expect(action.call(chainId, token.address, amount, SLIPPAGE, 0)).to.be.revertedWith(
+                    'BRIDGER_SLIPPAGE_ABOVE_MAX'
                   )
                 })
               })
             })
 
-            context('when the slippage is above the limit', () => {
+            context('when the destination chain ID was not set', () => {
+              const chainId = 10
+
               it('reverts', async () => {
-                await expect(action.call(chainId, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
-                  'BRIDGER_SLIPPAGE_ABOVE_MAX'
+                await expect(action.call(chainId, token.address, amount, SLIPPAGE, 0)).to.be.revertedWith(
+                  'BRIDGER_CHAIN_NOT_ALLOWED'
                 )
               })
             })
           })
 
-          context('when the destination chain ID was not set', () => {
-            const chainId = 10
+          context('when the requested amount is zero', () => {
+            const amount = 0
 
             it('reverts', async () => {
-              await expect(action.call(chainId, token.address, 0, SLIPPAGE, 0)).to.be.revertedWith(
-                'BRIDGER_CHAIN_NOT_ALLOWED'
-              )
+              await expect(action.call(0, token.address, amount, SLIPPAGE, 0)).to.be.revertedWith('BRIDGER_AMOUNT_ZERO')
             })
           })
         })

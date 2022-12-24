@@ -1,6 +1,7 @@
 import {
   assertEvent,
   assertIndirectEvent,
+  currentTimestamp,
   deploy,
   fp,
   getSigners,
@@ -378,14 +379,6 @@ describe('L1HopBridger', () => {
     const RELAYER = ZERO_ADDRESS
     const RELAYER_FEE_PCT = fp(0.002)
 
-    const THRESHOLD = fp(50)
-
-    beforeEach('set threshold', async () => {
-      const setThresholdRole = action.interface.getSighash('setThreshold')
-      await action.connect(owner).authorize(owner.address, setThresholdRole)
-      await action.connect(owner).setThreshold(token.address, THRESHOLD)
-    })
-
     beforeEach('set deadline', async () => {
       const setMaxDeadlineRole = action.interface.getSighash('setMaxDeadline')
       await action.connect(owner).authorize(owner.address, setMaxDeadlineRole)
@@ -399,12 +392,18 @@ describe('L1HopBridger', () => {
         action = action.connect(owner)
       })
 
-      context('when the sender is not a relayer', () => {
-        context('when the given token has a bridge set', () => {
-          beforeEach('set token bridge', async () => {
-            const setTokenBridgeRole = action.interface.getSighash('setTokenBridge')
-            await action.connect(owner).authorize(owner.address, setTokenBridgeRole)
-            await action.connect(owner).setTokenBridge(token.address, hopL1Bridge.address)
+      context('when the given token has a bridge set', () => {
+        beforeEach('set token bridge', async () => {
+          const setTokenBridgeRole = action.interface.getSighash('setTokenBridge')
+          await action.connect(owner).authorize(owner.address, setTokenBridgeRole)
+          await action.connect(owner).setTokenBridge(token.address, hopL1Bridge.address)
+        })
+
+        context('when the amount is greater than zero', () => {
+          const amount = fp(50)
+
+          beforeEach('fund smart vault', async () => {
+            await token.mint(smartVault.address, amount)
           })
 
           context('when the destination chain ID was set', () => {
@@ -431,18 +430,20 @@ describe('L1HopBridger', () => {
                 })
 
                 context('when the current balance passes the threshold', () => {
-                  const balance = THRESHOLD
-                  const relayerFee = balance.mul(RELAYER_FEE_PCT).div(fp(1))
+                  const threshold = amount
+                  const relayerFee = amount.mul(RELAYER_FEE_PCT).div(fp(1))
 
-                  beforeEach('transfer tokens to action', async () => {
-                    await token.mint(smartVault.address, balance)
+                  beforeEach('set threshold', async () => {
+                    const setThresholdRole = action.interface.getSighash('setThreshold')
+                    await action.connect(owner).authorize(owner.address, setThresholdRole)
+                    await action.connect(owner).setThreshold(token.address, threshold)
                   })
 
                   it('can executes', async () => {
                     const canExecute = await action.canExecute(
                       chainId,
                       token.address,
-                      balance,
+                      amount,
                       SLIPPAGE,
                       RELAYER,
                       relayerFee
@@ -451,39 +452,42 @@ describe('L1HopBridger', () => {
                   })
 
                   it('calls the bridge primitive', async () => {
-                    const tx = await action.call(chainId, token.address, balance, SLIPPAGE, RELAYER, relayerFee)
+                    const tx = await action.call(chainId, token.address, amount, SLIPPAGE, RELAYER, relayerFee)
 
+                    const deadline = (await currentTimestamp()).add(DEADLINE)
                     const data = defaultAbiCoder.encode(
                       ['address', 'uint256', 'address', 'uint256'],
-                      [hopL1Bridge.address, DEADLINE, RELAYER, relayerFee]
+                      [hopL1Bridge.address, deadline, RELAYER, relayerFee]
                     )
 
                     await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
                       source: SOURCE,
                       chainId,
-                      amountIn: balance,
-                      minAmountOut: balance.sub(balance.mul(SLIPPAGE).div(fp(1))),
+                      amountIn: amount,
+                      minAmountOut: amount.sub(amount.mul(SLIPPAGE).div(fp(1))),
                       data,
                     })
                   })
 
                   it('emits an Executed event', async () => {
-                    const tx = await action.call(chainId, token.address, balance, SLIPPAGE, RELAYER, relayerFee)
+                    const tx = await action.call(chainId, token.address, amount, SLIPPAGE, RELAYER, relayerFee)
 
                     await assertEvent(tx, 'Executed')
                   })
                 })
 
                 context('when the current balance does not pass the threshold', () => {
-                  const balance = THRESHOLD.div(2)
+                  const threshold = amount.mul(2)
 
-                  beforeEach('fund smart vault token', async () => {
-                    await token.mint(smartVault.address, balance)
+                  beforeEach('set threshold', async () => {
+                    const setThresholdRole = action.interface.getSighash('setThreshold')
+                    await action.connect(owner).authorize(owner.address, setThresholdRole)
+                    await action.connect(owner).setThreshold(token.address, threshold)
                   })
 
                   it('reverts', async () => {
                     await expect(
-                      action.call(chainId, token.address, balance, SLIPPAGE, RELAYER, RELAYER_FEE_PCT)
+                      action.call(chainId, token.address, amount, SLIPPAGE, RELAYER, RELAYER_FEE_PCT)
                     ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
                   })
                 })
@@ -503,7 +507,7 @@ describe('L1HopBridger', () => {
 
             context('when the slippage is above the limit', () => {
               it('reverts', async () => {
-                await expect(action.call(chainId, token.address, 0, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
+                await expect(action.call(chainId, token.address, amount, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
                   'BRIDGER_SLIPPAGE_ABOVE_MAX'
                 )
               })
@@ -514,19 +518,29 @@ describe('L1HopBridger', () => {
             const chainId = 5
 
             it('reverts', async () => {
-              await expect(action.call(chainId, token.address, 0, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
+              await expect(action.call(chainId, token.address, amount, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
                 'BRIDGER_CHAIN_NOT_ALLOWED'
               )
             })
           })
         })
 
-        context('when the given token does not have a bridge set', () => {
+        context('when the requested amount is zero', () => {
+          const amount = 0
+
           it('reverts', async () => {
-            await expect(action.call(0, token.address, 0, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
-              'BRIDGER_TOKEN_BRIDGE_NOT_SET'
+            await expect(action.call(0, token.address, amount, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
+              'BRIDGER_AMOUNT_ZERO'
             )
           })
+        })
+      })
+
+      context('when the given token does not have a bridge set', () => {
+        it('reverts', async () => {
+          await expect(action.call(0, token.address, 0, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
+            'BRIDGER_TOKEN_BRIDGE_NOT_SET'
+          )
         })
       })
     })
