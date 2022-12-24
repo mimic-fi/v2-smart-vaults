@@ -9,7 +9,7 @@ contract TimeLockedActionMock is TimeLockedAction {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function execute() external {
+    function call() external {
         _validateTimeLock();
     }
 }

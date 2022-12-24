@@ -31,8 +31,8 @@ export const ARTIFACTS = {
   PRICE_ORACLE: '@mimic-fi/v2-price-oracle/artifacts/contracts/oracle/PriceOracle.sol/PriceOracle',
   SWAP_CONNECTOR: '@mimic-fi/v2-swap-connector/artifacts/contracts/SwapConnector.sol/SwapConnector',
   BRIDGE_CONNECTOR: '@mimic-fi/v2-bridge-connector/artifacts/contracts/BridgeConnector.sol/BridgeConnector',
-  DEPLOYER: '@mimic-fi/v2-smart-vaults-base/artifacts/contracts/Deployer.sol/Deployer',
-  CREATE3_FACTORY: '@mimic-fi/v2-smart-vaults-base/artifacts/contracts/Create3Factory.sol/Create3Factory',
+  DEPLOYER: '@mimic-fi/v2-smart-vaults-base/artifacts/contracts/deploy/Deployer.sol/Deployer',
+  CREATE3_FACTORY: '@mimic-fi/v2-smart-vaults-base/artifacts/contracts/deploy/Create3Factory.sol/Create3Factory',
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

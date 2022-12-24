@@ -9,11 +9,7 @@ contract WithdrawalActionMock is WithdrawalAction {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function withdrawAll(address token) external {
-        _withdraw(token);
-    }
-
-    function withdraw(address token, uint256 amount) external {
-        _withdraw(token, amount);
+    function call(address token, uint256 amount) external {
+        amount == 0 ? _withdraw(token) : _withdraw(token, amount);
     }
 }

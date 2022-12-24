@@ -57,7 +57,7 @@ describe('TokenThresholdAction', () => {
     })
   })
 
-  describe('validate', () => {
+  describe('call', () => {
     let token: Contract, thresholdToken: Contract
 
     const rate = 2
@@ -85,7 +85,7 @@ describe('TokenThresholdAction', () => {
       const amount = thresholdAmount.div(rate).sub(1)
 
       it('reverts', async () => {
-        await expect(action.validateThreshold(token.address, amount)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+        await expect(action.call(token.address, amount)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
       })
     })
 
@@ -93,7 +93,7 @@ describe('TokenThresholdAction', () => {
       const amount = thresholdAmount.div(rate).add(1)
 
       it('does not revert', async () => {
-        await expect(action.validateThreshold(token.address, amount)).not.to.be.reverted
+        await expect(action.call(token.address, amount)).not.to.be.reverted
       })
     })
   })
