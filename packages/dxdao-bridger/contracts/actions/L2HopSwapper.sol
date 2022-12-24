@@ -81,7 +81,6 @@ contract L2HopSwapper is BaseAction, RelayedAction {
 
     function setTokenAmm(address token, address amm) external auth {
         require(token != address(0), 'SWAPPER_TOKEN_ZERO');
-        require(amm == address(0) || IHopL2AMM(amm).l2CanonicalToken() == token, 'SWAPPER_AMM_TOKEN_DOES_NOT_MATCH');
         amm == address(0) ? tokenAmms.remove(token) : tokenAmms.set(token, amm);
         emit TokenAmmSet(token, amm);
     }

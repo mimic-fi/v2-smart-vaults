@@ -57,7 +57,7 @@ describe('TimeLockedAction', () => {
     })
   })
 
-  describe('execute', () => {
+  describe('call', () => {
     const period = MONTH
 
     beforeEach('set time lock', async () => {
@@ -66,8 +66,8 @@ describe('TimeLockedAction', () => {
       await action.connect(owner).setTimeLock(period)
     })
 
-    beforeEach('execute once', async () => {
-      await action.execute()
+    beforeEach('call once', async () => {
+      await action.call()
       const timestamp = await currentTimestamp()
 
       expect(await action.nextResetTime()).to.be.equal(timestamp.add(period))
@@ -75,7 +75,7 @@ describe('TimeLockedAction', () => {
 
     context('when the time-lock has not expired', () => {
       it('reverts', async () => {
-        await expect(action.execute()).to.be.revertedWith('TIME_LOCK_NOT_EXPIRED')
+        await expect(action.call()).to.be.revertedWith('TIME_LOCK_NOT_EXPIRED')
       })
     })
 
@@ -85,7 +85,7 @@ describe('TimeLockedAction', () => {
       })
 
       it('does not revert', async () => {
-        await expect(action.execute()).not.to.be.reverted
+        await expect(action.call()).not.to.be.reverted
         const timestamp = await currentTimestamp()
 
         expect(await action.nextResetTime()).to.be.equal(timestamp.add(period))

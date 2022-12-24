@@ -61,7 +61,7 @@ abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAc
         return destinationChainId == MAINNET_CHAIN_ID || destinationChainId == GOERLI_CHAIN_ID;
     }
 
-    function _bridge(address token, uint256 amount, uint256 slippage, bytes memory data) internal {
+    function _bridge(address token, uint256 amount, address recipient, uint256 slippage, bytes memory data) internal {
         smartVault.bridge(
             HOP_SOURCE,
             destinationChainId,
@@ -69,7 +69,7 @@ abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAc
             amount,
             ISmartVault.BridgeLimit.Slippage,
             slippage,
-            address(smartVault),
+            recipient,
             data
         );
     }

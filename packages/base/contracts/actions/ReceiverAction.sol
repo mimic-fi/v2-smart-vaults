@@ -18,8 +18,6 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 
-import '@mimic-fi/v2-smart-vault/contracts/IWrappedNativeToken.sol';
-
 import './BaseAction.sol';
 
 abstract contract ReceiverAction is BaseAction {

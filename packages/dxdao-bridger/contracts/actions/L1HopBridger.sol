@@ -70,6 +70,7 @@ contract L1HopBridger is BaseHopBridger {
     {
         return
             tokenBridges.contains(token) &&
+            amount > 0 &&
             destinationChainId != 0 &&
             slippage <= maxSlippage &&
             relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer] &&
@@ -84,34 +85,52 @@ contract L1HopBridger is BaseHopBridger {
 
     function setTokenBridge(address token, address bridge) external auth {
         require(token != address(0), 'BRIDGER_TOKEN_ZERO');
-        bool isValidBridgeToken = bridge == address(0) || IHopL1Bridge(bridge).l1CanonicalToken() == token;
-        require(isValidBridgeToken, 'BRIDGER_BRIDGE_TOKEN_DONT_MATCH');
         bridge == address(0) ? tokenBridges.remove(token) : tokenBridges.set(token, bridge);
         emit TokenBridgeSet(token, bridge);
     }
 
-    function call(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee) external auth {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, slippage, relayer, relayerFee);
+    function call(
+        address token,
+        uint256 amount,
+        address recipient,
+        uint256 slippage,
+        address relayer,
+        uint256 relayerFee
+    ) external auth {
+        (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, recipient, slippage, relayer, relayerFee);
     }
 
-    function _relayedCall(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee)
-        internal
-        redeemGas
-    {
-        _call(token, amount, slippage, relayer, relayerFee);
+    function _relayedCall(
+        address token,
+        uint256 amount,
+        address recipient,
+        uint256 slippage,
+        address relayer,
+        uint256 relayerFee
+    ) internal redeemGas {
+        _call(token, amount, recipient, slippage, relayer, relayerFee);
     }
 
-    function _call(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee) internal {
+    function _call(
+        address token,
+        uint256 amount,
+        address recipient,
+        uint256 slippage,
+        address relayer,
+        uint256 relayerFee
+    ) internal {
         (bool existsBridge, address bridge) = tokenBridges.tryGet(token);
         require(existsBridge, 'BRIDGER_TOKEN_BRIDGE_NOT_SET');
+        require(amount > 0, 'BRIDGER_AMOUNT_ZERO');
         require(destinationChainId != 0, 'BRIDGER_CHAIN_NOT_SET');
         require(slippage <= maxSlippage, 'BRIDGER_SLIPPAGE_ABOVE_MAX');
         require(relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer], 'BRIDGER_RELAYER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
         _withdraw(token, amount);
-        bytes memory data = abi.encode(bridge, maxDeadline, relayer, relayerFee);
-        _bridge(token, amount, slippage, data);
+        uint256 deadline = block.timestamp + maxDeadline;
+        bytes memory data = abi.encode(bridge, deadline, relayer, relayerFee);
+        _bridge(token, amount, recipient, slippage, data);
         emit Executed();
     }
 }

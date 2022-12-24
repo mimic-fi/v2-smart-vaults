@@ -73,7 +73,7 @@ describe('WithdrawalAction', () => {
     })
   })
 
-  describe('withdraw', () => {
+  describe('call', () => {
     const amount = fp(10)
 
     let token: Contract
@@ -94,7 +94,7 @@ describe('WithdrawalAction', () => {
     it('can request to withdraw all funds of a token from the smart vault', async () => {
       await token.mint(smartVault.address, amount)
 
-      const tx = await action.withdrawAll(token.address)
+      const tx = await action.call(token.address, 0)
 
       await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
         token,
@@ -105,7 +105,7 @@ describe('WithdrawalAction', () => {
     })
 
     it('can request to withdraw the requested amount of a token from the smart vault', async () => {
-      const tx = await action.withdraw(token.address, amount)
+      const tx = await action.call(token.address, amount)
 
       await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
         token,

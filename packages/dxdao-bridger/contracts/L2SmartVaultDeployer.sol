@@ -18,7 +18,7 @@ import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/deploy/Deployer.sol';
 
 import './actions/L2HopBridger.sol';
 import './actions/L2HopSwapper.sol';
@@ -106,6 +106,7 @@ contract L2SmartVaultDeployer {
         Deployer.setupBaseAction(bridger, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         Deployer.setupActionExecutors(bridger, executors, bridger.call.selector);
+        Deployer.setupReceiverAction(bridger, params.admin);
         Deployer.setupRelayedAction(bridger, params.admin, params.relayedActionParams);
         Deployer.setupTokenThresholdAction(bridger, params.admin, params.tokenThresholdActionParams);
 
@@ -141,9 +142,6 @@ contract L2SmartVaultDeployer {
         bridger.authorize(address(this), bridger.setDestinationChainId.selector);
         bridger.setDestinationChainId(params.destinationChainId);
         bridger.unauthorize(address(this), bridger.setDestinationChainId.selector);
-
-        // Authorize admin to withdraw funds from action
-        bridger.authorize(params.admin, bridger.withdraw.selector);
 
         // Transfer admin permissions to admin
         Deployer.transferAdminPermissions(bridger, params.admin);

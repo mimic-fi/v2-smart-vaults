@@ -46,7 +46,7 @@ export async function create3(
   if (!from) from = await getSigner()
   const creationCode = getCreationCode(contractName, args, libraries)
   const salt = ethers.utils.solidityKeccak256(['string'], [`${namespace}.${contractName}.${version}`])
-  await (await create3Factory.connect(from).create3(salt, creationCode)).wait()
+  await (await create3Factory.connect(from).create(salt, creationCode)).wait()
   return instanceAt(contractName, await create3Factory.addressOf(salt))
 }
 

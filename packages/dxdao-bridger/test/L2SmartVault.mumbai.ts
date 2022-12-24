@@ -8,29 +8,25 @@ import hre from 'hardhat'
 
 const USDC = '0x6D4dd09982853F08d9966aC3cA4Eb5885F16f2b2'
 const WETH = '0xA6FA4fB5f76172d178d61B04b0ecd319C5d1C0aa'
-const WMATIC = '0x9c3C9283D3e44854697Cd22D3Faa240Cfb032889'
 const HOP_USDC_AMM = '0xa81D244A1814468C734E5b4101F7b9c0c577a8fC'
 const HOP_WETH_AMM = '0x0e0E3d2C5c292161999474247956EF542caBF8dd'
-const FEED_MOCK_ORACLE_MATIC_USD = '0x1ECC4534D0296F7C35971534B3Ea2b6D5DDc2E26' // custom price feed mock
 
 describe.skip('L2SmartVault', () => {
-  let smartVault: Contract, bridger: Contract, swapper: Contract, funder: Contract, holder: Contract, registry: Contract
-  let bot: string, owner: string, managers: string[], mimic: { [key: string]: string }
+  let smartVault: Contract, bridger: Contract, swapper: Contract, registry: Contract
+  let owner: string, relayers: string[], managers: string[], feeCollector: string, mimic: { [key: string]: string }
 
   before('load accounts', async () => {
     const input = await deployment.readInput(getForkedNetwork(hre))
     mimic = input.mimic
-    bot = input.accounts.bot
     owner = input.accounts.owner
+    relayers = input.accounts.relayers
     managers = input.accounts.managers
+    feeCollector = input.accounts.feeCollector
     registry = await instanceAt('IRegistry', mimic.Registry)
   })
 
   before('deploy smart vault', async () => {
-    const output = await deployment.deploy(getForkedNetwork(hre), 'test')
-    const { Funder, Holder, L2HopBridger, L2HopSwapper, SmartVault } = output
-    funder = await instanceAt('Funder', Funder)
-    holder = await instanceAt('Holder', Holder)
+    const { L2HopBridger, L2HopSwapper, SmartVault } = await deployment.deploy(getForkedNetwork(hre), 'test')
     bridger = await instanceAt('L2HopBridger', L2HopBridger)
     swapper = await instanceAt('L2HopSwapper', L2HopSwapper)
     smartVault = await instanceAt('SmartVault', SmartVault)
@@ -62,7 +58,6 @@ describe.skip('L2SmartVault', () => {
             'setPriceFeed',
             'setPriceFeeds',
             'setPriceOracle',
-            'setFeeCollector',
             'setSwapConnector',
             'setBridgeConnector',
             'setSwapFee',
@@ -71,22 +66,22 @@ describe.skip('L2SmartVault', () => {
             'setWithdrawFee',
           ],
         },
-        { name: 'funder', account: funder, roles: ['swap', 'unwrap', 'withdraw'] },
-        { name: 'holder', account: holder, roles: ['wrap', 'swap'] },
-        { name: 'swapper', account: swapper, roles: ['swap'] },
-        { name: 'bridger', account: bridger, roles: ['bridge'] },
+        { name: 'mimic', account: feeCollector, roles: ['setFeeCollector'] },
+        { name: 'swapper', account: swapper, roles: ['swap', 'withdraw'] },
+        { name: 'bridger', account: bridger, roles: ['bridge', 'withdraw'] },
         { name: 'managers', account: managers, roles: [] },
+        { name: 'relayers', account: relayers, roles: [] },
       ])
     })
 
-    it('sets no fee collector', async () => {
-      expect(await smartVault.feeCollector()).to.be.equal(ZERO_ADDRESS)
+    it('sets a fee collector', async () => {
+      expect(await smartVault.feeCollector()).to.be.equal(feeCollector)
     })
 
-    it('sets no bridge fee', async () => {
+    it('sets a bridge fee', async () => {
       const bridgeFee = await smartVault.bridgeFee()
 
-      expect(bridgeFee.pct).to.be.equal(0)
+      expect(bridgeFee.pct).to.be.equal(fp(0.002))
       expect(bridgeFee.cap).to.be.equal(0)
       expect(bridgeFee.token).to.be.equal(ZERO_ADDRESS)
       expect(bridgeFee.period).to.be.equal(0)
@@ -130,84 +125,6 @@ describe.skip('L2SmartVault', () => {
     it('sets a bridge connector', async () => {
       expect(await smartVault.bridgeConnector()).to.be.equal(mimic.BridgeConnector)
     })
-
-    it('sets a price feed for WMATIC-USDC', async () => {
-      expect(await smartVault.getPriceFeed(WMATIC, USDC)).to.be.equal(FEED_MOCK_ORACLE_MATIC_USD)
-    })
-  })
-
-  describe('funder', () => {
-    it('has set its permissions correctly', async () => {
-      await assertPermissions(funder, [
-        {
-          name: 'owner',
-          account: owner,
-          roles: [
-            'authorize',
-            'unauthorize',
-            'setSmartVault',
-            'setMaxSlippage',
-            'setBalanceLimits',
-            'setRecipient',
-            'call',
-          ],
-        },
-        { name: 'funder', account: funder, roles: [] },
-        { name: 'holder', account: holder, roles: [] },
-        { name: 'bridger', account: bridger, roles: [] },
-        { name: 'managers', account: managers, roles: ['call'] },
-      ])
-    })
-
-    it('has the proper smart vault set', async () => {
-      expect(await funder.smartVault()).to.be.equal(smartVault.address)
-    })
-
-    it('sets the expected token balance limits', async () => {
-      expect(await funder.minBalance()).to.be.equal(fp(0.3))
-      expect(await funder.maxBalance()).to.be.equal(fp(2))
-    })
-
-    it('sets the requested max slippage', async () => {
-      expect(await funder.maxSlippage()).to.be.equal(fp(0.001))
-    })
-
-    it('sets the requested recipient', async () => {
-      expect(await funder.recipient()).to.be.equal(bot)
-    })
-  })
-
-  describe('holder', () => {
-    it('has set its permissions correctly', async () => {
-      await assertPermissions(holder, [
-        {
-          name: 'owner',
-          account: owner,
-          roles: ['authorize', 'unauthorize', 'setSmartVault', 'setThreshold', 'setMaxSlippage', 'setTokenOut', 'call'],
-        },
-        { name: 'funder', account: funder, roles: [] },
-        { name: 'holder', account: holder, roles: [] },
-        { name: 'bridger', account: bridger, roles: [] },
-        { name: 'managers', account: managers, roles: ['call'] },
-      ])
-    })
-
-    it('has the proper smart vault set', async () => {
-      expect(await holder.smartVault()).to.be.equal(smartVault.address)
-    })
-
-    it('sets the expected token threshold params', async () => {
-      expect(await holder.thresholdToken()).to.be.equal(USDC)
-      expect(await holder.thresholdAmount()).to.be.equal(toUSDC(5))
-    })
-
-    it('sets the requested token out', async () => {
-      expect(await holder.tokenOut()).to.be.equal(USDC)
-    })
-
-    it('sets the requested max slippage', async () => {
-      expect(await holder.maxSlippage()).to.be.equal(fp(0.002))
-    })
   })
 
   describe('swapper', () => {
@@ -216,18 +133,33 @@ describe.skip('L2SmartVault', () => {
         {
           name: 'owner',
           account: owner,
-          roles: ['authorize', 'unauthorize', 'setSmartVault', 'setMaxSlippage', 'setTokenAmm', 'call'],
+          roles: [
+            'authorize',
+            'unauthorize',
+            'setSmartVault',
+            'setLimits',
+            'setRelayer',
+            'setMaxSlippage',
+            'setTokenAmm',
+            'call',
+          ],
         },
-        { name: 'funder', account: funder, roles: [] },
-        { name: 'holder', account: holder, roles: [] },
+        { name: 'mimic', account: feeCollector, roles: ['setPermissiveMode'] },
         { name: 'swapper', account: swapper, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
       ])
     })
 
     it('has the proper smart vault set', async () => {
       expect(await swapper.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('sets the expected gas limits', async () => {
+      expect(await swapper.gasPriceLimit()).to.be.equal(100e9)
+      expect(await swapper.totalCostLimit()).to.be.equal(0)
+      expect(await swapper.payingGasToken()).to.be.equal(USDC)
     })
 
     it('sets the requested AMMs', async () => {
@@ -238,6 +170,18 @@ describe.skip('L2SmartVault', () => {
 
     it('sets the requested max slippage', async () => {
       expect(await swapper.maxSlippage()).to.be.equal(fp(0.002))
+    })
+
+    it('allows the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await swapper.isRelayer(relayer)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await swapper.isRelayer(manager)).to.be.false
+      }
     })
   })
 
@@ -251,20 +195,23 @@ describe.skip('L2SmartVault', () => {
             'authorize',
             'unauthorize',
             'setSmartVault',
+            'setLimits',
+            'setRelayer',
             'setThreshold',
             'setMaxSlippage',
             'setMaxDeadline',
             'setMaxBonderFeePct',
-            'setAllowedChain',
+            'setDestinationChainId',
             'setTokenAmm',
+            'withdraw',
             'call',
           ],
         },
-        { name: 'funder', account: funder, roles: [] },
-        { name: 'holder', account: holder, roles: [] },
+        { name: 'mimic', account: feeCollector, roles: ['setPermissiveMode'] },
         { name: 'swapper', account: swapper, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
       ])
     })
 
@@ -274,12 +221,17 @@ describe.skip('L2SmartVault', () => {
 
     it('sets the expected token threshold params', async () => {
       expect(await bridger.thresholdToken()).to.be.equal(USDC)
-      expect(await bridger.thresholdAmount()).to.be.equal(toUSDC(5))
+      expect(await bridger.thresholdAmount()).to.be.equal(toUSDC(0.5))
     })
 
-    it('allows the requested chains', async () => {
-      expect(await bridger.isChainAllowed(5)).to.be.true
-      expect(await bridger.isChainAllowed(10)).to.be.false
+    it('sets the expected gas limits', async () => {
+      expect(await bridger.gasPriceLimit()).to.be.equal(100e9)
+      expect(await bridger.totalCostLimit()).to.be.equal(0)
+      expect(await bridger.payingGasToken()).to.be.equal(USDC)
+    })
+
+    it('allows the requested destination chain ID', async () => {
+      expect(await bridger.destinationChainId()).to.be.equal(5)
     })
 
     it('sets the requested AMMs', async () => {
@@ -292,6 +244,18 @@ describe.skip('L2SmartVault', () => {
       expect(await bridger.maxDeadline()).to.be.equal(2 * HOUR)
       expect(await bridger.maxSlippage()).to.be.equal(fp(0.002))
       expect(await bridger.maxBonderFeePct()).to.be.equal(fp(0.03))
+    })
+
+    it('allows the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await bridger.isRelayer(relayer)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await bridger.isRelayer(manager)).to.be.false
+      }
     })
   })
 })
