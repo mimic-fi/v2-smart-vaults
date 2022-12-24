@@ -8,7 +8,7 @@ import {
   instanceAt,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
-import { assertPermissions, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import { assertPermissions, Mimic, MOCKS, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -29,7 +29,7 @@ describe('L1SmartVault', () => {
   })
 
   beforeEach('deploy hop l1 bridge mock', async () => {
-    hopL1Bridge = await deploy('HopL1BridgeMock', [mimic.wrappedNativeToken.address])
+    hopL1Bridge = await deploy(MOCKS.HOP_L1_BRIDGE, [mimic.wrappedNativeToken.address])
   })
 
   beforeEach('deploy smart vault', async () => {

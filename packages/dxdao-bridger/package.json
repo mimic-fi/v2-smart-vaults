@@ -18,8 +18,8 @@
     "lint:solidity": "solhint 'contracts/**/*.sol' --config ../../node_modules/solhint-config-mimic/index.js",
     "lint:typescript": "eslint . --ext .ts",
     "test": "hardhat test",
-    "test:goerli": "yarn test --fork goerli --block-number 7936650",
-    "test:mumbai": "yarn test --fork mumbai --block-number 29928569",
+    "test:goerli": "yarn test --fork goerli --block-number 8170464",
+    "test:mumbai": "yarn test --fork mumbai --block-number 29939767",
     "test:mainnet": "yarn test --fork mainnet --block-number 15950150",
     "prepare": "yarn build"
   },
