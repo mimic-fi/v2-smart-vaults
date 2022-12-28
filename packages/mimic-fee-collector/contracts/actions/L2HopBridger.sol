@@ -60,14 +60,15 @@ contract L2HopBridger is BaseHopBridger {
         }
     }
 
-    function canExecute(address token, uint256 amount, uint256 slippage, uint256 bonderFee)
+    function canExecute(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFee)
         external
         view
         returns (bool)
     {
         return
             tokenAmms.contains(token) &&
-            destinationChainId != 0 &&
+            amount > 0 &&
+            isChainAllowed[chainId] &&
             slippage <= maxSlippage &&
             bonderFee.divUp(amount) <= maxBonderFeePct &&
             _passesThreshold(token, amount);
@@ -81,22 +82,24 @@ contract L2HopBridger is BaseHopBridger {
 
     function setTokenAmm(address token, address amm) external auth {
         require(token != address(0), 'BRIDGER_TOKEN_ZERO');
-        require(amm == address(0) || IHopL2AMM(amm).l2CanonicalToken() == token, 'BRIDGER_AMM_TOKEN_DOES_NOT_MATCH');
         amm == address(0) ? tokenAmms.remove(token) : tokenAmms.set(token, amm);
         emit TokenAmmSet(token, amm);
     }
 
-    function call(address token, uint256 amount, uint256 slippage, uint256 bonderFee) external auth {
+    function call(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFee) external auth {
         (bool existsAmm, address amm) = tokenAmms.tryGet(token);
         require(existsAmm, 'BRIDGER_TOKEN_AMM_NOT_SET');
-        require(destinationChainId != 0, 'BRIDGER_CHAIN_NOT_SET');
+        require(amount > 0, 'BRIDGER_AMOUNT_ZERO');
+        require(isChainAllowed[chainId], 'BRIDGER_CHAIN_NOT_ALLOWED');
         require(slippage <= maxSlippage, 'BRIDGER_SLIPPAGE_ABOVE_MAX');
         require(bonderFee.divUp(amount) <= maxBonderFeePct, 'BRIDGER_BONDER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
-        _withdraw(token, amount);
-        bytes memory data = _bridgingToL1() ? abi.encode(amm, bonderFee) : abi.encode(amm, bonderFee, maxDeadline);
-        _bridge(token, amount, slippage, data);
+        bytes memory data = _bridgingToL1(chainId)
+            ? abi.encode(amm, bonderFee)
+            : abi.encode(amm, bonderFee, block.timestamp + maxDeadline);
+
+        _bridge(chainId, token, amount, slippage, data);
         emit Executed();
     }
 }

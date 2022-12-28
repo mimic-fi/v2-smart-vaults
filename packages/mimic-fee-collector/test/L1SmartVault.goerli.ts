@@ -1,107 +1,43 @@
-import {
-  assertIndirectEvent,
-  deploy,
-  fp,
-  getSigner,
-  getSigners,
-  HOUR,
-  instanceAt,
-  ZERO_ADDRESS,
-} from '@mimic-fi/v2-helpers'
-import { assertPermissions, createTokenMock, Mimic, MOCKS, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
+import { fp, getForkedNetwork, HOUR, instanceAt, toUSDC, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { assertPermissions, deployment } from '@mimic-fi/v2-smart-vaults-base'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
+import hre from 'hardhat'
 
-describe('L1SmartVault', () => {
-  let smartVault: Contract, bridger: Contract, mimic: Mimic, funder: Contract, holder: Contract
-  let holdingToken: Contract, hopL1Bridge: Contract
-  let other: SignerWithAddress, owner: SignerWithAddress, managers: SignerWithAddress[], recipient: SignerWithAddress
+/* eslint-disable no-secrets/no-secrets */
 
-  beforeEach('set up signers', async () => {
-    other = await getSigner(1)
-    owner = await getSigner(2)
-    managers = await getSigners(3, 3)
-    recipient = await getSigner(9)
+const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+const HOP_ETH_BRIDGE = '0xb8901acB165ed027E32754E0FFe830802919727f'
+const HOP_USDC_BRIDGE = '0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a'
+const CHAINLINK_ORACLE_ETH_USD = '0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e'
+
+describe.skip('L1SmartVault', () => {
+  let smartVault: Contract, bridger: Contract, funder: Contract, holder: Contract, registry: Contract
+  let bot: string, owner: string, managers: string[], mimic: { [key: string]: string }
+
+  before('load accounts', async () => {
+    const input = await deployment.readInput(getForkedNetwork(hre))
+    mimic = input.mimic
+    bot = input.accounts.bot
+    owner = input.accounts.owner
+    managers = input.accounts.managers
+    registry = await instanceAt('IRegistry', mimic.Registry)
   })
 
-  beforeEach('setup mimic', async () => {
-    mimic = await setupMimic(false)
-  })
-
-  beforeEach('deploy mocks', async () => {
-    holdingToken = await createTokenMock()
-    hopL1Bridge = await deploy(MOCKS.HOP_L1_BRIDGE, [mimic.wrappedNativeToken.address])
-  })
-
-  beforeEach('deploy smart vault', async () => {
-    const deployer = await deploy('L1SmartVaultDeployer', [], owner, { Deployer: mimic.deployer.address })
-    funder = await deploy('Funder', [deployer.address, mimic.registry.address])
-    holder = await deploy('Holder', [deployer.address, mimic.registry.address])
-    bridger = await deploy('L1HopBridger', [deployer.address, mimic.registry.address])
-
-    const tx = await deployer.deploy({
-      registry: mimic.registry.address,
-      smartVaultParams: {
-        impl: mimic.smartVault.address,
-        admin: owner.address,
-        feeCollector: ZERO_ADDRESS,
-        strategies: [],
-        priceFeedParams: [],
-        priceOracle: mimic.priceOracle.address,
-        swapConnector: mimic.swapConnector.address,
-        bridgeConnector: mimic.bridgeConnector.address,
-        bridgeFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-        swapFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-        withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-        performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
-      },
-      funderActionParams: {
-        impl: funder.address,
-        admin: owner.address,
-        managers: managers.map((m) => m.address),
-        minBalance: fp(10),
-        maxBalance: fp(20),
-        maxSlippage: fp(0.001),
-        withdrawalActionParams: {
-          recipient: recipient.address,
-        },
-      },
-      holderActionParams: {
-        impl: holder.address,
-        admin: owner.address,
-        managers: managers.map((m) => m.address),
-        maxSlippage: fp(0.002),
-        tokenOut: holdingToken.address,
-        tokenThresholdActionParams: {
-          amount: fp(10),
-          token: mimic.wrappedNativeToken.address,
-        },
-      },
-      l1HopBridgerActionParams: {
-        impl: bridger.address,
-        admin: owner.address,
-        managers: managers.map((m) => m.address),
-        maxDeadline: 2 * HOUR,
-        maxSlippage: fp(0.002), // 0.2 %
-        allowedChainIds: [100], // gnosis chain
-        hopBridgeParams: [{ token: mimic.wrappedNativeToken.address, bridge: hopL1Bridge.address }],
-        hopRelayerParams: [{ relayer: other.address, maxFeePct: fp(0.02) }],
-        tokenThresholdActionParams: {
-          amount: fp(10),
-          token: mimic.wrappedNativeToken.address,
-        },
-      },
-    })
-
-    const { args } = await assertIndirectEvent(tx, mimic.registry.interface, 'Cloned', {
-      implementation: mimic.smartVault,
-    })
-
-    smartVault = await instanceAt('SmartVault', args.instance)
+  before('deploy smart vault', async () => {
+    const { Funder, Holder, L1HopBridger, SmartVault } = await deployment.deploy(getForkedNetwork(hre), 'test')
+    funder = await instanceAt('Funder', Funder)
+    holder = await instanceAt('Holder', Holder)
+    bridger = await instanceAt('L1HopBridger', L1HopBridger)
+    smartVault = await instanceAt('SmartVault', SmartVault)
   })
 
   describe('smart vault', () => {
+    it('uses the correct implementation', async () => {
+      expect(await registry.implementationOf(smartVault.address)).to.be.equal(mimic.SmartVault)
+    })
+
     it('has set its permissions correctly', async () => {
       await assertPermissions(smartVault, [
         {
@@ -132,11 +68,9 @@ describe('L1SmartVault', () => {
             'setWithdrawFee',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'funder', account: funder, roles: ['swap', 'unwrap', 'withdraw'] },
         { name: 'holder', account: holder, roles: ['wrap', 'swap'] },
         { name: 'bridger', account: bridger, roles: ['bridge'] },
-        { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
       ])
     })
@@ -182,15 +116,19 @@ describe('L1SmartVault', () => {
     })
 
     it('sets a price oracle', async () => {
-      expect(await smartVault.priceOracle()).to.be.equal(mimic.priceOracle.address)
+      expect(await smartVault.priceOracle()).to.be.equal(mimic.PriceOracle)
     })
 
     it('sets a swap connector', async () => {
-      expect(await smartVault.swapConnector()).to.be.equal(mimic.swapConnector.address)
+      expect(await smartVault.swapConnector()).to.be.equal(mimic.SwapConnector)
     })
 
     it('sets a bridge connector', async () => {
-      expect(await smartVault.bridgeConnector()).to.be.equal(mimic.bridgeConnector.address)
+      expect(await smartVault.bridgeConnector()).to.be.equal(mimic.BridgeConnector)
+    })
+
+    it('sets a price feed for WETH-USDC', async () => {
+      expect(await smartVault.getPriceFeed(WETH, USDC)).to.be.equal(CHAINLINK_ORACLE_ETH_USD)
     })
   })
 
@@ -210,11 +148,9 @@ describe('L1SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'funder', account: funder, roles: [] },
         { name: 'holder', account: holder, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
-        { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
       ])
     })
@@ -224,8 +160,8 @@ describe('L1SmartVault', () => {
     })
 
     it('sets the expected token balance limits', async () => {
-      expect(await funder.minBalance()).to.be.equal(fp(10))
-      expect(await funder.maxBalance()).to.be.equal(fp(20))
+      expect(await funder.minBalance()).to.be.equal(fp(0.3))
+      expect(await funder.maxBalance()).to.be.equal(fp(2))
     })
 
     it('sets the requested max slippage', async () => {
@@ -233,7 +169,7 @@ describe('L1SmartVault', () => {
     })
 
     it('sets the requested recipient', async () => {
-      expect(await funder.recipient()).to.be.equal(recipient.address)
+      expect(await funder.recipient()).to.be.equal(bot)
     })
   })
 
@@ -245,11 +181,9 @@ describe('L1SmartVault', () => {
           account: owner,
           roles: ['authorize', 'unauthorize', 'setSmartVault', 'setThreshold', 'setMaxSlippage', 'setTokenOut', 'call'],
         },
-        { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'funder', account: funder, roles: [] },
         { name: 'holder', account: holder, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
-        { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
       ])
     })
@@ -259,12 +193,12 @@ describe('L1SmartVault', () => {
     })
 
     it('sets the expected token threshold params', async () => {
-      expect(await holder.thresholdToken()).to.be.equal(mimic.wrappedNativeToken.address)
-      expect(await holder.thresholdAmount()).to.be.equal(fp(10))
+      expect(await holder.thresholdToken()).to.be.equal(USDC)
+      expect(await holder.thresholdAmount()).to.be.equal(toUSDC(5))
     })
 
     it('sets the requested token out', async () => {
-      expect(await holder.tokenOut()).to.be.equal(holdingToken.address)
+      expect(await holder.tokenOut()).to.be.equal(USDC)
     })
 
     it('sets the requested max slippage', async () => {
@@ -291,11 +225,9 @@ describe('L1SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'funder', account: funder, roles: [] },
         { name: 'holder', account: holder, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
-        { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
       ])
     })
@@ -305,25 +237,25 @@ describe('L1SmartVault', () => {
     })
 
     it('sets the expected token threshold params', async () => {
-      expect(await bridger.thresholdToken()).to.be.equal(mimic.wrappedNativeToken.address)
-      expect(await bridger.thresholdAmount()).to.be.equal(fp(10))
+      expect(await bridger.thresholdToken()).to.be.equal(USDC)
+      expect(await bridger.thresholdAmount()).to.be.equal(toUSDC(5))
     })
 
     it('allows the requested chains', async () => {
-      expect(await bridger.isChainAllowed(1)).to.be.false
-      expect(await bridger.isChainAllowed(100)).to.be.true
+      expect(await bridger.isChainAllowed(100)).to.be.false
+      expect(await bridger.isChainAllowed(80001)).to.be.true
     })
 
     it('sets the requested bridges', async () => {
-      expect(await bridger.getTokenBridge(owner.address)).to.be.equal(ZERO_ADDRESS)
-      expect(await bridger.getTokenBridge(mimic.wrappedNativeToken.address)).to.be.equal(hopL1Bridge.address)
+      expect(await bridger.getTokenBridge(owner)).to.be.equal(ZERO_ADDRESS)
+      expect(await bridger.getTokenBridge(WETH)).to.be.equal(HOP_ETH_BRIDGE)
+      expect(await bridger.getTokenBridge(USDC)).to.be.equal(HOP_USDC_BRIDGE)
     })
 
     it('sets the requested maximums', async () => {
       expect(await bridger.maxDeadline()).to.be.equal(2 * HOUR)
       expect(await bridger.maxSlippage()).to.be.equal(fp(0.002))
       expect(await bridger.getMaxRelayerFeePct(ZERO_ADDRESS)).to.be.equal(0)
-      expect(await bridger.getMaxRelayerFeePct(other.address)).to.be.equal(fp(0.02))
     })
   })
 })

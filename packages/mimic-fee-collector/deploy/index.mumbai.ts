@@ -9,17 +9,38 @@ export default async (input: any, writeOutput: (key: string, value: string) => v
   const { params, mimic } = input
 
   const create3Factory = await instanceAt(ARTIFACTS.CREATE3_FACTORY, mimic.Create3Factory)
-  const deployer = await deployment.create3(input.namespace, create3Factory, 'L2SmartVaultDeployer', [], undefined, {
+  const deployer = await deployment.create3(input.namespace, 'v1', create3Factory, 'L2SmartVaultDeployer', [], null, {
     Deployer: mimic.Deployer,
   })
-  writeOutput('Deployer', deployer.address)
+  writeOutput('L2Deployer', deployer.address)
 
-  const bridger = await deployment.create3(input.namespace, create3Factory, 'L2HopBridger', [
+  const funder = await deployment.create3(input.namespace, 'v1', create3Factory, 'Funder', [
+    deployer.address,
+    mimic.Registry,
+  ])
+  writeOutput('Funder', funder.address)
+  params.funderActionParams.impl = funder.address
+
+  const holder = await deployment.create3(input.namespace, 'v1', create3Factory, 'Holder', [
+    deployer.address,
+    mimic.Registry,
+  ])
+  writeOutput('Holder', holder.address)
+  params.holderActionParams.impl = holder.address
+
+  const bridger = await deployment.create3(input.namespace, 'v1', create3Factory, 'L2HopBridger', [
     deployer.address,
     mimic.Registry,
   ])
   writeOutput('L2HopBridger', bridger.address)
   params.l2HopBridgerActionParams.impl = bridger.address
+
+  const swapper = await deployment.create3(input.namespace, 'v1', create3Factory, 'L2HopSwapper', [
+    deployer.address,
+    mimic.Registry,
+  ])
+  writeOutput('L2HopSwapper', swapper.address)
+  params.l2HopSwapperActionParams.impl = swapper.address
 
   const tx = await deployer.deploy(params)
   const registry = await instanceAt('IRegistry', mimic.Registry)

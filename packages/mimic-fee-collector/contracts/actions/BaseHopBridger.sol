@@ -19,7 +19,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.so
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/ReceiverAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
-abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAction {
+abstract contract BaseHopBridger is BaseAction, TokenThresholdAction {
     // Hop Exchange source number
     uint8 internal constant HOP_SOURCE = 0;
 
@@ -29,11 +29,11 @@ abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAc
 
     uint256 public maxDeadline;
     uint256 public maxSlippage;
-    uint256 public destinationChainId;
+    mapping (uint256 => bool) public isChainAllowed;
 
     event MaxDeadlineSet(uint256 maxDeadline);
     event MaxSlippageSet(uint256 maxSlippage);
-    event DestinationChainIdSet(uint256 indexed chainId);
+    event AllowedChainSet(uint256 indexed chainId, bool allowed);
 
     function getTokens() external view virtual returns (address[] memory);
 
@@ -51,20 +51,21 @@ abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAc
         emit MaxSlippageSet(newMaxSlippage);
     }
 
-    function setDestinationChainId(uint256 chainId) external auth {
+    function setAllowedChain(uint256 chainId, bool allowed) external auth {
+        require(chainId != 0, 'BRIDGER_CHAIN_ID_ZERO');
         require(chainId != block.chainid, 'BRIDGER_SAME_CHAIN_ID');
-        destinationChainId = chainId;
-        emit DestinationChainIdSet(chainId);
+        isChainAllowed[chainId] = allowed;
+        emit AllowedChainSet(chainId, allowed);
     }
 
-    function _bridgingToL1() internal view returns (bool) {
-        return destinationChainId == MAINNET_CHAIN_ID || destinationChainId == GOERLI_CHAIN_ID;
+    function _bridgingToL1(uint256 chainId) internal pure returns (bool) {
+        return chainId == MAINNET_CHAIN_ID || chainId == GOERLI_CHAIN_ID;
     }
 
-    function _bridge(address token, uint256 amount, uint256 slippage, bytes memory data) internal {
+    function _bridge(uint256 chainId, address token, uint256 amount, uint256 slippage, bytes memory data) internal {
         smartVault.bridge(
             HOP_SOURCE,
-            destinationChainId,
+            chainId,
             token,
             amount,
             ISmartVault.BridgeLimit.Slippage,
