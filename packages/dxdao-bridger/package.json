@@ -25,11 +25,11 @@
   },
   "dependencies": {
     "@mimic-fi/v2-smart-vaults-base": "0.0.4",
-    "@mimic-fi/v2-smart-vault": "0.0.14",
+    "@mimic-fi/v2-smart-vault": "0.1.0-rc.2",
     "@openzeppelin/contracts": "4.7.0"
   },
   "devDependencies": {
-    "@mimic-fi/v2-helpers": "0.0.13",
+    "@mimic-fi/v2-helpers": "0.1.0-rc.2",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@types/chai": "^4.2.18",

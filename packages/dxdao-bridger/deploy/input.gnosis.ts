@@ -20,6 +20,7 @@ const accounts = {
 const mimic = {
   Deployer: undefined,
   Registry: undefined,
+  SmartVaultsFactory: undefined,
   SmartVault: undefined,
   PriceOracle: undefined,
   SwapConnector: undefined,
@@ -34,6 +35,7 @@ export default {
   params: {
     registry: mimic.Registry,
     smartVaultParams: {
+      factory: mimic.SmartVaultsFactory,
       impl: mimic.SmartVault,
       admin: accounts.owner,
       feeCollector: accounts.feeCollector,

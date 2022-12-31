@@ -1,4 +1,12 @@
-import { assertIndirectEvent, currentTimestamp, deploy, fp, instanceAt, MONTH } from '@mimic-fi/v2-helpers'
+import {
+  assertIndirectEvent,
+  currentTimestamp,
+  deploy,
+  fp,
+  instanceAt,
+  MONTH,
+  ONES_BYTES32,
+} from '@mimic-fi/v2-helpers'
 import { assertPermissions, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -13,7 +21,9 @@ describe('Deployer', () => {
   const config = {
     registry: undefined,
     smartVaultParams: {
+      factory: undefined,
       impl: undefined,
+      salt: ONES_BYTES32,
       admin: randomAddress(),
       feeCollector: randomAddress(),
       strategies: [],
@@ -83,6 +93,7 @@ describe('Deployer', () => {
 
     config.registry = mimic.registry.address
     config.smartVaultParams.impl = mimic.smartVault.address
+    config.smartVaultParams.factory = mimic.smartVaultsFactory.address
     config.smartVaultParams.priceOracle = mimic.priceOracle.address
     config.smartVaultParams.swapConnector = mimic.swapConnector.address
     config.smartVaultParams.bridgeConnector = mimic.bridgeConnector.address
@@ -92,9 +103,14 @@ describe('Deployer', () => {
     config.tokenThresholdActionParams.impl = tokenThreshold.address
     config.withdrawalActionParams.impl = withdrawal.address
 
-    const { args } = await assertIndirectEvent(await deployer.deploy(config), mimic.registry.interface, 'Cloned', {
-      implementation: mimic.smartVault,
-    })
+    const { args } = await assertIndirectEvent(
+      await deployer.deploy(config),
+      mimic.smartVaultsFactory.interface,
+      'Created',
+      {
+        implementation: mimic.smartVault,
+      }
+    )
 
     smartVault = await instanceAt('SmartVault', args.instance)
   })

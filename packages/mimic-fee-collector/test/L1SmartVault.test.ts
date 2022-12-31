@@ -12,6 +12,7 @@ import { assertPermissions, createTokenMock, Mimic, MOCKS, setupMimic } from '@m
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
+import { ethers } from 'hardhat'
 
 describe('L1SmartVault', () => {
   let smartVault: Contract, bridger: Contract, mimic: Mimic, funder: Contract, holder: Contract
@@ -43,6 +44,8 @@ describe('L1SmartVault', () => {
     const tx = await deployer.deploy({
       registry: mimic.registry.address,
       smartVaultParams: {
+        salt: ethers.utils.solidityKeccak256(['string'], ['mimic-v2.mimic-fee-collector']),
+        factory: mimic.smartVaultsFactory.address,
         impl: mimic.smartVault.address,
         admin: owner.address,
         feeCollector: ZERO_ADDRESS,
@@ -94,7 +97,7 @@ describe('L1SmartVault', () => {
       },
     })
 
-    const { args } = await assertIndirectEvent(tx, mimic.registry.interface, 'Cloned', {
+    const { args } = await assertIndirectEvent(tx, mimic.smartVaultsFactory.interface, 'Created', {
       implementation: mimic.smartVault,
     })
 

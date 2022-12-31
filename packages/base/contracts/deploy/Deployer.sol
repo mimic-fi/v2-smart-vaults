@@ -15,6 +15,7 @@
 pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
+import '@mimic-fi/v2-smart-vault/contracts/ISmartVaultsFactory.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
@@ -31,6 +32,9 @@ import '../actions/WithdrawalAction.sol';
  */
 library Deployer {
     using UncheckedMath for uint256;
+
+    // Namespace to use by this deployer to fetch ISmartVaultFactory implementations from the Mimic Registry
+    bytes32 private constant SMART_VAULT_FACTORY_NAMESPACE = keccak256('SMART_VAULTS_FACTORY');
 
     // Namespace to use by this deployer to fetch ISmartVault implementations from the Mimic Registry
     bytes32 private constant SMART_VAULT_NAMESPACE = keccak256('SMART_VAULT');
@@ -49,7 +53,9 @@ library Deployer {
 
     /**
      * @dev Smart vault params
+     * @param factory Address of the factory that will be used to deploy an instance of the Smart Vault implementation
      * @param impl Address of the Smart Vault implementation to be used
+     * @param salt Salt bytes to derivate the address of the new Smart Vault instance
      * @param admin Address that will be granted with admin rights for the deployed Smart Vault
      * @param bridgeConnector Optional Bridge Connector to set for the Smart Vault
      * @param swapConnector Optional Swap Connector to set for the Smart Vault
@@ -63,7 +69,9 @@ library Deployer {
      * @param performanceFee Performance fee params
      */
     struct SmartVaultParams {
+        address factory;
         address impl;
+        bytes32 salt;
         address admin;
         address[] strategies;
         address bridgeConnector;
@@ -158,9 +166,12 @@ library Deployer {
         returns (SmartVault smartVault)
     {
         // Clone requested Smart Vault implementation and initialize
-        require(registry.isActive(SMART_VAULT_NAMESPACE, params.impl), 'BAD_SMART_VAULT_IMPLEMENTATION');
+        require(registry.isActive(SMART_VAULT_FACTORY_NAMESPACE, params.factory), 'BAD_SMART_VAULT_FACTORY_IMPL');
+        ISmartVaultsFactory factory = ISmartVaultsFactory(params.factory);
+
         bytes memory initializeData = abi.encodeWithSelector(SmartVault.initialize.selector, address(this));
-        smartVault = SmartVault(payable(registry.clone(params.impl, initializeData)));
+        bytes32 senderSalt = keccak256(abi.encodePacked(msg.sender, params.salt));
+        smartVault = SmartVault(payable(factory.create(senderSalt, params.impl, initializeData)));
 
         // Authorize admin to perform any action except setting the fee collector, see below
         smartVault.authorize(params.admin, smartVault.collect.selector);
