@@ -5,6 +5,7 @@ import { Contract } from 'ethers'
 export type Mimic = {
   deployer: Contract
   registry: Contract
+  smartVaultsFactory: Contract
   smartVault: Contract
   priceOracle: Contract
   swapConnector: Contract
@@ -27,6 +28,7 @@ export const MOCKS = {
 
 export const ARTIFACTS = {
   REGISTRY: '@mimic-fi/v2-registry/artifacts/contracts/registry/Registry.sol/Registry',
+  SMART_VAULTS_FACTORY: '@mimic-fi/v2-smart-vault/artifacts/contracts/SmartVaultsFactory.sol/SmartVaultsFactory',
   SMART_VAULT: '@mimic-fi/v2-smart-vault/artifacts/contracts/SmartVault.sol/SmartVault',
   PRICE_ORACLE: '@mimic-fi/v2-price-oracle/artifacts/contracts/oracle/PriceOracle.sol/PriceOracle',
   SWAP_CONNECTOR: '@mimic-fi/v2-swap-connector/artifacts/contracts/SwapConnector.sol/SwapConnector',
@@ -45,6 +47,9 @@ export async function setupMimic(mocked: boolean): Promise<Mimic> {
   const registry = await deploy(ARTIFACTS.REGISTRY, [admin.address])
 
   const wrappedNativeToken = await deploy(MOCKS.WRAPPED_NATIVE_TOKEN)
+
+  const smartVaultsFactory = await deploy(ARTIFACTS.SMART_VAULTS_FACTORY, [registry.address])
+  await registry.connect(admin).register(await smartVaultsFactory.NAMESPACE(), smartVaultsFactory.address, false)
 
   const smartVault = await deploy(ARTIFACTS.SMART_VAULT, [wrappedNativeToken.address, registry.address])
   await registry.connect(admin).register(await smartVault.NAMESPACE(), smartVault.address, false)
@@ -66,8 +71,18 @@ export async function setupMimic(mocked: boolean): Promise<Mimic> {
 
   const bridgeConnector = await (mocked
     ? deploy(MOCKS.BRIDGE_CONNECTOR, [registry.address])
-    : deploy(ARTIFACTS.BRIDGE_CONNECTOR, [registry.address]))
+    : deploy(ARTIFACTS.BRIDGE_CONNECTOR, [wrappedNativeToken.address, registry.address]))
   await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
 
-  return { deployer, registry, smartVault, priceOracle, swapConnector, bridgeConnector, wrappedNativeToken, admin }
+  return {
+    deployer,
+    registry,
+    smartVaultsFactory,
+    smartVault,
+    priceOracle,
+    swapConnector,
+    bridgeConnector,
+    wrappedNativeToken,
+    admin,
+  }
 }

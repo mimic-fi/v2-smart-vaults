@@ -53,7 +53,6 @@ contract BaseAction is IAction, BaseAuthorizedImplementation {
      */
     function setSmartVault(address newSmartVault) external auth {
         require(address(smartVault) == address(0), 'SMART_VAULT_ALREADY_SET');
-        _validateStatefulDependency(newSmartVault);
         smartVault = ISmartVault(newSmartVault);
         emit SmartVaultSet(newSmartVault);
     }

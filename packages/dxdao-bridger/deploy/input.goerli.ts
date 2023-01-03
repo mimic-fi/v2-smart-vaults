@@ -19,6 +19,7 @@ const accounts = {
 const mimic = {
   Deployer: '0x67ce4712c7F4d404FcD98666C9491d415904887F',
   Registry: '0x53D627B1a2993139b32d5dF209A94498d691f21A',
+  SmartVaultsFactory: undefined,
   SmartVault: '0x4Ad219E160858C94b75Cea06378fD3Bb916BA40B',
   SwapConnector: '0xB4faF745759b5E1C8eBb84f825748Eeb12ae71d6',
   BridgeConnector: '0x6c68789bD9652779845F2bE0E1d878409c472bAd',
@@ -33,6 +34,7 @@ export default {
   params: {
     registry: mimic.Registry,
     smartVaultParams: {
+      factory: mimic.SmartVaultsFactory,
       impl: mimic.SmartVault,
       admin: accounts.owner,
       feeCollector: accounts.feeCollector,
