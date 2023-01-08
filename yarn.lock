@@ -897,20 +897,6 @@
     ethers "^5.0.8"
     hardhat "^2.4.1"
 
-"@mimic-fi/v2-helpers@0.1.0-rc.1":
-  version "0.1.0-rc.1"
-  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.1.0-rc.1.tgz#7a250e4950d8b2901f3a7d7ea958605bc122985d"
-  integrity sha512-mgRhhdov6CTLW1Csprtm4ufUYUaA+J1k6NdpKjQPNZBGJqBHAS/9nPCFwPIRM+/Z8/SnprhaUhs7gswN4SYxvA==
-  dependencies:
-    "@nomiclabs/hardhat-ethers" "^2.2.1"
-    "@nomiclabs/hardhat-waffle" "^2.0.3"
-    "@types/chai" "^4.2.18"
-    "@types/mocha" "^8.2.2"
-    chai "^4.2.0"
-    decimal.js "^10.3.1"
-    ethers "~5.6.0"
-    hardhat "^2.12.4"
-
 "@mimic-fi/v2-helpers@0.1.0-rc.2":
   version "0.1.0-rc.2"
   resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.1.0-rc.2.tgz#60246957b9e37d7f964a9b5a284e5d8706f6e9d3"

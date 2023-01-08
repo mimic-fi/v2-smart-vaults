@@ -43,6 +43,7 @@
     "@types/mocha": "^8.2.2",
     "chai": "^4.2.0",
     "eslint-config-mimic": "^0.0.2",
+    "ethers": "~5.6.0",
     "ethereum-waffle": "^3.4.4",
     "hardhat": "^2.12.4",
     "hardhat-local-networks-config-plugin": "^0.0.6",

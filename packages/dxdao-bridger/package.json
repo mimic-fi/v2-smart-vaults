@@ -25,7 +25,12 @@
   },
   "dependencies": {
     "@mimic-fi/v2-smart-vaults-base": "0.0.4",
+    "@mimic-fi/v2-bridge-connector": "0.1.0-rc.2",
+    "@mimic-fi/v2-price-oracle": "0.1.0-rc.2",
+    "@mimic-fi/v2-registry": "0.1.0-rc.2",
     "@mimic-fi/v2-smart-vault": "0.1.0-rc.2",
+    "@mimic-fi/v2-strategies": "0.1.0-rc.2",
+    "@mimic-fi/v2-swap-connector": "0.1.0-rc.2",
     "@openzeppelin/contracts": "4.7.0"
   },
   "devDependencies": {
