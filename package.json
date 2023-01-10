@@ -9,10 +9,7 @@
   "scripts": {
     "build": "yarn workspaces run build",
     "lint": "yarn workspaces run lint",
-    "test": "yarn workspaces run test",
-    "test:goerli": "yarn workspaces run test:goerli",
-    "test:mumbai": "yarn workspaces run test:mumbai",
-    "test:mainnet": "yarn workspaces run test:mainnet"
+    "test": "yarn workspaces run test"
   },
   "dependencies": {},
   "devDependencies": {},
