@@ -66,8 +66,9 @@ contract L2HopSwapper is BaseAction {
         }
     }
 
-    function canExecute(address token, uint256 slippage) external view returns (bool) {
-        return tokenAmms.contains(token) && slippage <= maxSlippage;
+    function canExecute(address token, uint256 amount, uint256 slippage) external view returns (bool) {
+        (bool existsAmm, address amm) = tokenAmms.tryGet(token);
+        return existsAmm && amount <= _balanceOf(IHopL2AMM(amm).hToken()) && slippage <= maxSlippage;
     }
 
     function setMaxSlippage(uint256 newMaxSlippage) external auth {
@@ -82,16 +83,17 @@ contract L2HopSwapper is BaseAction {
         emit TokenAmmSet(token, amm);
     }
 
-    function call(address token, uint256 slippage) external auth {
+    function call(address token, uint256 amount, uint256 slippage) external auth {
         (bool existsAmm, address amm) = tokenAmms.tryGet(token);
         require(existsAmm, 'SWAPPER_TOKEN_AMM_NOT_SET');
-        require(slippage <= maxSlippage, 'SWAPPER_SLIPPAGE_ABOVE_MAX');
 
         address hToken = IHopL2AMM(amm).hToken();
-        uint256 balance = _balanceOf(hToken);
+        require(amount <= _balanceOf(hToken), 'SWAPPER_AMOUNT_EXCEEDS_BALANCE');
+        require(slippage <= maxSlippage, 'SWAPPER_SLIPPAGE_ABOVE_MAX');
+
         bytes memory data = abi.encode(IHopL2AMM(amm).exchangeAddress());
-        uint256 minAmountOut = balance.mulUp(FixedPoint.ONE.uncheckedSub(slippage));
-        smartVault.swap(HOP_SOURCE, hToken, token, balance, ISmartVault.SwapLimit.MinAmountOut, minAmountOut, data);
+        uint256 minAmountOut = amount.mulUp(FixedPoint.ONE.uncheckedSub(slippage));
+        smartVault.swap(HOP_SOURCE, hToken, token, amount, ISmartVault.SwapLimit.MinAmountOut, minAmountOut, data);
         emit Executed();
     }
 }
