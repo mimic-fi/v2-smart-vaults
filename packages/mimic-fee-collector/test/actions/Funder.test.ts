@@ -34,6 +34,66 @@ describe('Funder', () => {
     action = await createAction('Funder', mimic, owner, smartVault)
   })
 
+  describe('setTokenIn', () => {
+    let tokenIn: Contract
+
+    beforeEach('deploy token in', async () => {
+      tokenIn = await createTokenMock()
+    })
+
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        const setTokenInRole = action.interface.getSighash('setTokenIn')
+        await action.connect(owner).authorize(owner.address, setTokenInRole)
+        action = action.connect(owner)
+      })
+
+      context('when the given address is not zero', () => {
+        const itCanSetTheTokenProperly = () => {
+          it('sets the token in', async () => {
+            await action.setTokenIn(tokenIn.address)
+
+            expect(await action.tokenIn()).to.be.equal(tokenIn.address)
+          })
+
+          it('emits an event', async () => {
+            const tx = await action.setTokenIn(tokenIn.address)
+
+            await assertEvent(tx, 'TokenInSet', { tokenIn })
+          })
+        }
+
+        context('when the token in was set', () => {
+          beforeEach('set the token', async () => {
+            await action.setTokenIn(tokenIn.address)
+          })
+
+          itCanSetTheTokenProperly()
+        })
+
+        context('when the token out was not set', () => {
+          itCanSetTheTokenProperly()
+        })
+      })
+
+      context('when the given address is zero', () => {
+        it('reverts', async () => {
+          await expect(action.setTokenIn(ZERO_ADDRESS)).to.be.revertedWith('FUNDER_TOKEN_IN_ZERO')
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        action = action.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(action.setTokenIn(tokenIn.address)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
+  })
+
   describe('setBalanceLimits', () => {
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
@@ -208,15 +268,21 @@ describe('Funder', () => {
                   await other.sendTransaction({ to: smartVault.address, value: maxBalance })
                 })
 
+                beforeEach('set token in', async () => {
+                  const setTokenInRole = action.interface.getSighash('setTokenIn')
+                  await action.connect(owner).authorize(owner.address, setTokenInRole)
+                  await action.connect(owner).setTokenIn(tokenIn)
+                })
+
                 it('can execute', async () => {
-                  expect(await action.canExecute(tokenIn, 0)).to.be.true
+                  expect(await action.canExecute(0)).to.be.true
                 })
 
                 it('transfers tokens to the recipient', async () => {
                   const previousRecipientBalance = await ethers.provider.getBalance(recipient.address)
                   const previousSmartVaultBalance = await ethers.provider.getBalance(smartVault.address)
 
-                  await action.call(0, tokenIn, 0, '0x')
+                  await action.call(0, 0, '0x')
 
                   const currentRecipientBalance = await ethers.provider.getBalance(recipient.address)
                   expect(currentRecipientBalance).to.be.eq(maxBalance)
@@ -230,7 +296,7 @@ describe('Funder', () => {
                   const previousRecipientBalance = await ethers.provider.getBalance(recipient.address)
                   const expectedAmount = maxBalance.sub(previousRecipientBalance)
 
-                  const tx = await action.call(0, tokenIn, 0, '0x')
+                  const tx = await action.call(0, 0, '0x')
 
                   await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
                     token: NATIVE_TOKEN_ADDRESS,
@@ -242,7 +308,7 @@ describe('Funder', () => {
                 })
 
                 it('emits an Executed event', async () => {
-                  const tx = await action.call(0, tokenIn, 0, '0x')
+                  const tx = await action.call(0, 0, '0x')
 
                   await assertEvent(tx, 'Executed')
                 })
@@ -257,20 +323,26 @@ describe('Funder', () => {
                   await tokenIn.connect(other).transfer(smartVault.address, maxBalance)
                 })
 
+                beforeEach('set token in', async () => {
+                  const setTokenInRole = action.interface.getSighash('setTokenIn')
+                  await action.connect(owner).authorize(owner.address, setTokenInRole)
+                  await action.connect(owner).setTokenIn(tokenIn.address)
+                })
+
                 beforeEach('authorize action', async () => {
                   const unwrapRole = smartVault.interface.getSighash('unwrap')
                   await smartVault.connect(owner).authorize(action.address, unwrapRole)
                 })
 
                 it('can execute', async () => {
-                  expect(await action.canExecute(tokenIn.address, 0)).to.be.true
+                  expect(await action.canExecute(0)).to.be.true
                 })
 
                 it('transfers tokens to the recipient', async () => {
                   const previousRecipientBalance = await ethers.provider.getBalance(recipient.address)
                   const previousSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
 
-                  await action.call(0, tokenIn.address, 0, '0x')
+                  await action.call(0, 0, '0x')
 
                   const currentRecipientBalance = await ethers.provider.getBalance(recipient.address)
                   expect(currentRecipientBalance).to.be.eq(maxBalance)
@@ -284,7 +356,7 @@ describe('Funder', () => {
                   const previousRecipientBalance = await ethers.provider.getBalance(recipient.address)
                   const expectedAmount = maxBalance.sub(previousRecipientBalance)
 
-                  const tx = await action.call(0, tokenIn.address, 0, '0x')
+                  const tx = await action.call(0, 0, '0x')
 
                   await assertIndirectEvent(tx, smartVault.interface, 'Unwrap', {
                     amount: expectedAmount,
@@ -302,7 +374,7 @@ describe('Funder', () => {
                 })
 
                 it('emits an Executed event', async () => {
-                  const tx = await action.call(0, tokenIn.address, 0, '0x')
+                  const tx = await action.call(0, 0, '0x')
 
                   await assertEvent(tx, 'Executed')
                 })
@@ -315,6 +387,12 @@ describe('Funder', () => {
                 beforeEach('fund smart vault', async () => {
                   tokenIn = await createTokenMock()
                   await tokenIn.mint(smartVault.address, maxBalance)
+                })
+
+                beforeEach('set token in', async () => {
+                  const setTokenInRole = action.interface.getSighash('setTokenIn')
+                  await action.connect(owner).authorize(owner.address, setTokenInRole)
+                  await action.connect(owner).setTokenIn(tokenIn.address)
                 })
 
                 beforeEach('fund swap connector', async () => {
@@ -349,14 +427,14 @@ describe('Funder', () => {
                   })
 
                   it('can execute', async () => {
-                    expect(await action.canExecute(tokenIn.address, slippage)).to.be.true
+                    expect(await action.canExecute(slippage)).to.be.true
                   })
 
                   it('transfers tokens to the recipient', async () => {
                     const previousRecipientBalance = await ethers.provider.getBalance(recipient.address)
                     const previousSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
 
-                    await action.call(0, tokenIn.address, slippage, '0x')
+                    await action.call(0, slippage, '0x')
 
                     const currentRecipientBalance = await ethers.provider.getBalance(recipient.address)
                     expect(currentRecipientBalance).to.be.at.least(maxBalance.sub(10))
@@ -370,7 +448,7 @@ describe('Funder', () => {
                   })
 
                   it('calls swap, unwrap, and withdraw primitive', async () => {
-                    const tx = await action.call(5, tokenIn.address, slippage, '0xabcd')
+                    const tx = await action.call(5, slippage, '0xabcd')
 
                     await assertIndirectEvent(tx, smartVault.interface, 'Swap', {
                       source: 5,
@@ -390,7 +468,7 @@ describe('Funder', () => {
                   })
 
                   it('emits an Executed event', async () => {
-                    const tx = await action.call(0, tokenIn.address, slippage, '0x')
+                    const tx = await action.call(0, slippage, '0x')
 
                     await assertEvent(tx, 'Executed')
                   })
@@ -400,19 +478,15 @@ describe('Funder', () => {
                   const slippage = fp(1)
 
                   it('reverts', async () => {
-                    await expect(action.call(0, tokenIn.address, slippage, '0x')).to.be.revertedWith(
-                      'FUNDER_SLIPPAGE_ABOVE_MAX'
-                    )
+                    await expect(action.call(0, slippage, '0x')).to.be.revertedWith('FUNDER_SLIPPAGE_ABOVE_MAX')
                   })
                 })
               })
             })
 
-            context('when the token in is zero', () => {
-              const tokenIn = ZERO_ADDRESS
-
+            context('when the token in is not set', () => {
               it('reverts', async () => {
-                await expect(action.call(0, tokenIn, 0, '0x')).to.be.revertedWith('FUNDER_TOKEN_IN_ZERO')
+                await expect(action.call(0, 0, '0x')).to.be.revertedWith('FUNDER_TOKEN_IN_NOT_SET')
               })
             })
           })
@@ -425,7 +499,7 @@ describe('Funder', () => {
             })
 
             it('reverts', async () => {
-              await expect(action.call(0, ZERO_ADDRESS, 0, '0x')).to.be.revertedWith('FUNDER_BALANCE_ABOVE_MIN')
+              await expect(action.call(0, 0, '0x')).to.be.revertedWith('FUNDER_BALANCE_ABOVE_MIN')
             })
           })
 
@@ -437,28 +511,28 @@ describe('Funder', () => {
             })
 
             it('reverts', async () => {
-              await expect(action.call(0, ZERO_ADDRESS, 0, '0x')).to.be.revertedWith('FUNDER_BALANCE_ABOVE_MIN')
+              await expect(action.call(0, 0, '0x')).to.be.revertedWith('FUNDER_BALANCE_ABOVE_MIN')
             })
           })
         })
 
         context('when the balance limit was not set', () => {
           it('reverts', async () => {
-            await expect(action.call(0, ZERO_ADDRESS, 0, '0x')).to.be.revertedWith('FUNDER_BALANCE_LIMIT_NOT_SET')
+            await expect(action.call(0, 0, '0x')).to.be.revertedWith('FUNDER_BALANCE_LIMIT_NOT_SET')
           })
         })
       })
 
       context('when the recipient is not set', () => {
         it('reverts', async () => {
-          await expect(action.call(0, ZERO_ADDRESS, 0, '0x')).to.be.revertedWith('FUNDER_RECIPIENT_NOT_SET')
+          await expect(action.call(0, 0, '0x')).to.be.revertedWith('FUNDER_RECIPIENT_NOT_SET')
         })
       })
     })
 
     context('when the sender is authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(0, ZERO_ADDRESS, 0, '0x')).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.call(0, 0, '0x')).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
