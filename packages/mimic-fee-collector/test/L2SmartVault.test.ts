@@ -64,6 +64,7 @@ describe('L2SmartVault', () => {
         impl: funder.address,
         admin: owner.address,
         managers: managers.map((m) => m.address),
+        tokenIn: holdingToken.address,
         minBalance: fp(10),
         maxBalance: fp(20),
         maxSlippage: fp(0.001),
@@ -216,6 +217,7 @@ describe('L2SmartVault', () => {
             'authorize',
             'unauthorize',
             'setSmartVault',
+            'setTokenIn',
             'setMaxSlippage',
             'setBalanceLimits',
             'setRecipient',
@@ -238,6 +240,10 @@ describe('L2SmartVault', () => {
     it('sets the expected token balance limits', async () => {
       expect(await funder.minBalance()).to.be.equal(fp(10))
       expect(await funder.maxBalance()).to.be.equal(fp(20))
+    })
+
+    it('sets the expected token in', async () => {
+      expect(await funder.tokenIn()).to.be.equal(holdingToken.address)
     })
 
     it('sets the requested max slippage', async () => {

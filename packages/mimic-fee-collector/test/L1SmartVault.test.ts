@@ -63,6 +63,7 @@ describe('L1SmartVault', () => {
         impl: funder.address,
         admin: owner.address,
         managers: managers.map((m) => m.address),
+        tokenIn: holdingToken.address,
         minBalance: fp(10),
         maxBalance: fp(20),
         maxSlippage: fp(0.001),
@@ -207,6 +208,7 @@ describe('L1SmartVault', () => {
             'authorize',
             'unauthorize',
             'setSmartVault',
+            'setTokenIn',
             'setMaxSlippage',
             'setBalanceLimits',
             'setRecipient',
@@ -224,6 +226,10 @@ describe('L1SmartVault', () => {
 
     it('has the proper smart vault set', async () => {
       expect(await funder.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('sets the expected token in', async () => {
+      expect(await funder.tokenIn()).to.be.equal(holdingToken.address)
     })
 
     it('sets the expected token balance limits', async () => {

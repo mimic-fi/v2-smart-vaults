@@ -28,6 +28,7 @@ contract BaseSmartVaultDeployer {
         address impl;
         address admin;
         address[] managers;
+        address tokenIn;
         uint256 minBalance;
         uint256 maxBalance;
         uint256 maxSlippage;
@@ -50,6 +51,12 @@ contract BaseSmartVaultDeployer {
         address[] memory executors = Arrays.from(params.admin, params.managers, new address[](0));
         Deployer.setupActionExecutors(funder, executors, funder.call.selector);
         Deployer.setupWithdrawalAction(funder, params.admin, params.withdrawalActionParams);
+
+        // Set funder token in
+        funder.authorize(params.admin, funder.setTokenIn.selector);
+        funder.authorize(address(this), funder.setTokenIn.selector);
+        funder.setTokenIn(params.tokenIn);
+        funder.unauthorize(address(this), funder.setTokenIn.selector);
 
         // Set funder balance limits
         funder.authorize(params.admin, funder.setBalanceLimits.selector);
@@ -80,7 +87,7 @@ contract BaseSmartVaultDeployer {
         Deployer.setupActionExecutors(holder, executors, holder.call.selector);
         Deployer.setupTokenThresholdAction(holder, params.admin, params.tokenThresholdActionParams);
 
-        // Set holder max deadline
+        // Set holder token out
         holder.authorize(params.admin, holder.setTokenOut.selector);
         holder.authorize(address(this), holder.setTokenOut.selector);
         holder.setTokenOut(params.tokenOut);
