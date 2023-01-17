@@ -35,6 +35,16 @@ contract Funder is BaseAction, WithdrawalAction {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function fundeableAmount() external view returns (uint256) {
+        if (recipient.balance >= minBalance) return 0;
+
+        uint256 diff = maxBalance - recipient.balance;
+        if (_isWrappedOrNativeToken(tokenIn)) return diff;
+
+        uint256 price = smartVault.getPrice(smartVault.wrappedNativeToken(), tokenIn);
+        return diff.mulUp(price);
+    }
+
     function canExecute(uint256 slippage) external view returns (bool) {
         return
             recipient != address(0) &&

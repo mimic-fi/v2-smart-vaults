@@ -1,4 +1,5 @@
 import {
+  assertAlmostEqual,
   assertEvent,
   assertIndirectEvent,
   fp,
@@ -278,6 +279,12 @@ describe('Funder', () => {
                   expect(await action.canExecute(0)).to.be.true
                 })
 
+                it('computes the fundeable amount correctly', async () => {
+                  const currentBalance = await ethers.provider.getBalance(recipient.address)
+                  const expectedAmount = maxBalance.sub(currentBalance)
+                  expect(await action.fundeableAmount()).to.be.equal(expectedAmount)
+                })
+
                 it('transfers tokens to the recipient', async () => {
                   const previousRecipientBalance = await ethers.provider.getBalance(recipient.address)
                   const previousSmartVaultBalance = await ethers.provider.getBalance(smartVault.address)
@@ -336,6 +343,12 @@ describe('Funder', () => {
 
                 it('can execute', async () => {
                   expect(await action.canExecute(0)).to.be.true
+                })
+
+                it('computes the fundeable amount correctly', async () => {
+                  const currentBalance = await ethers.provider.getBalance(recipient.address)
+                  const expectedAmount = maxBalance.sub(currentBalance)
+                  expect(await action.fundeableAmount()).to.be.equal(expectedAmount)
                 })
 
                 it('transfers tokens to the recipient', async () => {
@@ -430,6 +443,12 @@ describe('Funder', () => {
                     expect(await action.canExecute(slippage)).to.be.true
                   })
 
+                  it('computes the fundeable amount correctly', async () => {
+                    const currentBalance = await ethers.provider.getBalance(recipient.address)
+                    const expectedAmount = maxBalance.sub(currentBalance).mul(fp(1)).div(rate)
+                    assertAlmostEqual(await action.fundeableAmount(), expectedAmount, 1e-15)
+                  })
+
                   it('transfers tokens to the recipient', async () => {
                     const previousRecipientBalance = await ethers.provider.getBalance(recipient.address)
                     const previousSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
@@ -501,6 +520,10 @@ describe('Funder', () => {
             it('reverts', async () => {
               await expect(action.call(0, 0, '0x')).to.be.revertedWith('FUNDER_BALANCE_ABOVE_MIN')
             })
+
+            it('computes the fundeable amount correctly', async () => {
+              expect(await action.fundeableAmount()).to.be.equal(0)
+            })
           })
 
           context('when the current balance is above the max', () => {
@@ -512,6 +535,10 @@ describe('Funder', () => {
 
             it('reverts', async () => {
               await expect(action.call(0, 0, '0x')).to.be.revertedWith('FUNDER_BALANCE_ABOVE_MIN')
+            })
+
+            it('computes the fundeable amount correctly', async () => {
+              expect(await action.fundeableAmount()).to.be.equal(0)
             })
           })
         })
