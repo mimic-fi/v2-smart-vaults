@@ -48,7 +48,8 @@ abstract contract TokenThresholdAction is BaseAction {
      * @param amount Amount of tokens to validate the threshold
      */
     function _passesThreshold(address token, uint256 amount) internal view returns (bool) {
-        uint256 price = smartVault.getPrice(token, thresholdToken);
+        address queryToken = Denominations.isNativeToken(token) ? smartVault.wrappedNativeToken() : token;
+        uint256 price = smartVault.getPrice(queryToken, thresholdToken);
         // Result balance is rounded down to make sure we always match at least the threshold
         return amount.mulDown(price) >= thresholdAmount;
     }

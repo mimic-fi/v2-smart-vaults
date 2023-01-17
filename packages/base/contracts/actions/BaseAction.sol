@@ -57,11 +57,20 @@ contract BaseAction is IAction, BaseAuthorizedImplementation {
         emit SmartVaultSet(newSmartVault);
     }
 
+    /**
+     * @dev Tells the balance of the Smart Vault for a given token
+     * @param token Address of the token querying the balance of
+     * @notice Denominations.NATIVE_TOKEN_ADDRESS can be used to query the native token balance
+     */
     function _balanceOf(address token) internal view returns (uint256) {
         bool isNative = Denominations.isNativeToken(token);
         return isNative ? address(smartVault).balance : IERC20(token).balanceOf(address(smartVault));
     }
 
+    /**
+     * @dev Tells whether the given token is either the native or wrapped native token
+     * @param token Address of the token being queried
+     */
     function _isWrappedOrNativeToken(address token) internal view returns (bool) {
         return Denominations.isNativeToken(token) || token == smartVault.wrappedNativeToken();
     }
