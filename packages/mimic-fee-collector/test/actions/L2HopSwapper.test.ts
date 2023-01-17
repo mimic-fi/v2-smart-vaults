@@ -178,17 +178,6 @@ describe('L2HopSwapper', () => {
 
   describe('call', () => {
     const SOURCE = 5
-    const SLIPPAGE = fp(0.01)
-    const BALANCE = fp(10)
-
-    beforeEach('fund smart vault', async () => {
-      await hToken.mint(smartVault.address, BALANCE)
-    })
-
-    beforeEach('fund swap connector', async () => {
-      await mimic.swapConnector.mockRate(fp(1))
-      await token.mint(await mimic.swapConnector.dex(), BALANCE)
-    })
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
@@ -197,68 +186,92 @@ describe('L2HopSwapper', () => {
         action = action.connect(owner)
       })
 
-      context('when the sender is not a relayer', () => {
-        context('when the given token has an AMM set', () => {
-          beforeEach('set token AMM', async () => {
-            const setTokenAmmRole = action.interface.getSighash('setTokenAmm')
-            await action.connect(owner).authorize(owner.address, setTokenAmmRole)
-            await action.connect(owner).setTokenAmm(token.address, hopL2Amm.address)
+      context('when the given token has an AMM set', () => {
+        beforeEach('set token AMM', async () => {
+          const setTokenAmmRole = action.interface.getSighash('setTokenAmm')
+          await action.connect(owner).authorize(owner.address, setTokenAmmRole)
+          await action.connect(owner).setTokenAmm(token.address, hopL2Amm.address)
+        })
+
+        context('when the amount is available', () => {
+          const amount = fp(10)
+
+          beforeEach('fund smart vault', async () => {
+            await hToken.mint(smartVault.address, amount)
+          })
+
+          beforeEach('fund swap connector', async () => {
+            await mimic.swapConnector.mockRate(fp(1))
+            await token.mint(await mimic.swapConnector.dex(), amount)
           })
 
           context('when the slippage is below the limit', () => {
-            const minAmountOut = BALANCE.sub(BALANCE.mul(SLIPPAGE).div(fp(1)))
+            const slippage = fp(0.01)
+            const minAmountOut = amount.sub(amount.mul(slippage).div(fp(1)))
 
             beforeEach('set max slippage', async () => {
               const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
               await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
-              await action.connect(owner).setMaxSlippage(SLIPPAGE)
+              await action.connect(owner).setMaxSlippage(slippage)
             })
 
             it('can executes', async () => {
-              const canExecute = await action.canExecute(token.address, SLIPPAGE)
+              const canExecute = await action.canExecute(token.address, amount, slippage)
               expect(canExecute).to.be.true
             })
 
             it('calls the swap primitive', async () => {
               const data = defaultAbiCoder.encode(['address'], [hopL2Amm.address])
 
-              const tx = await action.call(token.address, SLIPPAGE)
+              const tx = await action.call(token.address, amount, slippage)
 
               await assertIndirectEvent(tx, smartVault.interface, 'Swap', {
                 source: SOURCE,
                 tokenIn: hToken.address,
                 tokenOut: token.address,
-                amountIn: BALANCE,
+                amountIn: amount,
                 minAmountOut,
                 data,
               })
             })
 
             it('emits an Executed event', async () => {
-              const tx = await action.call(token.address, SLIPPAGE)
+              const tx = await action.call(token.address, amount, slippage)
 
               await assertEvent(tx, 'Executed')
             })
           })
 
           context('when the slippage is above the limit', () => {
+            const slippage = fp(1)
+
             it('reverts', async () => {
-              await expect(action.call(token.address, SLIPPAGE)).to.be.revertedWith('SWAPPER_SLIPPAGE_ABOVE_MAX')
+              await expect(action.call(token.address, amount, slippage)).to.be.revertedWith(
+                'SWAPPER_SLIPPAGE_ABOVE_MAX'
+              )
             })
           })
         })
 
-        context('when the given token does not have an AMM set', () => {
+        context('when the amount is not available', () => {
+          const amount = fp(1)
+
           it('reverts', async () => {
-            await expect(action.call(token.address, SLIPPAGE)).to.be.revertedWith('SWAPPER_TOKEN_AMM_NOT_SET')
+            await expect(action.call(token.address, amount, 0)).to.be.revertedWith('SWAPPER_AMOUNT_EXCEEDS_BALANCE')
           })
+        })
+      })
+
+      context('when the given token does not have an AMM set', () => {
+        it('reverts', async () => {
+          await expect(action.call(token.address, 0, 0)).to.be.revertedWith('SWAPPER_TOKEN_AMM_NOT_SET')
         })
       })
     })
 
     context('when the sender is authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(token.address, SLIPPAGE)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.call(token.address, 0, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
