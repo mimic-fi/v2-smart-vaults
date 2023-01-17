@@ -22,10 +22,12 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/WithdrawalAction.sol';
 contract Funder is BaseAction, WithdrawalAction {
     using FixedPoint for uint256;
 
+    address public tokenIn;
     uint256 public minBalance;
     uint256 public maxBalance;
     uint256 public maxSlippage;
 
+    event TokenInSet(address indexed tokenIn);
     event MaxSlippageSet(uint256 maxSlippage);
     event BalanceLimitsSet(uint256 min, uint256 max);
 
@@ -33,7 +35,7 @@ contract Funder is BaseAction, WithdrawalAction {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function canExecute(address tokenIn, uint256 slippage) external view returns (bool) {
+    function canExecute(uint256 slippage) external view returns (bool) {
         return
             recipient != address(0) &&
             minBalance > 0 &&
@@ -41,6 +43,12 @@ contract Funder is BaseAction, WithdrawalAction {
             recipient.balance < minBalance &&
             tokenIn != address(0) &&
             slippage <= maxSlippage;
+    }
+
+    function setTokenIn(address token) external auth {
+        require(token != address(0), 'FUNDER_TOKEN_IN_ZERO');
+        tokenIn = token;
+        emit TokenInSet(token);
     }
 
     function setBalanceLimits(uint256 min, uint256 max) external auth {
@@ -56,11 +64,11 @@ contract Funder is BaseAction, WithdrawalAction {
         emit MaxSlippageSet(newMaxSlippage);
     }
 
-    function call(uint8 source, address tokenIn, uint256 slippage, bytes memory data) external auth {
+    function call(uint8 source, uint256 slippage, bytes memory data) external auth {
         require(recipient != address(0), 'FUNDER_RECIPIENT_NOT_SET');
         require(minBalance > 0, 'FUNDER_BALANCE_LIMIT_NOT_SET');
         require(recipient.balance < minBalance, 'FUNDER_BALANCE_ABOVE_MIN');
-        require(tokenIn != address(0), 'FUNDER_TOKEN_IN_ZERO');
+        require(tokenIn != address(0), 'FUNDER_TOKEN_IN_NOT_SET');
         require(slippage <= maxSlippage, 'FUNDER_SLIPPAGE_ABOVE_MAX');
 
         uint256 toWithdraw = 0;
