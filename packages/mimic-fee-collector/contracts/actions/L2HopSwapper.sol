@@ -83,7 +83,7 @@ contract L2HopSwapper is BaseAction {
         emit TokenAmmSet(token, amm);
     }
 
-    function call(address token, uint256 amount, uint256 slippage) external auth {
+    function call(address token, uint256 amount, uint256 slippage) external auth nonReentrant {
         (bool existsAmm, address amm) = tokenAmms.tryGet(token);
         require(existsAmm, 'SWAPPER_TOKEN_AMM_NOT_SET');
 

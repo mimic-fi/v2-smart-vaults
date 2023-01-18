@@ -25,7 +25,7 @@ contract L1HopBridger is BaseHopBridger {
     using EnumerableMap for EnumerableMap.AddressToAddressMap;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 80e3;
+    uint256 public constant override BASE_GAS = 60e3;
 
     mapping (address => uint256) public getMaxRelayerFeePct;
     EnumerableMap.AddressToAddressMap private tokenBridges;
@@ -89,7 +89,11 @@ contract L1HopBridger is BaseHopBridger {
         emit TokenBridgeSet(token, bridge);
     }
 
-    function call(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee) external auth {
+    function call(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee)
+        external
+        auth
+        nonReentrant
+    {
         (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, slippage, relayer, relayerFee);
     }
 

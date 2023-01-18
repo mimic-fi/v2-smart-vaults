@@ -15,6 +15,7 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 
 import '@mimic-fi/v2-smart-vault/contracts/ISmartVault.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
@@ -27,7 +28,7 @@ import './IAction.sol';
  * @title BaseAction
  * @dev Simple action implementation with a Smart Vault reference and using the Authorizer mixin
  */
-contract BaseAction is IAction, BaseAuthorizedImplementation {
+contract BaseAction is IAction, BaseAuthorizedImplementation, ReentrancyGuard {
     bytes32 public constant override NAMESPACE = keccak256('ACTION');
 
     // Smart Vault reference

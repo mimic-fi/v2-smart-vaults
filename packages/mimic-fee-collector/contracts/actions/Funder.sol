@@ -74,7 +74,7 @@ contract Funder is BaseAction, WithdrawalAction {
         emit MaxSlippageSet(newMaxSlippage);
     }
 
-    function call(uint8 source, uint256 slippage, bytes memory data) external auth {
+    function call(uint8 source, uint256 slippage, bytes memory data) external auth nonReentrant {
         require(recipient != address(0), 'FUNDER_RECIPIENT_NOT_SET');
         require(minBalance > 0, 'FUNDER_BALANCE_LIMIT_NOT_SET');
         require(recipient.balance < minBalance, 'FUNDER_BALANCE_ABOVE_MIN');

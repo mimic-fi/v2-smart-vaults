@@ -50,7 +50,11 @@ contract Holder is BaseAction, TokenThresholdAction {
         emit MaxSlippageSet(newMaxSlippage);
     }
 
-    function call(uint8 source, address tokenIn, uint256 amountIn, uint256 slippage, bytes memory data) external auth {
+    function call(uint8 source, address tokenIn, uint256 amountIn, uint256 slippage, bytes memory data)
+        external
+        auth
+        nonReentrant
+    {
         require(tokenOut != address(0), 'HOLDER_TOKEN_OUT_NOT_SET');
         require(tokenIn != address(0), 'HOLDER_TOKEN_IN_ZERO');
         require(tokenIn != tokenOut, 'HOLDER_TOKEN_IN_EQ_OUT');

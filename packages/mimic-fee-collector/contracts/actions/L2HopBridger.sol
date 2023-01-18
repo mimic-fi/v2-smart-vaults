@@ -86,7 +86,11 @@ contract L2HopBridger is BaseHopBridger {
         emit TokenAmmSet(token, amm);
     }
 
-    function call(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFee) external auth {
+    function call(uint256 chainId, address token, uint256 amount, uint256 slippage, uint256 bonderFee)
+        external
+        auth
+        nonReentrant
+    {
         (bool existsAmm, address amm) = tokenAmms.tryGet(token);
         require(existsAmm, 'BRIDGER_TOKEN_AMM_NOT_SET');
         require(amount > 0, 'BRIDGER_AMOUNT_ZERO');
