@@ -65,6 +65,11 @@ describe('Withdrawer', () => {
 
       const itPerformsTheExpectedCall = (refunds: boolean) => {
         context('when the time-lock has expired', () => {
+          it('can execute', async () => {
+            const canExecute = await action.canExecute()
+            expect(canExecute).to.be.true
+          })
+
           it('calls the withdraw primitive', async () => {
             const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 

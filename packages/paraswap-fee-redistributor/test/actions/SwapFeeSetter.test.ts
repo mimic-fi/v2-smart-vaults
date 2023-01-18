@@ -144,6 +144,11 @@ describe('SwapFeeSetter', () => {
         const itPerformsTheExpectedCall = (refunds: boolean) => {
           context('when the time-lock has expired', () => {
             context('when the fees were not executed', () => {
+              it('can execute', async () => {
+                const canExecute = await action.canExecute()
+                expect(canExecute).to.be.true
+              })
+
               it('sets the swap fee', async () => {
                 await action.call()
 

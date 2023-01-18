@@ -326,6 +326,11 @@ describe('ERC20Claimer', () => {
                         await feeClaimer.mockFail(false)
                       })
 
+                      it('can execute', async () => {
+                        const canExecute = await action.canExecute(token.address)
+                        expect(canExecute).to.be.true
+                      })
+
                       it('calls the call primitive', async () => {
                         const tx = await action.call(
                           token.address,
@@ -529,6 +534,11 @@ describe('ERC20Claimer', () => {
                 context('when the fee claim succeeds', () => {
                   beforeEach('mock succeeds', async () => {
                     await feeClaimer.mockFail(false)
+                  })
+
+                  it('can execute', async () => {
+                    const canExecute = await action.canExecute(token.address)
+                    expect(canExecute).to.be.true
                   })
 
                   it('calls the call primitive', async () => {

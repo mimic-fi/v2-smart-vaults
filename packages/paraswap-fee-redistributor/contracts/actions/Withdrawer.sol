@@ -27,6 +27,10 @@ contract Withdrawer is BaseAction, RelayedAction, TimeLockedAction, WithdrawalAc
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function canExecute() external view returns (bool) {
+        return _balanceOf(smartVault.wrappedNativeToken()) > 0 && block.timestamp >= nextResetTime;
+    }
+
     function call() external auth nonReentrant {
         isRelayer[msg.sender] ? _relayedCall() : _call();
         _withdraw(smartVault.wrappedNativeToken());

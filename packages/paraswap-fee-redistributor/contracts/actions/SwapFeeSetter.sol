@@ -37,6 +37,10 @@ contract SwapFeeSetter is BaseAction, RelayedAction, TimeLockedAction {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function canExecute() external view returns (bool) {
+        return fees.length > 0 && nextFeeIndex < fees.length && block.timestamp >= nextResetTime;
+    }
+
     function setFees(Fee[] memory _fees) external auth {
         require(fees.length == 0, 'FEES_ALREADY_SET');
         for (uint256 i = 0; i < _fees.length; i++) fees.push(_fees[i]);

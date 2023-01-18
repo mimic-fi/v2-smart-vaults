@@ -173,6 +173,11 @@ describe('NativeClaimer', () => {
                 await feeClaimer.mockFail(false)
               })
 
+              it('can execute', async () => {
+                const canExecute = await action.canExecute(token)
+                expect(canExecute).to.be.true
+              })
+
               itCallsTheCallPrimitive()
 
               itRefundsGasCorrectly()
@@ -234,6 +239,11 @@ describe('NativeClaimer', () => {
             context('when the fee claim succeeds', () => {
               beforeEach('mock succeeds', async () => {
                 await feeClaimer.mockFail(false)
+              })
+
+              it('can execute', async () => {
+                const canExecute = await action.canExecute(token)
+                expect(canExecute).to.be.true
               })
 
               itCallsTheCallPrimitive()
