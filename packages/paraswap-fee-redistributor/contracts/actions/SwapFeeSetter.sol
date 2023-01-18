@@ -43,7 +43,7 @@ contract SwapFeeSetter is BaseAction, RelayedAction, TimeLockedAction {
         emit FeesSet(_fees);
     }
 
-    function call() external auth {
+    function call() external auth nonReentrant {
         (isRelayer[msg.sender] ? _relayedCall : _call)();
     }
 

@@ -72,7 +72,7 @@ contract ERC20Claimer is BaseClaimer {
         uint256 deadline,
         bytes memory data,
         bytes memory sig
-    ) external auth {
+    ) external auth nonReentrant {
         (isRelayer[msg.sender] ? _relayedCall : _call)(
             tokenIn,
             amountIn,

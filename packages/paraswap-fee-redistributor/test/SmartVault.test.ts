@@ -13,6 +13,7 @@ import { assertPermissions, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
+import { ethers } from 'hardhat'
 
 describe('SmartVault', () => {
   let smartVault: Contract, mimic: Mimic
@@ -46,6 +47,8 @@ describe('SmartVault', () => {
       mimic: mimic.admin.address,
       registry: mimic.registry.address,
       smartVaultParams: {
+        salt: ethers.utils.solidityKeccak256(['string'], ['mimic-v2.mimic-fee-collector']),
+        factory: mimic.smartVaultsFactory.address,
         impl: mimic.smartVault.address,
         admin: owner.address,
         feeCollector: mimic.admin.address,
@@ -53,7 +56,9 @@ describe('SmartVault', () => {
         priceFeedParams: [],
         priceOracle: mimic.priceOracle.address,
         swapConnector: mimic.swapConnector.address,
+        bridgeConnector: mimic.bridgeConnector.address,
         swapFee: { pct: fp(0.1), cap: fp(1), token: mimic.wrappedNativeToken.address, period: 60 },
+        bridgeFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
         withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
         performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
       },
@@ -69,6 +74,8 @@ describe('SmartVault', () => {
           gasPriceLimit: 0,
           totalCostLimit: fp(100),
           payingGasToken: mimic.wrappedNativeToken.address,
+          permissiveModeAdmin: mimic.admin.address,
+          isPermissiveModeActive: false,
         },
         timeLockedActionParams: {
           period: MONTH,
@@ -92,6 +99,8 @@ describe('SmartVault', () => {
             gasPriceLimit: 0,
             totalCostLimit: fp(100),
             payingGasToken: mimic.wrappedNativeToken.address,
+            permissiveModeAdmin: mimic.admin.address,
+            isPermissiveModeActive: false,
           },
         },
       },
@@ -110,6 +119,8 @@ describe('SmartVault', () => {
             gasPriceLimit: 0,
             totalCostLimit: fp(100),
             payingGasToken: mimic.wrappedNativeToken.address,
+            permissiveModeAdmin: mimic.admin.address,
+            isPermissiveModeActive: false,
           },
         },
       },
@@ -126,6 +137,8 @@ describe('SmartVault', () => {
           gasPriceLimit: bn(100e9),
           totalCostLimit: 0,
           payingGasToken: mimic.wrappedNativeToken.address,
+          permissiveModeAdmin: mimic.admin.address,
+          isPermissiveModeActive: false,
         },
         timeLockedActionParams: {
           period: MONTH,
@@ -133,8 +146,8 @@ describe('SmartVault', () => {
       },
     })
 
-    const { args } = await assertIndirectEvent(tx, mimic.registry.interface, 'Cloned', {
-      implementation: mimic.smartVault.address,
+    const { args } = await assertIndirectEvent(tx, mimic.smartVaultsFactory.interface, 'Created', {
+      implementation: mimic.smartVault,
     })
 
     smartVault = await instanceAt('SmartVault', args.instance)
@@ -157,11 +170,14 @@ describe('SmartVault', () => {
             'join',
             'exit',
             'swap',
+            'bridge',
             'setStrategy',
             'setPriceFeed',
             'setPriceFeeds',
             'setPriceOracle',
             'setSwapConnector',
+            'setBridgeConnector',
+            'setBridgeFee',
             'setWithdrawFee',
             'setPerformanceFee',
           ],
@@ -190,6 +206,15 @@ describe('SmartVault', () => {
       expect(swapFee.period).to.be.equal(60)
     })
 
+    it('sets no bridge fee', async () => {
+      const bridgeFee = await smartVault.bridgeFee()
+
+      expect(bridgeFee.pct).to.be.equal(0)
+      expect(bridgeFee.cap).to.be.equal(0)
+      expect(bridgeFee.token).to.be.equal(ZERO_ADDRESS)
+      expect(bridgeFee.period).to.be.equal(0)
+    })
+
     it('sets no withdraw fee', async () => {
       const withdrawFee = await smartVault.withdrawFee()
 
@@ -215,6 +240,10 @@ describe('SmartVault', () => {
     it('sets a swap connector', async () => {
       expect(await smartVault.swapConnector()).to.be.equal(mimic.swapConnector.address)
     })
+
+    it('sets a bridge connector', async () => {
+      expect(await smartVault.bridgeConnector()).to.be.equal(mimic.bridgeConnector.address)
+    })
   })
 
   describe('withdrawer', () => {
@@ -234,7 +263,7 @@ describe('SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize', 'setPermissiveMode'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
@@ -262,6 +291,10 @@ describe('SmartVault', () => {
       expect(await withdrawer.gasPriceLimit()).to.be.equal(0)
       expect(await withdrawer.totalCostLimit()).to.be.equal(fp(100))
       expect(await withdrawer.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
+    })
+
+    it('does not allow relayed permissive mode', async () => {
+      expect(await withdrawer.isPermissiveModeActive()).to.be.false
     })
 
     it('whitelists the requested relayers', async () => {
@@ -297,7 +330,7 @@ describe('SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize', 'setPermissiveMode'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
@@ -330,6 +363,10 @@ describe('SmartVault', () => {
       expect(await erc20Claimer.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
     })
 
+    it('does not allow relayed permissive mode', async () => {
+      expect(await erc20Claimer.isPermissiveModeActive()).to.be.false
+    })
+
     it('whitelists the requested relayers', async () => {
       for (const relayer of relayers) {
         expect(await erc20Claimer.isRelayer(relayer.address)).to.be.true
@@ -360,7 +397,7 @@ describe('SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize', 'setPermissiveMode'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
@@ -390,6 +427,10 @@ describe('SmartVault', () => {
       expect(await nativeClaimer.thresholdAmount()).to.be.equal(fp(1.5))
     })
 
+    it('does not allow relayed permissive mode', async () => {
+      expect(await nativeClaimer.isPermissiveModeActive()).to.be.false
+    })
+
     it('whitelists the requested relayers', async () => {
       for (const relayer of relayers) {
         expect(await nativeClaimer.isRelayer(relayer.address)).to.be.true
@@ -411,7 +452,7 @@ describe('SmartVault', () => {
           account: owner,
           roles: ['authorize', 'unauthorize', 'setSmartVault', 'setRelayer', 'setLimits', 'setTimeLock', 'call'],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
+        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize', 'setPermissiveMode'] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'erc20Claimer', account: erc20Claimer, roles: [] },
         { name: 'nativeClaimer', account: nativeClaimer, roles: [] },
@@ -435,6 +476,10 @@ describe('SmartVault', () => {
       expect(await swapFeeSetter.gasPriceLimit()).to.be.equal(bn(100e9))
       expect(await swapFeeSetter.totalCostLimit()).to.be.equal(0)
       expect(await swapFeeSetter.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
+    })
+
+    it('does not allow relayed permissive mode', async () => {
+      expect(await swapFeeSetter.isPermissiveModeActive()).to.be.false
     })
 
     it('sets the expected fees', async () => {

@@ -28,7 +28,7 @@ contract NativeClaimer is BaseClaimer {
         return _isWrappedOrNativeToken(token) && _passesThreshold(token);
     }
 
-    function call(address token) external auth {
+    function call(address token) external auth nonReentrant {
         (isRelayer[msg.sender] ? _relayedCall : _call)(token);
     }
 
@@ -41,14 +41,14 @@ contract NativeClaimer is BaseClaimer {
         require(_passesThreshold(token), 'MIN_THRESHOLD_NOT_MET');
 
         _claim(token);
-        if (_isNativeToken(token)) smartVault.wrap(address(smartVault).balance, new bytes(0));
+        if (Denominations.isNativeToken(token)) smartVault.wrap(address(smartVault).balance, new bytes(0));
         emit Executed();
     }
 
     function _passesThreshold(address token) internal view returns (bool) {
         address wrappedNativeToken = smartVault.wrappedNativeToken();
         uint256 amountToClaim = IFeeClaimer(feeClaimer).getBalance(token, address(smartVault));
-        uint256 totalBalance = amountToClaim + (_isNativeToken(token) ? address(smartVault).balance : 0);
+        uint256 totalBalance = amountToClaim + (Denominations.isNativeToken(token) ? address(smartVault).balance : 0);
         return _passesThreshold(wrappedNativeToken, totalBalance);
     }
 }
