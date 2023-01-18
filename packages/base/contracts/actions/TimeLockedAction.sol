@@ -51,10 +51,17 @@ abstract contract TimeLockedAction is BaseAction {
     }
 
     /**
+     * @dev Internal function to tell whether the current time-lock has passed
+     */
+    function _passesTimeLock() internal view returns (bool) {
+        return block.timestamp >= nextResetTime;
+    }
+
+    /**
      * @dev Internal function to validate the time-locked action
      */
     function _validateTimeLock() internal {
-        require(block.timestamp >= nextResetTime, 'TIME_LOCK_NOT_EXPIRED');
+        require(_passesTimeLock(), 'TIME_LOCK_NOT_EXPIRED');
         nextResetTime = block.timestamp + period;
     }
 }
