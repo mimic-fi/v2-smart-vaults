@@ -21,13 +21,17 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/WithdrawalAction.sol';
 
 contract Withdrawer is BaseAction, RelayedAction, TimeLockedAction, WithdrawalAction {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 110e3;
+    uint256 public constant override BASE_GAS = 115e3;
 
     constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function call() external auth {
+    function canExecute() external view returns (bool) {
+        return _balanceOf(smartVault.wrappedNativeToken()) > 0 && block.timestamp >= nextResetTime;
+    }
+
+    function call() external auth nonReentrant {
         isRelayer[msg.sender] ? _relayedCall() : _call();
         _withdraw(smartVault.wrappedNativeToken());
     }

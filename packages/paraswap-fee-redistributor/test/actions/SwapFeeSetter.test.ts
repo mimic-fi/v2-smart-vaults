@@ -1,5 +1,11 @@
 import { advanceTime, assertEvent, fp, getSigners, MONTH, NATIVE_TOKEN_ADDRESS } from '@mimic-fi/v2-helpers'
-import { createAction, createSmartVault, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import {
+  assertRelayedBaseCost,
+  createAction,
+  createSmartVault,
+  Mimic,
+  setupMimic,
+} from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -138,6 +144,11 @@ describe('SwapFeeSetter', () => {
         const itPerformsTheExpectedCall = (refunds: boolean) => {
           context('when the time-lock has expired', () => {
             context('when the fees were not executed', () => {
+              it('can execute', async () => {
+                const canExecute = await action.canExecute()
+                expect(canExecute).to.be.true
+              })
+
               it('sets the swap fee', async () => {
                 await action.call()
 
@@ -167,10 +178,15 @@ describe('SwapFeeSetter', () => {
               it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
                 const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-                await action.call()
+                const tx = await action.call()
 
                 const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
                 expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+
+                if (refunds) {
+                  const redeemedCost = currentBalance.sub(previousBalance)
+                  await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+                }
               })
             })
 

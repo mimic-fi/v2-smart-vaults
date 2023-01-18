@@ -9,6 +9,7 @@ import {
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import {
+  assertRelayedBaseCost,
   createAction,
   createPriceFeedMock,
   createSmartVault,
@@ -137,10 +138,15 @@ describe('NativeClaimer', () => {
           it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
             const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-            await action.call(token)
+            const tx = await action.call(token)
 
             const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
             expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+
+            if (refunds) {
+              const redeemedCost = currentBalance.sub(previousBalance)
+              await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+            }
           })
         }
 
@@ -165,6 +171,11 @@ describe('NativeClaimer', () => {
             context('when the fee claim succeeds', () => {
               beforeEach('mock succeeds', async () => {
                 await feeClaimer.mockFail(false)
+              })
+
+              it('can execute', async () => {
+                const canExecute = await action.canExecute(token)
+                expect(canExecute).to.be.true
               })
 
               itCallsTheCallPrimitive()
@@ -228,6 +239,11 @@ describe('NativeClaimer', () => {
             context('when the fee claim succeeds', () => {
               beforeEach('mock succeeds', async () => {
                 await feeClaimer.mockFail(false)
+              })
+
+              it('can execute', async () => {
+                const canExecute = await action.canExecute(token)
+                expect(canExecute).to.be.true
               })
 
               itCallsTheCallPrimitive()

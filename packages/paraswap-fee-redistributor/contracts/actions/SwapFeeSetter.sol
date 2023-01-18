@@ -19,7 +19,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TimeLockedAction.sol';
 
 contract SwapFeeSetter is BaseAction, RelayedAction, TimeLockedAction {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 60e3;
+    uint256 public constant override BASE_GAS = 70e3;
 
     struct Fee {
         uint256 pct;
@@ -37,13 +37,17 @@ contract SwapFeeSetter is BaseAction, RelayedAction, TimeLockedAction {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function canExecute() external view returns (bool) {
+        return fees.length > 0 && nextFeeIndex < fees.length && block.timestamp >= nextResetTime;
+    }
+
     function setFees(Fee[] memory _fees) external auth {
         require(fees.length == 0, 'FEES_ALREADY_SET');
         for (uint256 i = 0; i < _fees.length; i++) fees.push(_fees[i]);
         emit FeesSet(_fees);
     }
 
-    function call() external auth {
+    function call() external auth nonReentrant {
         (isRelayer[msg.sender] ? _relayedCall : _call)();
     }
 
