@@ -92,6 +92,7 @@ contract L1HopBridger is BaseHopBridger {
     function call(uint256 chainId, address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee)
         external
         auth
+        nonReentrant
     {
         (bool existsBridge, address bridge) = tokenBridges.tryGet(token);
         require(existsBridge, 'BRIDGER_TOKEN_BRIDGE_NOT_SET');

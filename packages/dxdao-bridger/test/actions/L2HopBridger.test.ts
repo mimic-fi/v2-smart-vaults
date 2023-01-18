@@ -1,5 +1,6 @@
 import { assertEvent, assertIndirectEvent, deploy, fp, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import {
+  assertRelayedBaseCost,
   createAction,
   createSmartVault,
   createTokenMock,
@@ -464,14 +465,28 @@ describe('L2HopBridger', () => {
                       await assertEvent(tx, 'Executed')
                     })
 
-                    it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-                      const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                    if (refunds) {
+                      it('refunds gas', async () => {
+                        const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-                      await action.call(token.address, amount, SLIPPAGE, bonderFee)
+                        const tx = await action.call(token.address, amount, SLIPPAGE, bonderFee)
 
-                      const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-                      expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
-                    })
+                        const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                        expect(currentBalance).to.be.gt(previousBalance)
+
+                        const redeemedCost = currentBalance.sub(previousBalance)
+                        await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+                      })
+                    } else {
+                      it('does not refund gas', async () => {
+                        const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
+                        await action.call(token.address, amount, SLIPPAGE, bonderFee)
+
+                        const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                        expect(currentBalance).to.be.equal(previousBalance)
+                      })
+                    }
                   })
 
                   context('when the current balance does not pass the threshold', () => {

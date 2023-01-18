@@ -86,7 +86,7 @@ contract L2HopSwapper is BaseAction, RelayedAction {
         emit TokenAmmSet(token, amm);
     }
 
-    function call(address token, uint256 amount, uint256 slippage) external auth {
+    function call(address token, uint256 amount, uint256 slippage) external auth nonReentrant {
         (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, slippage);
     }
 
