@@ -1,5 +1,11 @@
 import { assertEvent, assertIndirectEvent, fp, getSigners } from '@mimic-fi/v2-helpers'
-import { createAction, createSmartVault, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import {
+  assertRelayedBaseCost,
+  createAction,
+  createSmartVault,
+  Mimic,
+  setupMimic,
+} from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -85,10 +91,15 @@ describe('Withdrawer', () => {
           it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
             const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-            await action.call()
+            const tx = await action.call()
 
             const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
             expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+
+            if (refunds) {
+              const redeemedCost = currentBalance.sub(previousBalance)
+              await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+            }
           })
         })
 

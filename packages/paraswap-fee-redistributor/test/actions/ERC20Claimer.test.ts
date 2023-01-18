@@ -13,6 +13,7 @@ import {
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import {
+  assertRelayedBaseCost,
   createAction,
   createPriceFeedMock,
   createSmartVault,
@@ -441,7 +442,7 @@ describe('ERC20Claimer', () => {
                       it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
                         const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
 
-                        await action.call(
+                        const tx = await action.call(
                           token.address,
                           amountIn,
                           minAmountOut,
@@ -453,6 +454,11 @@ describe('ERC20Claimer', () => {
 
                         const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
                         expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+
+                        if (refunds) {
+                          const redeemedCost = currentBalance.sub(previousBalance)
+                          await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+                        }
                       })
                     })
 
@@ -555,10 +561,15 @@ describe('ERC20Claimer', () => {
                   it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
                     const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
 
-                    await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
+                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
 
                     const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
                     expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+
+                    if (refunds) {
+                      const redeemedCost = currentBalance.sub(previousBalance)
+                      await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+                    }
                   })
                 })
 

@@ -27,7 +27,7 @@ contract ERC20Claimer is BaseClaimer {
     using UncheckedMath for uint256;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 42e3;
+    uint256 public constant override BASE_GAS = 65e3;
 
     address public swapSigner;
     uint256 public maxSlippage;

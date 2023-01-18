@@ -18,7 +18,7 @@ import './BaseClaimer.sol';
 
 contract NativeClaimer is BaseClaimer {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 60e3;
+    uint256 public constant override BASE_GAS = 65e3;
 
     constructor(address admin, address registry) BaseClaimer(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
