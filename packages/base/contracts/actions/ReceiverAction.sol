@@ -28,12 +28,10 @@ abstract contract ReceiverAction is BaseAction {
     }
 
     function withdraw(address token, uint256 amount) external auth {
-        _withdraw(token, amount);
+        _transferToSmartVault(token, amount);
     }
 
-    function _withdraw(address token, uint256 amount) internal {
-        Denominations.isNativeToken(token)
-            ? Address.sendValue(payable(address(smartVault)), amount)
-            : IERC20(token).safeTransfer(address(smartVault), amount);
+    function _transferToSmartVault(address token, uint256 amount) internal {
+        ERC20Helpers.transfer(token, address(smartVault), amount);
     }
 }

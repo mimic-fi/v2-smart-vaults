@@ -20,6 +20,7 @@ import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@mimic-fi/v2-smart-vault/contracts/ISmartVault.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/BaseAuthorizedImplementation.sol';
 
 import './IAction.sol';
@@ -64,8 +65,15 @@ contract BaseAction is IAction, BaseAuthorizedImplementation, ReentrancyGuard {
      * @notice Denominations.NATIVE_TOKEN_ADDRESS can be used to query the native token balance
      */
     function _balanceOf(address token) internal view returns (uint256) {
-        bool isNative = Denominations.isNativeToken(token);
-        return isNative ? address(smartVault).balance : IERC20(token).balanceOf(address(smartVault));
+        return ERC20Helpers.balanceOf(token, address(smartVault));
+    }
+
+    /**
+     * @dev Tells the wrapped native token address if the given address is the native token
+     * @param token Address of the token to be checked
+     */
+    function _wrappedIfNative(address token) internal view returns (address) {
+        return Denominations.isNativeToken(token) ? smartVault.wrappedNativeToken() : token;
     }
 
     /**
