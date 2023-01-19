@@ -1,10 +1,12 @@
 import {
   assertEvent,
   assertIndirectEvent,
+  assertNoIndirectEvent,
   currentTimestamp,
   deploy,
   fp,
   getSigners,
+  NATIVE_TOKEN_ADDRESS,
   ONES_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
@@ -23,7 +25,7 @@ import { Contract } from 'ethers'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 
 describe('L1HopBridger', () => {
-  let action: Contract, smartVault: Contract, token: Contract, hopL1Bridge: Contract, mimic: Mimic
+  let action: Contract, smartVault: Contract, mimic: Mimic
   let owner: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress
 
   before('set up signers', async () => {
@@ -37,25 +39,14 @@ describe('L1HopBridger', () => {
     action = await createAction('L1HopBridger', mimic, owner, smartVault)
   })
 
-  beforeEach('deploy token and bridge mock', async () => {
-    token = await createTokenMock()
-    hopL1Bridge = await deploy(MOCKS.HOP_L1_BRIDGE, [token.address])
-  })
-
-  beforeEach('authorize action', async () => {
-    const bridgeRole = smartVault.interface.getSighash('bridge')
-    await smartVault.connect(owner).authorize(action.address, bridgeRole)
-    const withdrawRole = smartVault.interface.getSighash('withdraw')
-    await smartVault.connect(owner).authorize(action.address, withdrawRole)
-  })
-
-  beforeEach('set fee collector', async () => {
-    const setFeeCollectorRole = smartVault.interface.getSighash('setFeeCollector')
-    await smartVault.connect(owner).authorize(owner.address, setFeeCollectorRole)
-    await smartVault.connect(owner).setFeeCollector(feeCollector.address)
-  })
-
   describe('setTokenBridge', () => {
+    let token: Contract, hopL1Bridge: Contract
+
+    beforeEach('deploy token and bridge mock', async () => {
+      token = await createTokenMock()
+      hopL1Bridge = await deploy(MOCKS.HOP_L1_BRIDGE, [token.address])
+    })
+
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         const setTokenBridgeRole = action.interface.getSighash('setTokenBridge')
@@ -383,21 +374,28 @@ describe('L1HopBridger', () => {
 
   describe('call', () => {
     const SOURCE = 0
-    const CHAIN_ID = 1
     const DEADLINE = 60 * 2
-    const SLIPPAGE = fp(0.01)
     const RELAYER = ZERO_ADDRESS
-    const RELAYER_FEE_PCT = fp(0.002)
 
-    beforeEach('fund smart vault to pay gas', async () => {
-      await mimic.wrappedNativeToken.connect(owner).deposit({ value: fp(1) })
-      await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, fp(1))
+    beforeEach('authorize action', async () => {
+      const wrapRole = smartVault.interface.getSighash('wrap')
+      await smartVault.connect(owner).authorize(action.address, wrapRole)
+      const bridgeRole = smartVault.interface.getSighash('bridge')
+      await smartVault.connect(owner).authorize(action.address, bridgeRole)
+      const withdrawRole = smartVault.interface.getSighash('withdraw')
+      await smartVault.connect(owner).authorize(action.address, withdrawRole)
     })
 
     beforeEach('set deadline', async () => {
       const setMaxDeadlineRole = action.interface.getSighash('setMaxDeadline')
       await action.connect(owner).authorize(owner.address, setMaxDeadlineRole)
       await action.connect(owner).setMaxDeadline(DEADLINE)
+    })
+
+    beforeEach('set fee collector', async () => {
+      const setFeeCollectorRole = smartVault.interface.getSighash('setFeeCollector')
+      await smartVault.connect(owner).authorize(owner.address, setFeeCollectorRole)
+      await smartVault.connect(owner).setFeeCollector(feeCollector.address)
     })
 
     context('when the sender is authorized', () => {
@@ -408,166 +406,377 @@ describe('L1HopBridger', () => {
       })
 
       const itPerformsTheExpectedCall = (refunds: boolean) => {
-        context('when the given token has a bridge set', () => {
-          beforeEach('set token bridge', async () => {
-            const setTokenBridgeRole = action.interface.getSighash('setTokenBridge')
-            await action.connect(owner).authorize(owner.address, setTokenBridgeRole)
-            await action.connect(owner).setTokenBridge(token.address, hopL1Bridge.address)
+        context('when the given token is the native token', () => {
+          const token = NATIVE_TOKEN_ADDRESS
+          let hopL1Bridge: Contract
+
+          beforeEach('deploy token and bridge mock', async () => {
+            hopL1Bridge = await deploy(MOCKS.HOP_L1_BRIDGE, [token])
           })
 
-          context('when the amount is greater than zero', () => {
-            const amount = fp(50)
-
-            beforeEach('fund action', async () => {
-              await token.mint(action.address, amount)
+          context('when the given token has a bridge set', () => {
+            beforeEach('set token bridge', async () => {
+              const setTokenBridgeRole = action.interface.getSighash('setTokenBridge')
+              await action.connect(owner).authorize(owner.address, setTokenBridgeRole)
+              await action.connect(owner).setTokenBridge(token, hopL1Bridge.address)
             })
 
-            context('when the destination chain ID was set', () => {
-              beforeEach('set destination chain ID', async () => {
-                const setDestinationChainIdRole = action.interface.getSighash('setDestinationChainId')
-                await action.connect(owner).authorize(owner.address, setDestinationChainIdRole)
-                await action.connect(owner).setDestinationChainId(CHAIN_ID)
+            context('when the amount is greater than zero', () => {
+              const amount = fp(0.5)
+
+              beforeEach('fund action', async () => {
+                await owner.sendTransaction({ to: action.address, value: amount })
               })
 
-              context('when the slippage is below the limit', () => {
-                beforeEach('set max slippage', async () => {
-                  const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
-                  await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
-                  await action.connect(owner).setMaxSlippage(SLIPPAGE)
+              context('when the destination chain ID was set', () => {
+                const chainId = 1
+
+                beforeEach('set destination chain ID', async () => {
+                  const setDestinationChainIdRole = action.interface.getSighash('setDestinationChainId')
+                  await action.connect(owner).authorize(owner.address, setDestinationChainIdRole)
+                  await action.connect(owner).setDestinationChainId(chainId)
                 })
 
-                context('when the relayer fee is below the limit', () => {
-                  beforeEach('set max relayer fee', async () => {
-                    const setMaxRelayerFeePctRole = action.interface.getSighash('setMaxRelayerFeePct')
-                    await action.connect(owner).authorize(owner.address, setMaxRelayerFeePctRole)
-                    await action.connect(owner).setMaxRelayerFeePct(RELAYER, RELAYER_FEE_PCT)
+                context('when the slippage is below the limit', () => {
+                  const slippage = fp(0.01)
+
+                  beforeEach('set max slippage', async () => {
+                    const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
+                    await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
+                    await action.connect(owner).setMaxSlippage(slippage)
                   })
 
-                  context('when the current balance passes the threshold', () => {
-                    const threshold = amount
-                    const relayerFee = amount.mul(RELAYER_FEE_PCT).div(fp(1))
+                  context('when the relayer fee is below the limit', () => {
+                    const relayerFeePct = fp(0.002)
 
-                    beforeEach('set threshold', async () => {
-                      const setThresholdRole = action.interface.getSighash('setThreshold')
-                      await action.connect(owner).authorize(owner.address, setThresholdRole)
-                      await action.connect(owner).setThreshold(token.address, threshold)
+                    beforeEach('set max relayer fee', async () => {
+                      const setMaxRelayerFeePctRole = action.interface.getSighash('setMaxRelayerFeePct')
+                      await action.connect(owner).authorize(owner.address, setMaxRelayerFeePctRole)
+                      await action.connect(owner).setMaxRelayerFeePct(RELAYER, relayerFeePct)
                     })
 
-                    it('can executes', async () => {
-                      const canExecute = await action.canExecute(token.address, amount, SLIPPAGE, RELAYER, relayerFee)
-                      expect(canExecute).to.be.true
+                    context('when the current balance passes the threshold', () => {
+                      const threshold = amount
+                      const relayerFee = amount.mul(relayerFeePct).div(fp(1))
+
+                      beforeEach('set threshold', async () => {
+                        const setThresholdRole = action.interface.getSighash('setThreshold')
+                        await action.connect(owner).authorize(owner.address, setThresholdRole)
+                        await action.connect(owner).setThreshold(mimic.wrappedNativeToken.address, threshold)
+                      })
+
+                      it('can executes', async () => {
+                        const canExecute = await action.canExecute(token, amount, slippage, RELAYER, relayerFee)
+                        expect(canExecute).to.be.true
+                      })
+
+                      it('calls the wrap primitive', async () => {
+                        const tx = await action.call(token, amount, slippage, RELAYER, relayerFee)
+
+                        await assertIndirectEvent(tx, smartVault.interface, 'Wrap', {
+                          amount,
+                          wrapped: amount,
+                          data: '0x',
+                        })
+                      })
+
+                      it('calls the bridge primitive', async () => {
+                        const tx = await action.call(token, amount, slippage, RELAYER, relayerFee)
+
+                        const deadline = (await currentTimestamp()).add(DEADLINE)
+                        const data = defaultAbiCoder.encode(
+                          ['address', 'uint256', 'address', 'uint256'],
+                          [hopL1Bridge.address, deadline, RELAYER, relayerFee]
+                        )
+
+                        await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
+                          source: SOURCE,
+                          chainId: chainId,
+                          token: mimic.wrappedNativeToken.address,
+                          amountIn: amount,
+                          minAmountOut: amount.sub(amount.mul(slippage).div(fp(1))),
+                          data,
+                        })
+                      })
+
+                      it('emits an Executed event', async () => {
+                        const tx = await action.call(token, amount, slippage, RELAYER, relayerFee)
+
+                        await assertEvent(tx, 'Executed')
+                      })
+
+                      if (refunds) {
+                        it('refunds gas', async () => {
+                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
+                          const tx = await action.call(token, amount, slippage, RELAYER, relayerFee)
+
+                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          expect(currentBalance).to.be.gt(previousBalance)
+
+                          const redeemedCost = currentBalance.sub(previousBalance)
+                          await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+                        })
+                      } else {
+                        it('does not refund gas', async () => {
+                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
+                          await action.call(token, amount, slippage, RELAYER, relayerFee)
+
+                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          expect(currentBalance).to.be.equal(previousBalance)
+                        })
+                      }
                     })
 
-                    it('calls the bridge primitive', async () => {
-                      const tx = await action.call(token.address, amount, SLIPPAGE, RELAYER, relayerFee)
+                    context('when the current balance does not pass the threshold', () => {
+                      const threshold = amount.mul(2)
+                      const relayerFee = 0
 
-                      const deadline = (await currentTimestamp()).add(DEADLINE)
-                      const data = defaultAbiCoder.encode(
-                        ['address', 'uint256', 'address', 'uint256'],
-                        [hopL1Bridge.address, deadline, RELAYER, relayerFee]
-                      )
+                      beforeEach('set threshold', async () => {
+                        const setThresholdRole = action.interface.getSighash('setThreshold')
+                        await action.connect(owner).authorize(owner.address, setThresholdRole)
+                        await action.connect(owner).setThreshold(mimic.wrappedNativeToken.address, threshold)
+                      })
 
-                      await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
-                        source: SOURCE,
-                        chainId: CHAIN_ID,
-                        amountIn: amount,
-                        minAmountOut: amount.sub(amount.mul(SLIPPAGE).div(fp(1))),
-                        data,
+                      it('reverts', async () => {
+                        await expect(action.call(token, amount, slippage, RELAYER, relayerFee)).to.be.revertedWith(
+                          'MIN_THRESHOLD_NOT_MET'
+                        )
                       })
                     })
-
-                    it('emits an Executed event', async () => {
-                      const tx = await action.call(token.address, amount, SLIPPAGE, RELAYER, relayerFee)
-
-                      await assertEvent(tx, 'Executed')
-                    })
-
-                    if (refunds) {
-                      it('refunds gas', async () => {
-                        const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-
-                        const tx = await action.call(token.address, amount, SLIPPAGE, RELAYER, relayerFee)
-
-                        const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-                        expect(currentBalance).to.be.gt(previousBalance)
-
-                        const redeemedCost = currentBalance.sub(previousBalance)
-                        await assertRelayedBaseCost(tx, redeemedCost, 0.15)
-                      })
-                    } else {
-                      it('does not refund gas', async () => {
-                        const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-
-                        await action.call(token.address, amount, SLIPPAGE, RELAYER, relayerFee)
-
-                        const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-                        expect(currentBalance).to.be.equal(previousBalance)
-                      })
-                    }
                   })
 
-                  context('when the current balance does not pass the threshold', () => {
-                    const threshold = amount.mul(2)
-
-                    beforeEach('set threshold', async () => {
-                      const setThresholdRole = action.interface.getSighash('setThreshold')
-                      await action.connect(owner).authorize(owner.address, setThresholdRole)
-                      await action.connect(owner).setThreshold(token.address, threshold)
-                    })
+                  context('when the relayer fee is above the limit', () => {
+                    const relayerFee = fp(1)
 
                     it('reverts', async () => {
-                      await expect(
-                        action.call(token.address, amount, SLIPPAGE, RELAYER, RELAYER_FEE_PCT)
-                      ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+                      await expect(action.call(token, amount, slippage, RELAYER, relayerFee)).to.be.revertedWith(
+                        'BRIDGER_RELAYER_FEE_ABOVE_MAX'
+                      )
                     })
                   })
                 })
 
-                context('when the relayer fee is above the limit', () => {
-                  const relayerFee = fp(1)
+                context('when the slippage is above the limit', () => {
+                  const slippage = fp(0.01)
 
                   it('reverts', async () => {
-                    await expect(action.call(token.address, amount, SLIPPAGE, RELAYER, relayerFee)).to.be.revertedWith(
-                      'BRIDGER_RELAYER_FEE_ABOVE_MAX'
+                    await expect(action.call(token, amount, slippage, RELAYER, 0)).to.be.revertedWith(
+                      'BRIDGER_SLIPPAGE_ABOVE_MAX'
                     )
                   })
                 })
               })
 
-              context('when the slippage is above the limit', () => {
+              context('when the destination chain ID was not set', () => {
                 it('reverts', async () => {
-                  await expect(action.call(token.address, amount, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
-                    'BRIDGER_SLIPPAGE_ABOVE_MAX'
+                  await expect(action.call(token, amount, 0, RELAYER, 0)).to.be.revertedWith('BRIDGER_CHAIN_NOT_SET')
+                })
+              })
+            })
+
+            context('when the requested amount is zero', () => {
+              const amount = 0
+
+              it('reverts', async () => {
+                await expect(action.call(token, amount, 0, RELAYER, 0)).to.be.revertedWith('BRIDGER_AMOUNT_ZERO')
+              })
+            })
+          })
+
+          context('when the given token does not have a bridge set', () => {
+            it('reverts', async () => {
+              await expect(action.call(token, 0, 0, RELAYER, 0)).to.be.revertedWith('BRIDGER_TOKEN_BRIDGE_NOT_SET')
+            })
+          })
+        })
+
+        context('when the given token is an ERC20 token', () => {
+          let token: Contract, hopL1Bridge: Contract
+
+          beforeEach('deploy token and bridge mock', async () => {
+            token = await createTokenMock()
+            hopL1Bridge = await deploy(MOCKS.HOP_L1_BRIDGE, [token.address])
+          })
+
+          context('when the given token has a bridge set', () => {
+            beforeEach('set token bridge', async () => {
+              const setTokenBridgeRole = action.interface.getSighash('setTokenBridge')
+              await action.connect(owner).authorize(owner.address, setTokenBridgeRole)
+              await action.connect(owner).setTokenBridge(token.address, hopL1Bridge.address)
+            })
+
+            context('when the amount is greater than zero', () => {
+              const amount = fp(50)
+
+              beforeEach('fund action', async () => {
+                await token.mint(action.address, amount)
+              })
+
+              context('when the destination chain ID was set', () => {
+                const chainId = 1
+
+                beforeEach('set destination chain ID', async () => {
+                  const setDestinationChainIdRole = action.interface.getSighash('setDestinationChainId')
+                  await action.connect(owner).authorize(owner.address, setDestinationChainIdRole)
+                  await action.connect(owner).setDestinationChainId(chainId)
+                })
+
+                context('when the slippage is below the limit', () => {
+                  const slippage = fp(0.01)
+
+                  beforeEach('set max slippage', async () => {
+                    const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
+                    await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
+                    await action.connect(owner).setMaxSlippage(slippage)
+                  })
+
+                  context('when the relayer fee is below the limit', () => {
+                    const relayerFeePct = fp(0.002)
+
+                    beforeEach('set max relayer fee', async () => {
+                      const setMaxRelayerFeePctRole = action.interface.getSighash('setMaxRelayerFeePct')
+                      await action.connect(owner).authorize(owner.address, setMaxRelayerFeePctRole)
+                      await action.connect(owner).setMaxRelayerFeePct(RELAYER, relayerFeePct)
+                    })
+
+                    context('when the current balance passes the threshold', () => {
+                      const threshold = amount
+                      const relayerFee = amount.mul(relayerFeePct).div(fp(1))
+
+                      beforeEach('set threshold', async () => {
+                        const setThresholdRole = action.interface.getSighash('setThreshold')
+                        await action.connect(owner).authorize(owner.address, setThresholdRole)
+                        await action.connect(owner).setThreshold(token.address, threshold)
+                      })
+
+                      it('can executes', async () => {
+                        const canExecute = await action.canExecute(token.address, amount, slippage, RELAYER, relayerFee)
+                        expect(canExecute).to.be.true
+                      })
+
+                      it('does not call the wrap primitive', async () => {
+                        const tx = await action.call(token.address, amount, slippage, RELAYER, relayerFee)
+
+                        await assertNoIndirectEvent(tx, smartVault.interface, 'Wrap')
+                      })
+
+                      it('calls the bridge primitive', async () => {
+                        const tx = await action.call(token.address, amount, slippage, RELAYER, relayerFee)
+
+                        const deadline = (await currentTimestamp()).add(DEADLINE)
+                        const data = defaultAbiCoder.encode(
+                          ['address', 'uint256', 'address', 'uint256'],
+                          [hopL1Bridge.address, deadline, RELAYER, relayerFee]
+                        )
+
+                        await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
+                          source: SOURCE,
+                          chainId: chainId,
+                          token,
+                          amountIn: amount,
+                          minAmountOut: amount.sub(amount.mul(slippage).div(fp(1))),
+                          data,
+                        })
+                      })
+
+                      it('emits an Executed event', async () => {
+                        const tx = await action.call(token.address, amount, slippage, RELAYER, relayerFee)
+
+                        await assertEvent(tx, 'Executed')
+                      })
+
+                      if (refunds) {
+                        it('refunds gas', async () => {
+                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
+                          const tx = await action.call(token.address, amount, slippage, RELAYER, relayerFee)
+
+                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          expect(currentBalance).to.be.gt(previousBalance)
+
+                          const redeemedCost = currentBalance.sub(previousBalance)
+                          await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+                        })
+                      } else {
+                        it('does not refund gas', async () => {
+                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
+                          await action.call(token.address, amount, slippage, RELAYER, relayerFee)
+
+                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          expect(currentBalance).to.be.equal(previousBalance)
+                        })
+                      }
+                    })
+
+                    context('when the current balance does not pass the threshold', () => {
+                      const threshold = amount.mul(2)
+                      const relayerFee = 0
+
+                      beforeEach('set threshold', async () => {
+                        const setThresholdRole = action.interface.getSighash('setThreshold')
+                        await action.connect(owner).authorize(owner.address, setThresholdRole)
+                        await action.connect(owner).setThreshold(token.address, threshold)
+                      })
+
+                      it('reverts', async () => {
+                        await expect(
+                          action.call(token.address, amount, slippage, RELAYER, relayerFee)
+                        ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+                      })
+                    })
+                  })
+
+                  context('when the relayer fee is above the limit', () => {
+                    const relayerFeePct = fp(1)
+
+                    it('reverts', async () => {
+                      await expect(
+                        action.call(token.address, amount, slippage, RELAYER, relayerFeePct)
+                      ).to.be.revertedWith('BRIDGER_RELAYER_FEE_ABOVE_MAX')
+                    })
+                  })
+                })
+
+                context('when the slippage is above the limit', () => {
+                  const slippage = fp(0.01)
+
+                  it('reverts', async () => {
+                    await expect(action.call(token.address, amount, slippage, RELAYER, 0)).to.be.revertedWith(
+                      'BRIDGER_SLIPPAGE_ABOVE_MAX'
+                    )
+                  })
+                })
+              })
+
+              context('when the destination chain ID was not set', () => {
+                it('reverts', async () => {
+                  await expect(action.call(token.address, amount, 0, RELAYER, 0)).to.be.revertedWith(
+                    'BRIDGER_CHAIN_NOT_SET'
                   )
                 })
               })
             })
 
-            context('when the destination chain ID was not set', () => {
+            context('when the requested amount is zero', () => {
+              const amount = 0
+
               it('reverts', async () => {
-                await expect(action.call(token.address, amount, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
-                  'BRIDGER_CHAIN_NOT_SET'
+                await expect(action.call(token.address, amount, 0, RELAYER, 0)).to.be.revertedWith(
+                  'BRIDGER_AMOUNT_ZERO'
                 )
               })
             })
           })
 
-          context('when the requested amount is zero', () => {
-            const amount = 0
-
+          context('when the given token does not have a bridge set', () => {
             it('reverts', async () => {
-              await expect(action.call(token.address, amount, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
-                'BRIDGER_AMOUNT_ZERO'
+              await expect(action.call(token.address, 0, 0, RELAYER, 0)).to.be.revertedWith(
+                'BRIDGER_TOKEN_BRIDGE_NOT_SET'
               )
             })
-          })
-        })
-
-        context('when the given token does not have a bridge set', () => {
-          it('reverts', async () => {
-            await expect(action.call(token.address, 0, SLIPPAGE, RELAYER, 0)).to.be.revertedWith(
-              'BRIDGER_TOKEN_BRIDGE_NOT_SET'
-            )
           })
         })
       }
@@ -583,6 +792,11 @@ describe('L1HopBridger', () => {
           await action.connect(owner).setLimits(fp(100), 0, mimic.wrappedNativeToken.address)
         })
 
+        beforeEach('fund smart vault to pay gas', async () => {
+          await mimic.wrappedNativeToken.connect(owner).deposit({ value: fp(1) })
+          await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, fp(1))
+        })
+
         itPerformsTheExpectedCall(true)
       })
 
@@ -593,7 +807,7 @@ describe('L1HopBridger', () => {
 
     context('when the sender is authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(token.address, 0, SLIPPAGE, RELAYER, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.call(ZERO_ADDRESS, 0, 0, RELAYER, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })

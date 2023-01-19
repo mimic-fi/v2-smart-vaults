@@ -106,7 +106,9 @@ contract L2HopBridger is BaseHopBridger {
         require(bonderFee.divUp(amount) <= maxBonderFeePct, 'BRIDGER_BONDER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
-        _withdraw(token, amount);
+        _transferToSmartVault(token, amount);
+        if (Denominations.isNativeToken(token)) smartVault.wrap(amount, new bytes(0));
+
         bytes memory data = _bridgingToL1()
             ? abi.encode(amm, bonderFee)
             : abi.encode(amm, bonderFee, block.timestamp + maxDeadline);

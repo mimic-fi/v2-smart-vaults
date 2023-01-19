@@ -33,7 +33,7 @@ contract Withdrawer is BaseAction, RelayedAction, TokenThresholdAction, Withdraw
 
     function call(address token) external auth nonReentrant {
         isRelayer[msg.sender] ? _relayedCall(token) : _call(token);
-        _withdraw(Denominations.isNativeToken(token) ? smartVault.wrappedNativeToken() : token);
+        _withdraw(_wrappedIfNative(token));
     }
 
     function _relayedCall(address token) internal redeemGas {
