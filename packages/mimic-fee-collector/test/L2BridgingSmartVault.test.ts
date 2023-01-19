@@ -14,7 +14,9 @@ import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
-describe('L2SmartVault', () => {
+/* eslint-disable no-secrets/no-secrets */
+
+describe('L2BridgingSmartVault', () => {
   let smartVault: Contract, bridger: Contract, swapper: Contract, holder: Contract, funder: Contract
   let holdingToken: Contract, hopL2Amm: Contract, mimic: Mimic
   let other: SignerWithAddress, owner: SignerWithAddress, managers: SignerWithAddress[], recipient: SignerWithAddress
@@ -36,7 +38,7 @@ describe('L2SmartVault', () => {
   })
 
   beforeEach('deploy smart vault', async () => {
-    const deployer = await deploy('L2SmartVaultDeployer', [], owner, { Deployer: mimic.deployer.address })
+    const deployer = await deploy('L2BridgingSmartVaultDeployer', [], owner, { Deployer: mimic.deployer.address })
     funder = await deploy('Funder', [deployer.address, mimic.registry.address])
     holder = await deploy('Holder', [deployer.address, mimic.registry.address])
     swapper = await deploy('L2HopSwapper', [deployer.address, mimic.registry.address])
@@ -227,6 +229,7 @@ describe('L2SmartVault', () => {
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'funder', account: funder, roles: [] },
         { name: 'holder', account: holder, roles: [] },
+        { name: 'swapper', account: swapper, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
@@ -266,6 +269,7 @@ describe('L2SmartVault', () => {
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'funder', account: funder, roles: [] },
         { name: 'holder', account: holder, roles: [] },
+        { name: 'swapper', account: swapper, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
