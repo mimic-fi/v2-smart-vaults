@@ -21,11 +21,11 @@
     "prepare": "yarn build"
   },
   "dependencies": {
-    "@mimic-fi/v2-smart-vaults-base": "0.0.4",
+    "@mimic-fi/v2-smart-vaults-base": "0.0.5",
     "@openzeppelin/contracts": "4.7.0"
   },
   "devDependencies": {
-    "@mimic-fi/v2-helpers": "0.1.0",
+    "@mimic-fi/v2-helpers": "0.1.1",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
     "@types/chai": "^4.2.18",
