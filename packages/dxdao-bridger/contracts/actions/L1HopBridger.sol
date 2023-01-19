@@ -113,11 +113,8 @@ contract L1HopBridger is BaseHopBridger {
         require(relayerFee.divUp(amount) <= getMaxRelayerFeePct[relayer], 'BRIDGER_RELAYER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
-        _withdraw(token, amount);
-        if (Denominations.isNativeToken(token)) {
-            token = smartVault.wrappedNativeToken();
-            smartVault.wrap(amount, new bytes(0));
-        }
+        _transferToSmartVault(token, amount);
+        if (Denominations.isNativeToken(token)) smartVault.wrap(amount, new bytes(0));
 
         uint256 deadline = block.timestamp + maxDeadline;
         bytes memory data = abi.encode(bridge, deadline, relayer, relayerFee);
