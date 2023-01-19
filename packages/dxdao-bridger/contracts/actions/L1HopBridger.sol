@@ -114,6 +114,11 @@ contract L1HopBridger is BaseHopBridger {
         _validateThreshold(token, amount);
 
         _withdraw(token, amount);
+        if (Denominations.isNativeToken(token)) {
+            token = smartVault.wrappedNativeToken();
+            smartVault.wrap(amount, new bytes(0));
+        }
+
         uint256 deadline = block.timestamp + maxDeadline;
         bytes memory data = abi.encode(bridge, deadline, relayer, relayerFee);
         _bridge(token, amount, slippage, data);

@@ -107,6 +107,11 @@ contract L2HopBridger is BaseHopBridger {
         _validateThreshold(token, amount);
 
         _withdraw(token, amount);
+        if (Denominations.isNativeToken(token)) {
+            token = smartVault.wrappedNativeToken();
+            smartVault.wrap(amount, new bytes(0));
+        }
+
         bytes memory data = _bridgingToL1()
             ? abi.encode(amm, bonderFee)
             : abi.encode(amm, bonderFee, block.timestamp + maxDeadline);
