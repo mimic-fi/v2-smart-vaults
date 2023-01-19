@@ -26,7 +26,7 @@ import './BaseSmartVaultDeployer.sol';
 
 // solhint-disable avoid-low-level-calls
 
-contract L2SmartVaultDeployer is BaseSmartVaultDeployer {
+contract L2BridgingSmartVaultDeployer is BaseSmartVaultDeployer {
     using UncheckedMath for uint256;
 
     struct Params {
