@@ -33,8 +33,7 @@ contract Holder is BaseAction, TokenThresholdAction {
 
     function canExecute(address tokenIn, uint256 amountIn, uint256 slippage) external view returns (bool) {
         if (tokenOut == address(0) || slippage > maxSlippage) return false;
-        address token = Denominations.isNativeToken(tokenIn) ? smartVault.wrappedNativeToken() : tokenIn;
-        return _passesThreshold(token, amountIn);
+        return _passesThreshold(tokenIn, amountIn);
     }
 
     function setTokenOut(address token) external auth {
@@ -59,13 +58,11 @@ contract Holder is BaseAction, TokenThresholdAction {
         require(tokenIn != address(0), 'HOLDER_TOKEN_IN_ZERO');
         require(tokenIn != tokenOut, 'HOLDER_TOKEN_IN_EQ_OUT');
         require(slippage <= maxSlippage, 'HOLDER_SLIPPAGE_ABOVE_MAX');
-
-        bool isTokenInNativeToken = Denominations.isNativeToken(tokenIn);
-        address wrappedNativeToken = smartVault.wrappedNativeToken();
-        tokenIn = isTokenInNativeToken ? wrappedNativeToken : tokenIn;
         _validateThreshold(tokenIn, amountIn);
 
-        if (isTokenInNativeToken) amountIn = smartVault.wrap(amountIn, new bytes(0));
+        if (Denominations.isNativeToken(tokenIn)) amountIn = smartVault.wrap(amountIn, new bytes(0));
+        tokenIn = _wrappedIfNative(tokenIn);
+
         if (tokenIn != tokenOut) {
             // token in might haven been updated to be the wrapped native token
             smartVault.swap(source, tokenIn, tokenOut, amountIn, ISmartVault.SwapLimit.Slippage, slippage, data);
