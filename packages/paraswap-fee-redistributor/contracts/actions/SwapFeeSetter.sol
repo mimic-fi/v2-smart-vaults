@@ -38,7 +38,7 @@ contract SwapFeeSetter is BaseAction, RelayedAction, TimeLockedAction {
     }
 
     function canExecute() external view returns (bool) {
-        return fees.length > 0 && nextFeeIndex < fees.length && block.timestamp >= nextResetTime;
+        return fees.length > 0 && nextFeeIndex < fees.length && _passesTimeLock();
     }
 
     function setFees(Fee[] memory _fees) external auth {
