@@ -15,7 +15,7 @@ import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
 describe('L1SmartVault', () => {
-  let smartVault: Contract, bridger: Contract, mimic: Mimic, hopL1Bridge: Contract
+  let smartVault: Contract, bridger: Contract, mimic: Mimic, hopL1Bridge: Contract, withdrawer: Contract
   let other: SignerWithAddress, owner: SignerWithAddress, managers: SignerWithAddress[], relayers: SignerWithAddress[]
 
   beforeEach('set up signers', async () => {
@@ -36,6 +36,7 @@ describe('L1SmartVault', () => {
   beforeEach('deploy smart vault', async () => {
     const deployer = await deploy('L1SmartVaultDeployer', [], owner, { Deployer: mimic.deployer.address })
     bridger = await deploy('L1HopBridger', [deployer.address, mimic.registry.address])
+    withdrawer = await deploy('Withdrawer', [deployer.address, mimic.registry.address])
 
     const tx = await deployer.deploy({
       registry: mimic.registry.address,
@@ -67,6 +68,26 @@ describe('L1SmartVault', () => {
         tokenThresholdActionParams: {
           amount: fp(10),
           token: mimic.wrappedNativeToken.address,
+        },
+        relayedActionParams: {
+          relayers: relayers.map((m) => m.address),
+          gasPriceLimit: 0,
+          totalCostLimit: fp(100),
+          payingGasToken: mimic.wrappedNativeToken.address,
+          permissiveModeAdmin: mimic.admin.address,
+          isPermissiveModeActive: false,
+        },
+      },
+      withdrawerActionParams: {
+        impl: withdrawer.address,
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        withdrawalActionParams: {
+          recipient: owner.address,
+        },
+        tokenThresholdActionParams: {
+          token: mimic.wrappedNativeToken.address,
+          amount: fp(50),
         },
         relayedActionParams: {
           relayers: relayers.map((m) => m.address),
@@ -118,6 +139,7 @@ describe('L1SmartVault', () => {
         },
         { name: 'mimic', account: mimic.admin, roles: ['setFeeCollector'] },
         { name: 'bridger', account: bridger, roles: ['bridge', 'withdraw'] },
+        { name: 'withdrawer', account: withdrawer, roles: ['wrap', 'withdraw'] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: [] },
         { name: 'relayers', account: relayers, roles: [] },
@@ -201,6 +223,7 @@ describe('L1SmartVault', () => {
         },
         { name: 'mimic', account: mimic.admin, roles: ['setPermissiveMode'] },
         { name: 'bridger', account: bridger, roles: [] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'other', account: other, roles: [] },
         { name: 'managers', account: managers, roles: ['call'] },
         { name: 'relayers', account: relayers, roles: ['call'] },
@@ -238,6 +261,10 @@ describe('L1SmartVault', () => {
       expect(await bridger.getMaxRelayerFeePct(other.address)).to.be.equal(fp(0.02))
     })
 
+    it('does not allow relayed permissive mode', async () => {
+      expect(await bridger.isPermissiveModeActive()).to.be.false
+    })
+
     it('allows the requested relayers', async () => {
       for (const relayer of relayers) {
         expect(await bridger.isRelayer(relayer.address)).to.be.true
@@ -247,6 +274,68 @@ describe('L1SmartVault', () => {
     it('does not whitelist managers as relayers', async () => {
       for (const manager of managers) {
         expect(await bridger.isRelayer(manager.address)).to.be.false
+      }
+    })
+  })
+
+  describe('withdrawer', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(withdrawer, [
+        {
+          name: 'owner',
+          account: owner,
+          roles: [
+            'authorize',
+            'unauthorize',
+            'setSmartVault',
+            'setLimits',
+            'setRelayer',
+            'setThreshold',
+            'setRecipient',
+            'call',
+          ],
+        },
+        { name: 'mimic', account: mimic.admin, roles: ['setPermissiveMode'] },
+        { name: 'bridger', account: bridger, roles: [] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
+        { name: 'other', account: other, roles: [] },
+        { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
+      ])
+    })
+
+    it('has the proper smart vault set', async () => {
+      expect(await withdrawer.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('sets the owner as the recipient', async () => {
+      expect(await withdrawer.recipient()).to.be.equal(owner.address)
+    })
+
+    it('sets the expected token threshold params', async () => {
+      expect(await withdrawer.thresholdToken()).to.be.equal(mimic.wrappedNativeToken.address)
+      expect(await withdrawer.thresholdAmount()).to.be.equal(fp(50))
+    })
+
+    it('sets the expected gas limits', async () => {
+      expect(await withdrawer.gasPriceLimit()).to.be.equal(0)
+      expect(await withdrawer.totalCostLimit()).to.be.equal(fp(100))
+      expect(await withdrawer.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
+    })
+
+    it('does not allow relayed permissive mode', async () => {
+      expect(await withdrawer.isPermissiveModeActive()).to.be.false
+    })
+
+    it('whitelists the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await withdrawer.isRelayer(relayer.address)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await withdrawer.isRelayer(manager.address)).to.be.false
       }
     })
   })

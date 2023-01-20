@@ -21,6 +21,7 @@ import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/deploy/Deployer.sol';
 
 import './actions/L1HopBridger.sol';
+import './actions/Withdrawer.sol';
 
 // solhint-disable avoid-low-level-calls
 
@@ -31,6 +32,7 @@ contract L1SmartVaultDeployer {
         IRegistry registry;
         Deployer.SmartVaultParams smartVaultParams;
         L1HopBridgerActionParams l1HopBridgerActionParams;
+        WithdrawerActionParams withdrawerActionParams;
     }
 
     struct L1HopBridgerActionParams {
@@ -56,9 +58,19 @@ contract L1SmartVaultDeployer {
         uint256 maxFeePct;
     }
 
+    struct WithdrawerActionParams {
+        address impl;
+        address admin;
+        address[] managers;
+        Deployer.RelayedActionParams relayedActionParams;
+        Deployer.WithdrawalActionParams withdrawalActionParams;
+        Deployer.TokenThresholdActionParams tokenThresholdActionParams;
+    }
+
     function deploy(Params memory params) external {
         SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
         _setupL1HopBridgerAction(smartVault, params.l1HopBridgerActionParams);
+        _setupWithdrawerAction(smartVault, params.withdrawerActionParams);
         Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
     }
 
@@ -114,5 +126,23 @@ contract L1SmartVaultDeployer {
         // Authorize action to bridge, and withdraw from Smart Vault
         smartVault.authorize(address(bridger), smartVault.bridge.selector);
         smartVault.authorize(address(bridger), smartVault.withdraw.selector);
+    }
+
+    function _setupWithdrawerAction(SmartVault smartVault, WithdrawerActionParams memory params) internal {
+        // Create and setup action
+        Withdrawer withdrawer = Withdrawer(params.impl);
+        Deployer.setupBaseAction(withdrawer, params.admin, address(smartVault));
+        address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
+        Deployer.setupActionExecutors(withdrawer, executors, withdrawer.call.selector);
+        Deployer.setupRelayedAction(withdrawer, params.admin, params.relayedActionParams);
+        Deployer.setupTokenThresholdAction(withdrawer, params.admin, params.tokenThresholdActionParams);
+        Deployer.setupWithdrawalAction(withdrawer, params.admin, params.withdrawalActionParams);
+
+        // Transfer admin permissions to admin
+        Deployer.transferAdminPermissions(withdrawer, params.admin);
+
+        // Authorize action to wrap and withdraw from Smart Vault
+        smartVault.authorize(address(withdrawer), smartVault.wrap.selector);
+        smartVault.authorize(address(withdrawer), smartVault.withdraw.selector);
     }
 }
