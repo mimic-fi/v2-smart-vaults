@@ -7,6 +7,7 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
 import '../interfaces/IFeeClaimer.sol';
 
@@ -26,7 +27,7 @@ contract FeeClaimerMock is IFeeClaimer {
     }
 
     function getBalance(address token, address) external view override returns (uint256) {
-        return Denominations.isNativeToken(token) ? address(this).balance : IERC20(token).balanceOf(address(this));
+        return ERC20Helpers.balanceOf(token, address(this));
     }
 
     function registerFee(address, address, uint256) external override {
@@ -34,15 +35,8 @@ contract FeeClaimerMock is IFeeClaimer {
     }
 
     function withdrawAllERC20(address token, address recipient) external override returns (bool) {
-        Denominations.isNativeToken(token)
-            ? _transferTokens(token, recipient, address(this).balance)
-            : _transferTokens(token, recipient, IERC20(token).balanceOf(address(this)));
+        uint256 balance = ERC20Helpers.balanceOf(token, address(this));
+        if (balance > 0) ERC20Helpers.transfer(token, recipient, balance);
         return !fail;
-    }
-
-    function _transferTokens(address token, address destination, uint256 amount) internal {
-        if (amount == 0) return;
-        if (Denominations.isNativeToken(token)) Address.sendValue(payable(destination), amount);
-        else IERC20(token).transfer(destination, amount);
     }
 }

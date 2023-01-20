@@ -28,7 +28,7 @@ contract Withdrawer is BaseAction, RelayedAction, TimeLockedAction, WithdrawalAc
     }
 
     function canExecute() external view returns (bool) {
-        return _balanceOf(smartVault.wrappedNativeToken()) > 0 && block.timestamp >= nextResetTime;
+        return _balanceOf(smartVault.wrappedNativeToken()) > 0 && _passesTimeLock();
     }
 
     function call() external auth nonReentrant {
