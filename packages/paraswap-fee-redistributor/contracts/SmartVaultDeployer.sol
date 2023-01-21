@@ -20,7 +20,6 @@ import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/deploy/Deployer.sol';
 
-import './actions/Withdrawer.sol';
 import './actions/ERC20Claimer.sol';
 import './actions/NativeClaimer.sol';
 import './actions/SwapFeeSetter.sol';
@@ -32,20 +31,10 @@ contract SmartVaultDeployer {
 
     struct Params {
         IRegistry registry;
-        WithdrawerActionParams withdrawerActionParams;
         ERC20ClaimerActionParams erc20ClaimerActionParams;
         NativeClaimerActionParams nativeClaimerActionParams;
         SwapFeeSetterActionParams swapFeeSetterActionParams;
         Deployer.SmartVaultParams smartVaultParams;
-    }
-
-    struct WithdrawerActionParams {
-        address impl;
-        address admin;
-        address[] managers;
-        Deployer.RelayedActionParams relayedActionParams;
-        Deployer.TimeLockedActionParams timeLockedActionParams;
-        Deployer.WithdrawalActionParams withdrawalActionParams;
     }
 
     struct NativeClaimerActionParams {
@@ -82,26 +71,10 @@ contract SmartVaultDeployer {
 
     function deploy(Params memory params) external {
         SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
-        _setupWithdrawerAction(smartVault, params.withdrawerActionParams);
         _setupERC20ClaimerAction(smartVault, params.erc20ClaimerActionParams);
         _setupNativeClaimerAction(smartVault, params.nativeClaimerActionParams);
         _setupSwapFeeSetterAction(smartVault, params.swapFeeSetterActionParams);
         Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
-    }
-
-    function _setupWithdrawerAction(SmartVault smartVault, WithdrawerActionParams memory params) internal {
-        // Create and setup action
-        Withdrawer withdrawer = Withdrawer(params.impl);
-        Deployer.setupBaseAction(withdrawer, params.admin, address(smartVault));
-        address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
-        Deployer.setupActionExecutors(withdrawer, executors, withdrawer.call.selector);
-        Deployer.setupRelayedAction(withdrawer, params.admin, params.relayedActionParams);
-        Deployer.setupTimeLockedAction(withdrawer, params.admin, params.timeLockedActionParams);
-        Deployer.setupWithdrawalAction(withdrawer, params.admin, params.withdrawalActionParams);
-        Deployer.transferAdminPermissions(withdrawer, params.admin);
-
-        // Authorize action to collect, unwrap, and withdraw from Smart Vault
-        smartVault.authorize(address(withdrawer), smartVault.withdraw.selector);
     }
 
     function _setupSwapFeeSetterAction(SmartVault smartVault, SwapFeeSetterActionParams memory params) internal {
