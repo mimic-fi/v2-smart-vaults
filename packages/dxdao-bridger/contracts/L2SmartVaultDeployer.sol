@@ -158,7 +158,8 @@ contract L2SmartVaultDeployer {
         // Transfer admin permissions to admin
         Deployer.transferAdminPermissions(bridger, params.admin);
 
-        // Authorize action to bridge, and withdraw from Smart Vault
+        // Authorize action to bridge, wrap, and withdraw from Smart Vault
+        smartVault.authorize(address(bridger), smartVault.wrap.selector);
         smartVault.authorize(address(bridger), smartVault.bridge.selector);
         smartVault.authorize(address(bridger), smartVault.withdraw.selector);
     }
