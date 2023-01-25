@@ -30,6 +30,7 @@ contract SmartVaultDeployer {
     using UncheckedMath for uint256;
 
     struct Params {
+        address mimic;
         IRegistry registry;
         ERC20ClaimerActionParams erc20ClaimerActionParams;
         NativeClaimerActionParams nativeClaimerActionParams;
@@ -71,13 +72,16 @@ contract SmartVaultDeployer {
 
     function deploy(Params memory params) external {
         SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
-        _setupERC20ClaimerAction(smartVault, params.erc20ClaimerActionParams);
-        _setupNativeClaimerAction(smartVault, params.nativeClaimerActionParams);
-        _setupSwapFeeSetterAction(smartVault, params.swapFeeSetterActionParams);
+        _setupERC20ClaimerAction(smartVault, params.erc20ClaimerActionParams, params.mimic);
+        _setupNativeClaimerAction(smartVault, params.nativeClaimerActionParams, params.mimic);
+        _setupSwapFeeSetterAction(smartVault, params.swapFeeSetterActionParams, params.mimic);
+        Deployer.grantAdminPermissions(smartVault, params.mimic);
         Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
     }
 
-    function _setupSwapFeeSetterAction(SmartVault smartVault, SwapFeeSetterActionParams memory params) internal {
+    function _setupSwapFeeSetterAction(SmartVault smartVault, SwapFeeSetterActionParams memory params, address mimic)
+        internal
+    {
         // Create and setup action
         SwapFeeSetter setter = SwapFeeSetter(params.impl);
         Deployer.setupBaseAction(setter, params.admin, address(smartVault));
@@ -90,6 +94,7 @@ contract SmartVaultDeployer {
         setter.authorize(address(this), setter.setFees.selector);
         setter.setFees(_castToFeeParams(params.feeParams));
         setter.unauthorize(address(this), setter.setFees.selector);
+        Deployer.grantAdminPermissions(setter, mimic);
         Deployer.transferAdminPermissions(setter, params.admin);
 
         // Authorize action to withdraw and set swap fee
@@ -98,7 +103,9 @@ contract SmartVaultDeployer {
         smartVault.unauthorize(params.admin, smartVault.setSwapFee.selector);
     }
 
-    function _setupNativeClaimerAction(SmartVault smartVault, NativeClaimerActionParams memory params) internal {
+    function _setupNativeClaimerAction(SmartVault smartVault, NativeClaimerActionParams memory params, address mimic)
+        internal
+    {
         // Create and setup action
         NativeClaimer claimer = NativeClaimer(params.impl);
         Deployer.setupBaseAction(claimer, params.admin, address(smartVault));
@@ -110,6 +117,7 @@ contract SmartVaultDeployer {
         Deployer.setupActionExecutors(claimer, executors, claimer.call.selector);
         Deployer.setupRelayedAction(claimer, params.admin, params.feeClaimerParams.relayedActionParams);
         _setupBaseClaimerAction(claimer, params.admin, params.feeClaimerParams);
+        Deployer.grantAdminPermissions(claimer, mimic);
         Deployer.transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and wrap
@@ -118,7 +126,9 @@ contract SmartVaultDeployer {
         smartVault.authorize(address(claimer), smartVault.withdraw.selector);
     }
 
-    function _setupERC20ClaimerAction(SmartVault smartVault, ERC20ClaimerActionParams memory params) internal {
+    function _setupERC20ClaimerAction(SmartVault smartVault, ERC20ClaimerActionParams memory params, address mimic)
+        internal
+    {
         // Create and setup action
         ERC20Claimer claimer = ERC20Claimer(params.impl);
         Deployer.setupBaseAction(claimer, params.admin, address(smartVault));
@@ -133,6 +143,7 @@ contract SmartVaultDeployer {
         _setupSwapSignerAction(claimer, params.admin, params.swapSigner);
         _setupMaxSlippageAction(claimer, params.admin, params.maxSlippage);
         _setupTokenSwapIgnoresAction(claimer, params.admin, params.tokenSwapIgnores);
+        Deployer.grantAdminPermissions(claimer, mimic);
         Deployer.transferAdminPermissions(claimer, params.admin);
 
         // Authorize action to call and swap
