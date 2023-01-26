@@ -1,17 +1,16 @@
 import {
-  assertAlmostEqual,
   assertEvent,
   assertIndirectEvent,
   assertNoIndirectEvent,
   fp,
   getSigners,
+  MAX_UINT256,
   NATIVE_TOKEN_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
-import { ethers } from 'hardhat'
 
 import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
 import { createPriceFeedMock } from '../../src/samples'
@@ -40,62 +39,6 @@ describe('RelayedAction', () => {
     const setFeeCollectorRole = smartVault.interface.getSighash('setFeeCollector')
     await smartVault.connect(owner).authorize(owner.address, setFeeCollectorRole)
     await smartVault.connect(owner).setFeeCollector(feeCollector.address)
-  })
-
-  describe('setPermissiveMode', () => {
-    context('when the sender is authorized', async () => {
-      beforeEach('set sender', async () => {
-        const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-        await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-        action = action.connect(owner)
-      })
-
-      context('when the permissive mode was inactive', async () => {
-        it('can be activated', async () => {
-          const tx = await action.setPermissiveMode(true)
-
-          expect(await action.isPermissiveModeActive()).to.be.true
-          await assertEvent(tx, 'PermissiveModeSet', { active: true })
-        })
-
-        it('can be deactivated', async () => {
-          const tx = await action.setPermissiveMode(false)
-
-          expect(await action.isPermissiveModeActive()).to.be.false
-          await assertEvent(tx, 'PermissiveModeSet', { active: false })
-        })
-      })
-
-      context('when the permissive mode was active', async () => {
-        beforeEach('activate permissive mode', async () => {
-          await action.setPermissiveMode(true)
-        })
-
-        it('can be activated', async () => {
-          const tx = await action.setPermissiveMode(true)
-
-          expect(await action.isPermissiveModeActive()).to.be.true
-          await assertEvent(tx, 'PermissiveModeSet', { active: true })
-        })
-
-        it('can be deactivated', async () => {
-          const tx = await action.setPermissiveMode(false)
-
-          expect(await action.isPermissiveModeActive()).to.be.false
-          await assertEvent(tx, 'PermissiveModeSet', { active: false })
-        })
-      })
-    })
-
-    context('when the sender is not authorized', () => {
-      beforeEach('set sender', () => {
-        action = action.connect(other)
-      })
-
-      it('reverts', async () => {
-        await expect(action.setPermissiveMode(true)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
-      })
-    })
   })
 
   describe('setRelayer', () => {
@@ -168,52 +111,37 @@ describe('RelayedAction', () => {
         action = action.connect(owner)
       })
 
-      context('when the paying gas token is not zero', async () => {
-        const payingGasToken = NATIVE_TOKEN_ADDRESS
+      context('when the limits are not zero', async () => {
+        const gasPriceLimit = 1e10
+        const txCostLimit = fp(2)
 
-        context('when the limits are not zero', async () => {
-          const gasPriceLimit = 1e10
-          const totalCostLimit = fp(2)
+        it('sets the limits', async () => {
+          await action.setLimits(gasPriceLimit, txCostLimit)
 
-          it('sets the limits', async () => {
-            await action.setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
-
-            expect(await action.gasPriceLimit()).to.be.equal(gasPriceLimit)
-            expect(await action.totalCostLimit()).to.be.equal(totalCostLimit)
-            expect(await action.payingGasToken()).to.be.equal(payingGasToken)
-          })
-
-          it('emits an event', async () => {
-            const tx = await action.setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
-            await assertEvent(tx, 'LimitsSet', { gasPriceLimit, totalCostLimit, payingGasToken })
-          })
+          expect(await action.gasPriceLimit()).to.be.equal(gasPriceLimit)
+          expect(await action.txCostLimit()).to.be.equal(txCostLimit)
         })
 
-        context('when the limits are zero', async () => {
-          const gasPriceLimit = 0
-          const totalCostLimit = 0
-          const payingGasToken = NATIVE_TOKEN_ADDRESS
-
-          it('sets the limits', async () => {
-            await action.setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
-
-            expect(await action.gasPriceLimit()).to.be.equal(gasPriceLimit)
-            expect(await action.totalCostLimit()).to.be.equal(totalCostLimit)
-            expect(await action.payingGasToken()).to.be.equal(payingGasToken)
-          })
-
-          it('emits an event', async () => {
-            const tx = await action.setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
-            await assertEvent(tx, 'LimitsSet', { gasPriceLimit, totalCostLimit, payingGasToken })
-          })
+        it('emits an event', async () => {
+          const tx = await action.setLimits(gasPriceLimit, txCostLimit)
+          await assertEvent(tx, 'LimitsSet', { gasPriceLimit, txCostLimit })
         })
       })
 
-      context('when the paying gas token is zero', async () => {
-        const payingGasToken = ZERO_ADDRESS
+      context('when the limits are zero', async () => {
+        const gasPriceLimit = 0
+        const txCostLimit = 0
 
-        it('reverts', async () => {
-          await expect(action.setLimits(0, 0, payingGasToken)).to.be.revertedWith('PAYING_GAS_TOKEN_ZERO')
+        it('sets the limits', async () => {
+          await action.setLimits(gasPriceLimit, txCostLimit)
+
+          expect(await action.gasPriceLimit()).to.be.equal(gasPriceLimit)
+          expect(await action.txCostLimit()).to.be.equal(txCostLimit)
+        })
+
+        it('emits an event', async () => {
+          const tx = await action.setLimits(gasPriceLimit, txCostLimit)
+          await assertEvent(tx, 'LimitsSet', { gasPriceLimit, txCostLimit })
         })
       })
     })
@@ -224,7 +152,7 @@ describe('RelayedAction', () => {
       })
 
       it('reverts', async () => {
-        await expect(action.setLimits(0, 0, ZERO_ADDRESS)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.setLimits(0, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -237,7 +165,17 @@ describe('RelayedAction', () => {
       await action.connect(owner).authorize(owner.address, setLimitsRole)
     })
 
+    const itDoesNotRedeemAnyCost = () => {
+      it('does not redeem any cost', async () => {
+        const tx = await action.call()
+
+        await assertNoIndirectEvent(tx, smartVault.interface, 'Withdraw')
+      })
+    }
+
     context('when the sender is a relayer', () => {
+      let token: Contract
+
       beforeEach('authorize relayer', async () => {
         const setRelayerRole = action.interface.getSighash('setRelayer')
         await action.connect(owner).authorize(owner.address, setRelayerRole)
@@ -245,263 +183,195 @@ describe('RelayedAction', () => {
         action = action.connect(other)
       })
 
-      context('with gas price limit', () => {
-        const gasPriceLimit = 10e9
-        const totalCostLimit = 0
-        const payingGasToken = NATIVE_TOKEN_ADDRESS
-
-        beforeEach('setLimits', async () => {
-          await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
+      const itRedeemsGasCostProperly = (error: number, native = false, rate = 1) => {
+        beforeEach('set token', async () => {
+          await action.setToken(native ? NATIVE_TOKEN_ADDRESS : token.address)
         })
 
-        context('when the tx gas price is under the limit', () => {
-          const gasPrice = gasPriceLimit - 1
-
-          beforeEach('fund smart vault', async () => {
-            await owner.sendTransaction({ to: smartVault.address, value: fp(1) })
-          })
-
+        const itRedeemsTheGasCost = (gasPrice?: number) => {
           it('redeems the expected cost to the fee collector', async () => {
-            const tx = await action.call({ gasPrice })
+            const tx = await action.call(gasPrice ? { gasPrice } : {})
 
             const { args } = await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
-              token: payingGasToken,
+              token: native ? NATIVE_TOKEN_ADDRESS : token.address,
               recipient: feeCollector,
               data: REDEEM_GAS_NOTE,
             })
 
             const { gasUsed, effectiveGasPrice } = await tx.wait()
-            const expectedCost = gasUsed.mul(effectiveGasPrice)
-            assertAlmostEqual(args.withdrawn, expectedCost, 0.1)
+            const expectedCost = gasUsed.mul(effectiveGasPrice).mul(rate)
+            expect(args.withdrawn).to.be.at.least(expectedCost.sub(error))
+            expect(args.withdrawn).to.be.at.most(expectedCost.add(error))
+          })
+        }
+
+        context('without limits', () => {
+          const gasPriceLimit = 0
+          const txCostLimit = 0
+
+          beforeEach('set limits', async () => {
+            await action.connect(owner).setLimits(gasPriceLimit, txCostLimit)
+          })
+
+          context('when the smart vault has enough funds', () => {
+            beforeEach('fund smart vault', async () => {
+              const amount = fp(0.1).mul(rate)
+
+              if (native) await owner.sendTransaction({ to: smartVault.address, value: amount })
+              else if (token != mimic.wrappedNativeToken) await token.mint(smartVault.address, amount)
+              else {
+                await mimic.wrappedNativeToken.connect(owner).deposit({ value: amount })
+                await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, amount)
+              }
+            })
+
+            itRedeemsTheGasCost()
+          })
+
+          context('when the smart vault does not have enough funds', () => {
+            it('reverts', async () => {
+              await expect(action.call()).to.be.revertedWith(
+                native
+                  ? 'Address: insufficient balance'
+                  : token == mimic.wrappedNativeToken
+                  ? 'NOT_ENOUGH_BALANCE'
+                  : 'ERC20: transfer amount exceeds balance'
+              )
+            })
           })
         })
 
-        context('when the tx gas price is above the limit', () => {
-          const gasPrice = gasPriceLimit + 1
+        context('with limits', () => {
+          const gasPriceLimit = 10e9
 
-          it('reverts', async () => {
-            await expect(action.call({ gasPrice })).to.be.revertedWith('GAS_PRICE_ABOVE_LIMIT')
+          context('when the gas price is under the limit', () => {
+            const gasPrice = gasPriceLimit - 1
+
+            context('when the tx consumes less than the cost limit', () => {
+              const txCostLimit = MAX_UINT256
+
+              beforeEach('set limits', async () => {
+                await action.connect(owner).setLimits(gasPriceLimit, txCostLimit)
+              })
+
+              context('when the smart vault has enough funds', () => {
+                beforeEach('fund smart vault', async () => {
+                  const amount = fp(0.1).mul(rate)
+
+                  if (native) await owner.sendTransaction({ to: smartVault.address, value: amount })
+                  else if (token != mimic.wrappedNativeToken) await token.mint(smartVault.address, amount)
+                  else {
+                    await mimic.wrappedNativeToken.connect(owner).deposit({ value: amount })
+                    await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, amount)
+                  }
+                })
+
+                itRedeemsTheGasCost()
+              })
+
+              context('when the smart vault does not have enough funds', () => {
+                it('reverts', async () => {
+                  await expect(action.call()).to.be.revertedWith(
+                    native
+                      ? 'Address: insufficient balance'
+                      : token == mimic.wrappedNativeToken
+                      ? 'NOT_ENOUGH_BALANCE'
+                      : 'ERC20: transfer amount exceeds balance'
+                  )
+                })
+              })
+            })
+
+            context('when the tx consumes more than the cost limit', () => {
+              const txCostLimit = 1
+
+              beforeEach('set limits', async () => {
+                await action.connect(owner).setLimits(gasPriceLimit, txCostLimit)
+              })
+
+              it('reverts', async () => {
+                await expect(action.call({ gasPrice })).to.be.revertedWith('TX_COST_ABOVE_LIMIT')
+              })
+            })
+          })
+
+          context('when the gas price is passes the limit', () => {
+            const gasPrice = gasPriceLimit + 1
+
+            context('when the tx consumes less than the cost limit', () => {
+              const txCostLimit = MAX_UINT256
+
+              beforeEach('set limits', async () => {
+                await action.connect(owner).setLimits(gasPriceLimit, txCostLimit)
+              })
+
+              it('reverts', async () => {
+                await expect(action.call({ gasPrice })).to.be.revertedWith('GAS_PRICE_ABOVE_LIMIT')
+              })
+            })
+
+            context('when the tx consumes more than the cost limit', () => {
+              const txCostLimit = 0
+
+              beforeEach('set limits', async () => {
+                await action.connect(owner).setLimits(gasPriceLimit, txCostLimit)
+              })
+
+              it('reverts', async () => {
+                await expect(action.call({ gasPrice })).to.be.revertedWith('GAS_PRICE_ABOVE_LIMIT')
+              })
+            })
           })
         })
+      }
+
+      context('when paying with the native token', () => {
+        const error = 1e13
+        const native = true
+
+        itRedeemsGasCostProperly(error, native)
       })
 
-      context('with total cost limit', () => {
-        let realGasCostEth
-        const gasCostError = 1e13
-        const gasPriceLimit = 0
+      context('when paying with the wrapped native token', () => {
+        const error = 1e14
+        const native = false
+        const rate = 1
 
-        beforeEach('measure real gas cost', async () => {
-          await action.connect(owner).setLimits(gasPriceLimit, fp(100), NATIVE_TOKEN_ADDRESS)
-          await owner.sendTransaction({ to: smartVault.address, value: fp(1) })
-          const { args } = await assertIndirectEvent(await action.call(), smartVault.interface, 'Withdraw')
-          realGasCostEth = args.withdrawn
+        beforeEach('set token', async () => {
+          token = mimic.wrappedNativeToken
         })
 
-        context('paying in the native token', () => {
-          const payingGasToken = NATIVE_TOKEN_ADDRESS
+        itRedeemsGasCostProperly(error, native, rate)
+      })
 
-          context('when total gas cost limit is above the actual cost', () => {
-            beforeEach('setLimits', async () => {
-              const totalCostLimit = realGasCostEth.add(gasCostError)
-              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
-            })
-
-            context('when the smart vault has enough funds', () => {
-              beforeEach('ensure smart vault balance', async () => {
-                const balance = await ethers.provider.getBalance(smartVault.address)
-                expect(balance).to.be.gt(realGasCostEth)
-              })
-
-              context('when the permissive mode is on', () => {
-                beforeEach('activate permission mode', async () => {
-                  const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                  await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                  await action.connect(owner).setPermissiveMode(true)
-                })
-
-                it('redeems the expected cost to the fee collector', async () => {
-                  const tx = await action.call()
-
-                  const { args } = await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
-                    token: payingGasToken,
-                    recipient: feeCollector,
-                    data: REDEEM_GAS_NOTE,
-                  })
-
-                  expect(args.withdrawn).to.be.at.least(realGasCostEth.sub(gasCostError))
-                  expect(args.withdrawn).to.be.at.most(realGasCostEth.add(gasCostError))
-                })
-              })
-
-              context('when the permissive mode is off', () => {
-                beforeEach('deactivate permission mode', async () => {
-                  const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                  await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                  await action.connect(owner).setPermissiveMode(false)
-                })
-
-                it('redeems the expected cost to the fee collector', async () => {
-                  const tx = await action.call()
-
-                  const { args } = await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
-                    token: payingGasToken,
-                    recipient: feeCollector,
-                    data: REDEEM_GAS_NOTE,
-                  })
-
-                  expect(args.withdrawn).to.be.at.least(realGasCostEth.sub(gasCostError))
-                  expect(args.withdrawn).to.be.at.most(realGasCostEth.add(gasCostError))
-                })
-              })
-            })
-
-            context('when the smart vault has does not have enough funds', () => {
-              beforeEach('empty smart vault', async () => {
-                const balance = await ethers.provider.getBalance(smartVault.address)
-                const withdrawRole = smartVault.interface.getSighash('withdraw')
-                await smartVault.connect(owner).authorize(owner.address, withdrawRole)
-                await smartVault.connect(owner).withdraw(payingGasToken, balance, owner.address, '0x')
-              })
-
-              context('when the permissive mode is on', () => {
-                beforeEach('activate permission mode', async () => {
-                  const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                  await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                  await action.connect(owner).setPermissiveMode(true)
-                })
-
-                it('does not revert nor redeems any cost', async () => {
-                  const tx = await action.call()
-                  await assertNoIndirectEvent(tx, smartVault.interface, 'Withdraw')
-                })
-              })
-
-              context('when the permissive mode is off', () => {
-                beforeEach('deactivate permission mode', async () => {
-                  const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                  await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                  await action.connect(owner).setPermissiveMode(false)
-                })
-
-                it('reverts', async () => {
-                  await expect(action.call()).to.be.revertedWith('Address: insufficient balance')
-                })
-              })
-            })
-          })
-
-          context('when total gas cost limit is below the actual cost', () => {
-            beforeEach('setLimits', async () => {
-              const totalCostLimit = realGasCostEth.sub(gasCostError)
-              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken)
-            })
-
-            it('reverts', async () => {
-              await expect(action.call()).to.be.revertedWith('TX_COST_ABOVE_LIMIT')
-            })
-          })
+      context('when paying with another ERC20', () => {
+        beforeEach('set token', async () => {
+          token = await createTokenMock()
         })
 
-        context('paying in the wrapped native token', () => {
-          let payingGasToken: Contract
+        context('when there is a price feed set', () => {
+          const error = 1e14
+          const native = false
+          const rate = 2
 
-          beforeEach('set paying token', async () => {
-            payingGasToken = mimic.wrappedNativeToken
-          })
-
-          context('when total gas cost limit is above the actual cost', () => {
-            beforeEach('setLimits', async () => {
-              const totalCostLimit = realGasCostEth.add(gasCostError)
-              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
-            })
-
-            beforeEach('fund smart vault', async () => {
-              await mimic.wrappedNativeToken.connect(owner).deposit({ value: fp(1) })
-              await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, fp(1))
-            })
-
-            it('redeems the expected cost to the fee collector', async () => {
-              const tx = await action.call()
-
-              const { args } = await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
-                token: payingGasToken,
-                recipient: feeCollector,
-                data: REDEEM_GAS_NOTE,
-              })
-
-              expect(args.withdrawn).to.be.at.least(realGasCostEth.sub(gasCostError))
-              expect(args.withdrawn).to.be.at.most(realGasCostEth.add(gasCostError))
-            })
-          })
-
-          context('when total gas cost limit is below the actual cost', () => {
-            beforeEach('setLimits', async () => {
-              const totalCostLimit = realGasCostEth.sub(gasCostError)
-              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
-            })
-
-            it('reverts', async () => {
-              await expect(action.call()).to.be.revertedWith('TX_COST_ABOVE_LIMIT')
-            })
-          })
-        })
-
-        context('paying in another ERC20', () => {
-          const rate = fp(2)
-          let payingGasToken: Contract
-
-          beforeEach('set paying token and mock price feed', async () => {
-            payingGasToken = await createTokenMock()
-            const feed = await createPriceFeedMock(rate)
+          beforeEach('mock price feed', async () => {
+            const feed = await createPriceFeedMock(fp(rate))
             const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
             await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
-            await smartVault
-              .connect(owner)
-              .setPriceFeed(mimic.wrappedNativeToken.address, payingGasToken.address, feed.address)
+            await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, token.address, feed.address)
           })
 
-          context('when total gas cost limit is above the actual cost', () => {
-            beforeEach('set limits', async () => {
-              const totalCostLimit = realGasCostEth.add(gasCostError).mul(rate).div(fp(1))
-              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
-            })
+          itRedeemsGasCostProperly(error, native, rate)
+        })
 
-            beforeEach('fund smart vault', async () => {
-              await payingGasToken.mint(smartVault.address, fp(2))
-            })
-
-            it('redeems the expected cost to the fee collector', async () => {
-              const tx = await action.call()
-
-              const { args } = await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
-                token: payingGasToken,
-                recipient: feeCollector,
-                data: REDEEM_GAS_NOTE,
-              })
-
-              expect(args.withdrawn).to.be.at.least(realGasCostEth.sub(gasCostError).mul(rate).div(fp(1)))
-              expect(args.withdrawn).to.be.at.most(realGasCostEth.add(gasCostError).mul(rate).div(fp(1)))
-            })
-          })
-
-          context('when total gas cost limit is below the actual cost', () => {
-            beforeEach('setLimits', async () => {
-              const totalCostLimit = realGasCostEth.sub(gasCostError).mul(rate).div(fp(1))
-              await action.connect(owner).setLimits(gasPriceLimit, totalCostLimit, payingGasToken.address)
-            })
-
-            it('reverts', async () => {
-              await expect(action.call()).to.be.revertedWith('TX_COST_ABOVE_LIMIT')
-            })
-          })
+        context('when there is no price feed set', () => {
+          itDoesNotRedeemAnyCost()
         })
       })
     })
 
     context('when the sender is not a relayer', () => {
-      it('reverts', async () => {
-        await expect(action.call()).to.be.revertedWith('SENDER_NOT_RELAYER')
-      })
+      itDoesNotRedeemAnyCost()
     })
   })
 })
