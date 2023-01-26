@@ -70,9 +70,9 @@ abstract contract RelayedAction is BaseAction {
      * @dev Modifier that can be used to reimburse the gas cost of the tagged function paying in a specific token
      */
     modifier redeemGas(address token) {
-        _beforeCall();
+        _initRelayedTx();
         _;
-        _afterCall(token);
+        _payRelayedTx(token);
     }
 
     /**
@@ -107,9 +107,9 @@ abstract contract RelayedAction is BaseAction {
     }
 
     /**
-     * @dev Internal before call hook where limit validations are checked. Only when the sender is marked as a relayer.
+     * @dev Internal init hook used for relayed txs. It checks tx limit validations only when the sender is a relayer.
      */
-    function _beforeCall() internal {
+    function _initRelayedTx() internal {
         if (!isRelayer[msg.sender]) return;
         _initialGas = gasleft();
         uint256 limit = gasPriceLimit;
@@ -117,45 +117,52 @@ abstract contract RelayedAction is BaseAction {
     }
 
     /**
-     * @dev Internal after call hook where tx cost is reimbursed. Only when the sender is marked as a relayer.
-     * @param token Address of the token to use in order to pay the tx cost. If none, the default paying gas token is used.
+     * @dev Internal function to pay for a relayed tx. Only when the sender is marked as a relayer.
+     * @param token Address of the token to use in order to pay the tx cost
      * @return Amount of tokens paid to reimburse the tx cost
      */
-    function _afterCall(address token) internal returns (uint256) {
+    function _payRelayedTx(address token) internal returns (uint256) {
+        (bool success, uint256 price) = _tryGetNativeTokenPriceIn(token);
+        if (success) return _payRelayedTx(token, price);
+        delete _initialGas;
+        return 0;
+    }
+
+    /**
+     * @dev Internal after call hook where tx cost is reimbursed. Only when the sender is marked as a relayer.
+     * @param token Address of the token to use in order to pay the tx cost
+     * @param price Price of the native token expressed in the given token quote
+     * @return Amount of tokens paid to reimburse the tx cost
+     */
+    function _payRelayedTx(address token, uint256 price) internal returns (uint256) {
         if (!isRelayer[msg.sender]) return 0;
+        require(_initialGas > 0, 'RELAYED_TX_NOT_INITIALIZED');
 
         uint256 limit = txCostLimit;
-        uint256 tokenPrice = _getTokenPrice(token);
-
         uint256 totalGas = _initialGas - gasleft();
         uint256 totalCostNative = (totalGas + RelayedAction(this).BASE_GAS()) * tx.gasprice;
         require(limit == 0 || totalCostNative <= limit, 'TX_COST_ABOVE_LIMIT');
 
         // Total cost is rounded down to make sure we always match at least the threshold
-        uint256 totalCostToken = totalCostNative.mulDown(tokenPrice);
-        if (_shouldTryRedeemFromSmartVault(token, totalCostToken)) {
-            smartVault.withdraw(token, totalCostToken, smartVault.feeCollector(), REDEEM_GAS_NOTE);
-        }
+        uint256 totalCostToken = totalCostNative.mulDown(price);
+        smartVault.withdraw(token, totalCostToken, smartVault.feeCollector(), REDEEM_GAS_NOTE);
 
         delete _initialGas;
         return totalCostToken;
     }
 
     /**
-     * @dev Internal function to fetch the token price from the Smart Vault's price oracle
+     * @dev Tries getting the price of the native token quoted in a another token
+     * @param token Address of the token to quote the native token in
+     * @return success Whether the price query to the smart vault succeeded or not
+     * @return price The price fetched or zero if the query didn't succeed
      */
-    function _getTokenPrice(address token) private view returns (uint256) {
-        bool isUsingNativeToken = _isWrappedOrNativeToken(token);
-        return isUsingNativeToken ? FixedPoint.ONE : smartVault.getPrice(smartVault.wrappedNativeToken(), token);
-    }
-
-    /**
-     * @dev Internal function to tell if the relayed action should try to redeem the gas cost from the Smart Vault
-     * @param token Address of the token to pay the relayed gas cost
-     * @param amount Amount of tokens to pay for the relayed gas cost
-     */
-    function _shouldTryRedeemFromSmartVault(address token, uint256 amount) private view returns (bool) {
-        if (!isPermissiveModeActive) return true;
-        return _balanceOf(token) >= amount;
+    function _tryGetNativeTokenPriceIn(address token) internal view virtual returns (bool success, uint256 price) {
+        if (_isWrappedOrNativeToken(token)) return (true, FixedPoint.ONE);
+        try smartVault.getPrice(smartVault.wrappedNativeToken(), token) returns (uint256 result) {
+            return (true, result);
+        } catch {
+            return (false, 0);
+        }
     }
 }

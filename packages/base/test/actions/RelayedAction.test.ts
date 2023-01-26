@@ -281,54 +281,18 @@ describe('RelayedAction', () => {
               }
             })
 
-            context('when the permissive mode is on', () => {
-              beforeEach('activate permission mode', async () => {
-                const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                await action.connect(owner).setPermissiveMode(true)
-              })
-
-              itRedeemsTheGasCost()
-            })
-
-            context('when the permissive mode is off', () => {
-              beforeEach('deactivate permission mode', async () => {
-                const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                await action.connect(owner).setPermissiveMode(false)
-              })
-
-              itRedeemsTheGasCost()
-            })
+            itRedeemsTheGasCost()
           })
 
           context('when the smart vault does not have enough funds', () => {
-            context('when the permissive mode is on', () => {
-              beforeEach('activate permission mode', async () => {
-                const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                await action.connect(owner).setPermissiveMode(true)
-              })
-
-              itDoesNotRedeemAnyCost()
-            })
-
-            context('when the permissive mode is off', () => {
-              beforeEach('deactivate permission mode', async () => {
-                const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                await action.connect(owner).setPermissiveMode(false)
-              })
-
-              it('reverts', async () => {
-                await expect(action.call()).to.be.revertedWith(
-                  native
-                    ? 'Address: insufficient balance'
-                    : token == mimic.wrappedNativeToken
-                    ? 'NOT_ENOUGH_BALANCE'
-                    : 'ERC20: transfer amount exceeds balance'
-                )
-              })
+            it('reverts', async () => {
+              await expect(action.call()).to.be.revertedWith(
+                native
+                  ? 'Address: insufficient balance'
+                  : token == mimic.wrappedNativeToken
+                  ? 'NOT_ENOUGH_BALANCE'
+                  : 'ERC20: transfer amount exceeds balance'
+              )
             })
           })
         })
@@ -358,54 +322,18 @@ describe('RelayedAction', () => {
                   }
                 })
 
-                context('when the permissive mode is on', () => {
-                  beforeEach('activate permission mode', async () => {
-                    const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                    await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                    await action.connect(owner).setPermissiveMode(true)
-                  })
-
-                  itRedeemsTheGasCost()
-                })
-
-                context('when the permissive mode is off', () => {
-                  beforeEach('deactivate permission mode', async () => {
-                    const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                    await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                    await action.connect(owner).setPermissiveMode(false)
-                  })
-
-                  itRedeemsTheGasCost()
-                })
+                itRedeemsTheGasCost()
               })
 
               context('when the smart vault does not have enough funds', () => {
-                context('when the permissive mode is on', () => {
-                  beforeEach('activate permission mode', async () => {
-                    const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                    await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                    await action.connect(owner).setPermissiveMode(true)
-                  })
-
-                  itDoesNotRedeemAnyCost()
-                })
-
-                context('when the permissive mode is off', () => {
-                  beforeEach('deactivate permission mode', async () => {
-                    const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-                    await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-                    await action.connect(owner).setPermissiveMode(false)
-                  })
-
-                  it('reverts', async () => {
-                    await expect(action.call()).to.be.revertedWith(
-                      native
-                        ? 'Address: insufficient balance'
-                        : token == mimic.wrappedNativeToken
-                        ? 'NOT_ENOUGH_BALANCE'
-                        : 'ERC20: transfer amount exceeds balance'
-                    )
-                  })
+                it('reverts', async () => {
+                  await expect(action.call()).to.be.revertedWith(
+                    native
+                      ? 'Address: insufficient balance'
+                      : token == mimic.wrappedNativeToken
+                      ? 'NOT_ENOUGH_BALANCE'
+                      : 'ERC20: transfer amount exceeds balance'
+                  )
                 })
               })
             })
@@ -473,19 +401,28 @@ describe('RelayedAction', () => {
       })
 
       context('when paying with another ERC20', () => {
-        const error = 1e14
-        const native = false
-        const rate = 2
-
-        beforeEach('set paying token and mock price feed', async () => {
+        beforeEach('set token', async () => {
           token = await createTokenMock()
-          const feed = await createPriceFeedMock(fp(rate))
-          const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
-          await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
-          await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, token.address, feed.address)
         })
 
-        itRedeemsGasCostProperly(error, native, rate)
+        context('when there is a price feed set', () => {
+          const error = 1e14
+          const native = false
+          const rate = 2
+
+          beforeEach('mock price feed', async () => {
+            const feed = await createPriceFeedMock(fp(rate))
+            const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+            await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+            await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, token.address, feed.address)
+          })
+
+          itRedeemsGasCostProperly(error, native, rate)
+        })
+
+        context('when there is no price feed set', () => {
+          itDoesNotRedeemAnyCost()
+        })
       })
     })
 
