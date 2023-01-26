@@ -39,9 +39,6 @@ abstract contract RelayedAction is BaseAction {
     // Internal variable used to allow a better developer experience to reimburse tx gas cost
     uint256 private _initialGas;
 
-    // Allows relaying transactions even if there is not enough balance in the Smart Vault to pay for the tx gas cost
-    bool public isPermissiveModeActive;
-
     // Gas price limit expressed in the native token, if surpassed it wont relay the transaction
     uint256 public gasPriceLimit;
 
@@ -50,11 +47,6 @@ abstract contract RelayedAction is BaseAction {
 
     // List of allowed relayers indexed by address
     mapping (address => bool) public isRelayer;
-
-    /**
-     * @dev Emitted every time the permissive mode is changed
-     */
-    event PermissiveModeSet(bool active);
 
     /**
      * @dev Emitted every time the relayers list is changed
@@ -73,16 +65,6 @@ abstract contract RelayedAction is BaseAction {
         _initRelayedTx();
         _;
         _payRelayedTx(token);
-    }
-
-    /**
-     * @dev Sets the relayed action permissive mode. If active, it won't fail when trying to redeem gas costs to the
-     * relayer if the smart vault does not have enough balance. Sender must be authorized.
-     * @param active Whether the permissive mode should be active or not
-     */
-    function setPermissiveMode(bool active) external auth {
-        isPermissiveModeActive = active;
-        emit PermissiveModeSet(active);
     }
 
     /**

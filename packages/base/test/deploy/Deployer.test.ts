@@ -50,8 +50,6 @@ describe('Deployer', () => {
         relayers: [randomAddress(), randomAddress()],
         gasPriceLimit: 100e9,
         txCostLimit: fp(100),
-        permissiveModeAdmin: randomAddress(),
-        isPermissiveModeActive: false,
       },
     },
     timeLockedActionParams: {
@@ -255,12 +253,6 @@ describe('Deployer', () => {
     it('sets the expected gas limits', async () => {
       expect(await relayed.gasPriceLimit()).to.be.equal(config.relayedActionParams.relayedActionParams.gasPriceLimit)
       expect(await relayed.txCostLimit()).to.be.equal(config.relayedActionParams.relayedActionParams.txCostLimit)
-    })
-
-    it('sets the expected permissive mode', async () => {
-      expect(await relayed.isPermissiveModeActive()).to.be.equal(
-        config.relayedActionParams.relayedActionParams.isPermissiveModeActive
-      )
     })
 
     it('allows the requested relayers', async () => {

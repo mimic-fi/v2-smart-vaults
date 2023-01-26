@@ -41,62 +41,6 @@ describe('RelayedAction', () => {
     await smartVault.connect(owner).setFeeCollector(feeCollector.address)
   })
 
-  describe('setPermissiveMode', () => {
-    context('when the sender is authorized', async () => {
-      beforeEach('set sender', async () => {
-        const setPermissiveModeRole = action.interface.getSighash('setPermissiveMode')
-        await action.connect(owner).authorize(owner.address, setPermissiveModeRole)
-        action = action.connect(owner)
-      })
-
-      context('when the permissive mode was inactive', async () => {
-        it('can be activated', async () => {
-          const tx = await action.setPermissiveMode(true)
-
-          expect(await action.isPermissiveModeActive()).to.be.true
-          await assertEvent(tx, 'PermissiveModeSet', { active: true })
-        })
-
-        it('can be deactivated', async () => {
-          const tx = await action.setPermissiveMode(false)
-
-          expect(await action.isPermissiveModeActive()).to.be.false
-          await assertEvent(tx, 'PermissiveModeSet', { active: false })
-        })
-      })
-
-      context('when the permissive mode was active', async () => {
-        beforeEach('activate permissive mode', async () => {
-          await action.setPermissiveMode(true)
-        })
-
-        it('can be activated', async () => {
-          const tx = await action.setPermissiveMode(true)
-
-          expect(await action.isPermissiveModeActive()).to.be.true
-          await assertEvent(tx, 'PermissiveModeSet', { active: true })
-        })
-
-        it('can be deactivated', async () => {
-          const tx = await action.setPermissiveMode(false)
-
-          expect(await action.isPermissiveModeActive()).to.be.false
-          await assertEvent(tx, 'PermissiveModeSet', { active: false })
-        })
-      })
-    })
-
-    context('when the sender is not authorized', () => {
-      beforeEach('set sender', () => {
-        action = action.connect(other)
-      })
-
-      it('reverts', async () => {
-        await expect(action.setPermissiveMode(true)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
-      })
-    })
-  })
-
   describe('setRelayer', () => {
     let newRelayer: SignerWithAddress
 
