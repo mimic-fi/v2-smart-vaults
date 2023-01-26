@@ -37,19 +37,16 @@ abstract contract RelayedAction is BaseAction {
     bytes private constant REDEEM_GAS_NOTE = bytes('RELAYER');
 
     // Internal variable used to allow a better developer experience to reimburse tx gas cost
-    uint256 internal _initialGas;
+    uint256 private _initialGas;
 
     // Allows relaying transactions even if there is not enough balance in the Smart Vault to pay for the tx gas cost
     bool public isPermissiveModeActive;
 
-    // Gas price limit, if surpassed it wont relay the transaction
+    // Gas price limit expressed in the native token, if surpassed it wont relay the transaction
     uint256 public gasPriceLimit;
 
-    // Total cost limit expressed in `payingGasToken`, if surpassed it wont relay the transaction
-    uint256 public totalCostLimit;
-
-    // Address of the ERC20 token that will be used to pay the total tx cost
-    address public payingGasToken;
+    // Total transaction cost limit expressed in the native token, if surpassed it wont relay the transaction
+    uint256 public txCostLimit;
 
     // List of allowed relayers indexed by address
     mapping (address => bool) public isRelayer;
@@ -67,15 +64,15 @@ abstract contract RelayedAction is BaseAction {
     /**
      * @dev Emitted every time the relayer limits are set
      */
-    event LimitsSet(uint256 gasPriceLimit, uint256 totalCostLimit, address payingGasToken);
+    event LimitsSet(uint256 gasPriceLimit, uint256 txCostLimit);
 
     /**
-     * @dev Modifier that can be used to reimburse the gas cost of the tagged function
+     * @dev Modifier that can be used to reimburse the gas cost of the tagged function paying in a specific token
      */
-    modifier redeemGas() {
+    modifier redeemGas(address token) {
         _beforeCall();
         _;
-        _afterCall();
+        _afterCall(token);
     }
 
     /**
@@ -101,51 +98,53 @@ abstract contract RelayedAction is BaseAction {
     /**
      * @dev Sets the relayer limits. Sender must be authorized.
      * @param _gasPriceLimit New gas price limit to be set
-     * @param _totalCostLimit New total cost limit to be set
-     * @param _payingGasToken New paying gas token to be set
+     * @param _txCostLimit New total cost limit to be set
      */
-    function setLimits(uint256 _gasPriceLimit, uint256 _totalCostLimit, address _payingGasToken) external auth {
-        require(_payingGasToken != address(0), 'PAYING_GAS_TOKEN_ZERO');
+    function setLimits(uint256 _gasPriceLimit, uint256 _txCostLimit) external auth {
         gasPriceLimit = _gasPriceLimit;
-        totalCostLimit = _totalCostLimit;
-        payingGasToken = _payingGasToken;
-        emit LimitsSet(_gasPriceLimit, _totalCostLimit, _payingGasToken);
+        txCostLimit = _txCostLimit;
+        emit LimitsSet(_gasPriceLimit, _txCostLimit);
     }
 
     /**
-     * @dev Internal before call hook where limit validations are checked
+     * @dev Internal before call hook where limit validations are checked. Only when the sender is marked as a relayer.
      */
     function _beforeCall() internal {
+        if (!isRelayer[msg.sender]) return;
         _initialGas = gasleft();
-        require(isRelayer[msg.sender], 'SENDER_NOT_RELAYER');
         uint256 limit = gasPriceLimit;
         require(limit == 0 || tx.gasprice <= limit, 'GAS_PRICE_ABOVE_LIMIT');
     }
 
     /**
-     * @dev Internal after call hook where tx cost is reimburse
+     * @dev Internal after call hook where tx cost is reimbursed. Only when the sender is marked as a relayer.
+     * @param token Address of the token to use in order to pay the tx cost. If none, the default paying gas token is used.
+     * @return Amount of tokens paid to reimburse the tx cost
      */
-    function _afterCall() internal {
+    function _afterCall(address token) internal returns (uint256) {
+        if (!isRelayer[msg.sender]) return 0;
+
+        uint256 limit = txCostLimit;
+        uint256 tokenPrice = _getTokenPrice(token);
+
         uint256 totalGas = _initialGas - gasleft();
         uint256 totalCostNative = (totalGas + RelayedAction(this).BASE_GAS()) * tx.gasprice;
+        require(limit == 0 || totalCostNative <= limit, 'TX_COST_ABOVE_LIMIT');
 
-        uint256 limit = totalCostLimit;
-        address payingToken = payingGasToken;
         // Total cost is rounded down to make sure we always match at least the threshold
-        uint256 totalCostToken = totalCostNative.mulDown(_getPayingGasTokenPrice(payingToken));
-        require(limit == 0 || totalCostToken <= limit, 'TX_COST_ABOVE_LIMIT');
-
-        if (_shouldTryRedeemFromSmartVault(payingToken, totalCostToken)) {
-            smartVault.withdraw(payingToken, totalCostToken, smartVault.feeCollector(), REDEEM_GAS_NOTE);
+        uint256 totalCostToken = totalCostNative.mulDown(tokenPrice);
+        if (_shouldTryRedeemFromSmartVault(token, totalCostToken)) {
+            smartVault.withdraw(token, totalCostToken, smartVault.feeCollector(), REDEEM_GAS_NOTE);
         }
 
         delete _initialGas;
+        return totalCostToken;
     }
 
     /**
-     * @dev Internal function to fetch the paying gas token rate from the Smart Vault's price oracle
+     * @dev Internal function to fetch the token price from the Smart Vault's price oracle
      */
-    function _getPayingGasTokenPrice(address token) private view returns (uint256) {
+    function _getTokenPrice(address token) private view returns (uint256) {
         bool isUsingNativeToken = _isWrappedOrNativeToken(token);
         return isUsingNativeToken ? FixedPoint.ONE : smartVault.getPrice(smartVault.wrappedNativeToken(), token);
     }

@@ -115,15 +115,13 @@ library Deployer {
      * @dev Relayed action params
      * @param relayers List of addresses to be marked as allowed executors and in particular as authorized relayers
      * @param gasPriceLimit Gas price limit to be used for the relayed action
-     * @param totalCostLimit Total cost limit to be used for the relayed action
-     * @param payingGasToken Paying gas token to be used for the relayed action
+     * @param txCostLimit Total transaction cost limit to be used for the relayed action
      * @param isPermissiveModeActive Whether permissive mode is active or not
      */
     struct RelayedActionParams {
         address[] relayers;
         uint256 gasPriceLimit;
-        uint256 totalCostLimit;
-        address payingGasToken;
+        uint256 txCostLimit;
         bool isPermissiveModeActive;
         address permissiveModeAdmin;
     }
@@ -338,7 +336,7 @@ library Deployer {
 
         // Set relayed transactions limits
         action.authorize(address(this), action.setLimits.selector);
-        action.setLimits(params.gasPriceLimit, params.totalCostLimit, params.payingGasToken);
+        action.setLimits(params.gasPriceLimit, params.txCostLimit);
         action.unauthorize(address(this), action.setLimits.selector);
 
         // Set permissive mode if necessary
