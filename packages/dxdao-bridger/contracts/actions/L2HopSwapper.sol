@@ -28,7 +28,7 @@ contract L2HopSwapper is BaseAction, RelayedAction {
     using EnumerableMap for EnumerableMap.AddressToAddressMap;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 80e3;
+    uint256 public constant override BASE_GAS = 50e3;
 
     // Hop Exchange source number
     uint8 internal constant HOP_SOURCE = 5;
@@ -86,15 +86,7 @@ contract L2HopSwapper is BaseAction, RelayedAction {
         emit TokenAmmSet(token, amm);
     }
 
-    function call(address token, uint256 amount, uint256 slippage) external auth nonReentrant {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, slippage);
-    }
-
-    function _relayedCall(address token, uint256 amount, uint256 slippage) internal redeemGas {
-        _call(token, amount, slippage);
-    }
-
-    function _call(address token, uint256 amount, uint256 slippage) internal {
+    function call(address token, uint256 amount, uint256 slippage) external auth nonReentrant redeemGas(token) {
         (bool existsAmm, address amm) = tokenAmms.tryGet(token);
         require(existsAmm, 'SWAPPER_TOKEN_AMM_NOT_SET');
 

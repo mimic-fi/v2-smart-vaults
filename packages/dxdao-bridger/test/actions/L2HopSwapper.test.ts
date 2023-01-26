@@ -188,6 +188,14 @@ describe('L2HopSwapper', () => {
 
   describe('call', () => {
     const SOURCE = 5
+    const rate = 2
+
+    beforeEach('set price feed', async () => {
+      const feed = await createPriceFeedMock(fp(rate))
+      const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+      await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+      await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, token.address, feed.address)
+    })
 
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
@@ -196,7 +204,7 @@ describe('L2HopSwapper', () => {
         action = action.connect(owner)
       })
 
-      const itPerformsTheExpectedCall = (refunds: boolean) => {
+      const itPerformsTheExpectedCall = (relayed: boolean) => {
         context('when the given token has an AMM set', () => {
           beforeEach('set token AMM', async () => {
             const setTokenAmmRole = action.interface.getSighash('setTokenAmm')
@@ -252,7 +260,7 @@ describe('L2HopSwapper', () => {
                 await assertEvent(tx, 'Executed')
               })
 
-              if (refunds) {
+              if (relayed) {
                 it('refunds gas', async () => {
                   const previousBalance = await token.balanceOf(feeCollector.address)
 
@@ -261,7 +269,7 @@ describe('L2HopSwapper', () => {
                   const currentBalance = await token.balanceOf(feeCollector.address)
                   expect(currentBalance).to.be.gt(previousBalance)
 
-                  const redeemedCost = currentBalance.sub(previousBalance) // rate is fp(1)
+                  const redeemedCost = currentBalance.sub(previousBalance).div(rate)
                   await assertRelayedBaseCost(tx, redeemedCost, 0.15)
                 })
               } else {
@@ -308,17 +316,6 @@ describe('L2HopSwapper', () => {
           const setRelayerRole = action.interface.getSighash('setRelayer')
           await action.connect(owner).authorize(owner.address, setRelayerRole)
           await action.connect(owner).setRelayer(owner.address, true)
-
-          const setLimitsRole = action.interface.getSighash('setLimits')
-          await action.connect(owner).authorize(owner.address, setLimitsRole)
-          await action.connect(owner).setLimits(fp(100), 0, token.address)
-        })
-
-        beforeEach('set price feed', async () => {
-          const feed = await createPriceFeedMock(fp(1))
-          const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
-          await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
-          await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, token.address, feed.address)
         })
 
         itPerformsTheExpectedCall(true)

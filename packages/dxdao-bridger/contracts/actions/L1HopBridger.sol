@@ -25,7 +25,7 @@ contract L1HopBridger is BaseHopBridger {
     using EnumerableMap for EnumerableMap.AddressToAddressMap;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 60e3;
+    uint256 public constant override BASE_GAS = 120e3;
 
     mapping (address => uint256) public getMaxRelayerFeePct;
     EnumerableMap.AddressToAddressMap private tokenBridges;
@@ -94,17 +94,17 @@ contract L1HopBridger is BaseHopBridger {
         auth
         nonReentrant
     {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, slippage, relayer, relayerFee);
+        _initRelayedTx();
+        bytes memory data = _prepareBridge(token, amount, slippage, relayer, relayerFee);
+        token = _wrappedIfNative(token);
+        uint256 gasRefund = _payRelayedTx(token);
+        _bridge(token, amount - gasRefund, slippage, data);
     }
 
-    function _relayedCall(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee)
+    function _prepareBridge(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee)
         internal
-        redeemGas
+        returns (bytes memory)
     {
-        _call(token, amount, slippage, relayer, relayerFee);
-    }
-
-    function _call(address token, uint256 amount, uint256 slippage, address relayer, uint256 relayerFee) internal {
         (bool existsBridge, address bridge) = tokenBridges.tryGet(token);
         require(existsBridge, 'BRIDGER_TOKEN_BRIDGE_NOT_SET');
         require(amount > 0, 'BRIDGER_AMOUNT_ZERO');
@@ -118,7 +118,8 @@ contract L1HopBridger is BaseHopBridger {
 
         uint256 deadline = block.timestamp + maxDeadline;
         bytes memory data = abi.encode(bridge, deadline, relayer, relayerFee);
-        _bridge(token, amount, slippage, data);
+
         emit Executed();
+        return data;
     }
 }

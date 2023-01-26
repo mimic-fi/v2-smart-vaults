@@ -65,7 +65,7 @@ abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAc
         smartVault.bridge(
             HOP_SOURCE,
             destinationChainId,
-            _wrappedIfNative(token),
+            token,
             amount,
             ISmartVault.BridgeLimit.Slippage,
             slippage,
