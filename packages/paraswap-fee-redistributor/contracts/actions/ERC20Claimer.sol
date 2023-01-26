@@ -27,7 +27,7 @@ contract ERC20Claimer is BaseClaimer {
     using UncheckedMath for uint256;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 65e3;
+    uint256 public constant override BASE_GAS = 55e3;
 
     address public swapSigner;
     uint256 public maxSlippage;
@@ -73,27 +73,9 @@ contract ERC20Claimer is BaseClaimer {
         bytes memory data,
         bytes memory sig
     ) external auth nonReentrant {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(
-            tokenIn,
-            amountIn,
-            minAmountOut,
-            expectedAmountOut,
-            deadline,
-            data,
-            sig
-        );
-    }
-
-    function _relayedCall(
-        address tokenIn,
-        uint256 amountIn,
-        uint256 minAmountOut,
-        uint256 expectedAmountOut,
-        uint256 deadline,
-        bytes memory data,
-        bytes memory sig
-    ) internal redeemGas {
-        _call(tokenIn, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
+        _initRelayedTx();
+        (address token, uint256 price) = _call(tokenIn, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
+        _payRelayedTx(token, price);
     }
 
     function _call(
@@ -104,18 +86,22 @@ contract ERC20Claimer is BaseClaimer {
         uint256 deadline,
         bytes memory data,
         bytes memory sig
-    ) internal {
+    ) internal returns (address payingGasToken, uint256 payingGasTokenPrice) {
         require(!_isWrappedOrNativeToken(tokenIn), 'ERC20_CLAIMER_INVALID_TOKEN');
 
         // Min amount already includes both the current balance and the amount to be claimed
         address wrappedNativeToken = smartVault.wrappedNativeToken();
         _validateThreshold(wrappedNativeToken, minAmountOut);
+        _validateSlippage(minAmountOut, expectedAmountOut);
+        _validateSig(tokenIn, wrappedNativeToken, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
         _claim(tokenIn);
 
-        if (!isTokenSwapIgnored[tokenIn]) {
-            _validateSlippage(minAmountOut, expectedAmountOut);
-            _validateSig(tokenIn, wrappedNativeToken, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
-
+        if (isTokenSwapIgnored[tokenIn]) {
+            payingGasToken = tokenIn;
+            payingGasTokenPrice = amountIn.divUp(expectedAmountOut);
+        } else {
+            payingGasToken = wrappedNativeToken;
+            payingGasTokenPrice = FixedPoint.ONE;
             smartVault.swap(
                 uint8(ISwapConnector.Source.ParaswapV5),
                 tokenIn,

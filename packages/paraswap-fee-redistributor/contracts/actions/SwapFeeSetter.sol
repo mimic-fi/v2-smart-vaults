@@ -14,13 +14,9 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TimeLockedAction.sol';
 
-contract SwapFeeSetter is BaseAction, RelayedAction, TimeLockedAction {
-    // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 70e3;
-
+contract SwapFeeSetter is BaseAction, TimeLockedAction {
     struct Fee {
         uint256 pct;
         uint256 cap;
@@ -48,14 +44,6 @@ contract SwapFeeSetter is BaseAction, RelayedAction, TimeLockedAction {
     }
 
     function call() external auth nonReentrant {
-        (isRelayer[msg.sender] ? _relayedCall : _call)();
-    }
-
-    function _relayedCall() internal redeemGas {
-        _call();
-    }
-
-    function _call() internal {
         require(fees.length > 0, 'FEES_NOT_SET');
         require(nextFeeIndex < fees.length, 'FEE_CONFIGS_ALREADY_EXECUTED');
         _validateTimeLock();

@@ -1,11 +1,5 @@
 import { advanceTime, assertEvent, fp, getSigners, MONTH, NATIVE_TOKEN_ADDRESS } from '@mimic-fi/v2-helpers'
-import {
-  assertRelayedBaseCost,
-  createAction,
-  createSmartVault,
-  Mimic,
-  setupMimic,
-} from '@mimic-fi/v2-smart-vaults-base'
+import { createAction, createSmartVault, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -141,101 +135,62 @@ describe('SwapFeeSetter', () => {
           await action.setFees(fees)
         })
 
-        const itPerformsTheExpectedCall = (refunds: boolean) => {
-          context('when the time-lock has expired', () => {
-            context('when the fees were not executed', () => {
-              it('can execute', async () => {
-                const canExecute = await action.canExecute()
-                expect(canExecute).to.be.true
-              })
-
-              it('sets the swap fee', async () => {
-                await action.call()
-
-                const swapFee0 = await smartVault.swapFee()
-                expect(swapFee0.pct).to.be.equal(fees[0].pct)
-                expect(swapFee0.cap).to.be.equal(fees[0].cap)
-                expect(swapFee0.token).to.be.equal(fees[0].token)
-                expect(swapFee0.period).to.be.equal(fees[0].period)
-
-                await expect(action.call()).to.be.revertedWith('TIME_LOCK_NOT_EXPIRED')
-                await advanceTime(timeLock)
-                await action.call()
-
-                const swapFee1 = await smartVault.swapFee()
-                expect(swapFee1.pct).to.be.equal(fees[1].pct)
-                expect(swapFee1.cap).to.be.equal(fees[1].cap)
-                expect(swapFee1.token).to.be.equal(fees[1].token)
-                expect(swapFee1.period).to.be.equal(fees[1].period)
-              })
-
-              it('emits an Executed event', async () => {
-                const tx = await action.call()
-
-                await assertEvent(tx, 'Executed')
-              })
-
-              it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-                const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-
-                const tx = await action.call()
-
-                const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-                expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
-
-                if (refunds) {
-                  const redeemedCost = currentBalance.sub(previousBalance)
-                  await assertRelayedBaseCost(tx, redeemedCost, 0.15)
-                }
-              })
+        context('when the time-lock has expired', () => {
+          context('when the fees were not executed', () => {
+            it('can execute', async () => {
+              const canExecute = await action.canExecute()
+              expect(canExecute).to.be.true
             })
 
-            context('when all the fees were executed', () => {
-              beforeEach('execute all fees', async () => {
-                await action.call()
-                await advanceTime(timeLock)
-                await action.call()
-                await advanceTime(timeLock)
-              })
+            it('sets the swap fee', async () => {
+              await action.call()
 
-              it('reverts', async () => {
-                await expect(action.call()).to.be.revertedWith('FEE_CONFIGS_ALREADY_EXECUTED')
-              })
+              const swapFee0 = await smartVault.swapFee()
+              expect(swapFee0.pct).to.be.equal(fees[0].pct)
+              expect(swapFee0.cap).to.be.equal(fees[0].cap)
+              expect(swapFee0.token).to.be.equal(fees[0].token)
+              expect(swapFee0.period).to.be.equal(fees[0].period)
+
+              await expect(action.call()).to.be.revertedWith('TIME_LOCK_NOT_EXPIRED')
+              await advanceTime(timeLock)
+              await action.call()
+
+              const swapFee1 = await smartVault.swapFee()
+              expect(swapFee1.pct).to.be.equal(fees[1].pct)
+              expect(swapFee1.cap).to.be.equal(fees[1].cap)
+              expect(swapFee1.token).to.be.equal(fees[1].token)
+              expect(swapFee1.period).to.be.equal(fees[1].period)
+            })
+
+            it('emits an Executed event', async () => {
+              const tx = await action.call()
+
+              await assertEvent(tx, 'Executed')
             })
           })
 
-          context('when the time-lock has not expired', () => {
-            beforeEach('execute', async () => {
+          context('when all the fees were executed', () => {
+            beforeEach('execute all fees', async () => {
               await action.call()
+              await advanceTime(timeLock)
+              await action.call()
+              await advanceTime(timeLock)
             })
 
             it('reverts', async () => {
-              await expect(action.call()).to.be.revertedWith('TIME_LOCK_NOT_EXPIRED')
+              await expect(action.call()).to.be.revertedWith('FEE_CONFIGS_ALREADY_EXECUTED')
             })
           })
-        }
-
-        context('when the sender is a relayer', () => {
-          beforeEach('mark sender as relayer', async () => {
-            const setRelayerRole = action.interface.getSighash('setRelayer')
-            await action.connect(owner).authorize(owner.address, setRelayerRole)
-            await action.connect(owner).setRelayer(owner.address, true)
-
-            const setLimitsRole = action.interface.getSighash('setLimits')
-            await action.connect(owner).authorize(owner.address, setLimitsRole)
-            await action.connect(owner).setLimits(fp(100), 0, mimic.wrappedNativeToken.address)
-          })
-
-          beforeEach('fund smart vault', async () => {
-            await mimic.wrappedNativeToken.connect(owner).deposit({ value: fp(10) })
-            await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, fp(10))
-          })
-
-          itPerformsTheExpectedCall(true)
         })
 
-        context('when the sender is not a relayer', () => {
-          itPerformsTheExpectedCall(false)
+        context('when the time-lock has not expired', () => {
+          beforeEach('execute', async () => {
+            await action.call()
+          })
+
+          it('reverts', async () => {
+            await expect(action.call()).to.be.revertedWith('TIME_LOCK_NOT_EXPIRED')
+          })
         })
       })
 

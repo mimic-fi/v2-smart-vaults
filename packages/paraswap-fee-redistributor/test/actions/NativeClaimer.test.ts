@@ -113,7 +113,7 @@ describe('NativeClaimer', () => {
         action = action.connect(owner)
       })
 
-      const itPerformsTheExpectedCall = (refunds: boolean) => {
+      const itPerformsTheExpectedCall = (relayed: boolean) => {
         const itCallsTheCallPrimitive = () => {
           it('calls the call primitive', async () => {
             const tx = await action.call(token)
@@ -135,15 +135,15 @@ describe('NativeClaimer', () => {
         }
 
         const itRefundsGasCorrectly = () => {
-          it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
+          it(`${relayed ? 'refunds' : 'does not refund'} gas`, async () => {
             const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
             const tx = await action.call(token)
 
             const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-            expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+            expect(currentBalance).to.be[relayed ? 'gt' : 'equal'](previousBalance)
 
-            if (refunds) {
+            if (relayed) {
               const redeemedCost = currentBalance.sub(previousBalance)
               await assertRelayedBaseCost(tx, redeemedCost, 0.15)
             }
@@ -297,10 +297,6 @@ describe('NativeClaimer', () => {
           const setRelayerRole = action.interface.getSighash('setRelayer')
           await action.connect(owner).authorize(owner.address, setRelayerRole)
           await action.connect(owner).setRelayer(owner.address, true)
-
-          const setLimitsRole = action.interface.getSighash('setLimits')
-          await action.connect(owner).authorize(owner.address, setLimitsRole)
-          await action.connect(owner).setLimits(fp(100), 0, mimic.wrappedNativeToken.address)
         })
 
         itPerformsTheExpectedCall(true)
