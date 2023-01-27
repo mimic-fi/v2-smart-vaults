@@ -11,6 +11,7 @@ import {
 import {
   assertRelayedBaseCost,
   createAction,
+  createPriceFeedMock,
   createSmartVault,
   createTokenMock,
   Mimic,
@@ -391,7 +392,7 @@ describe('L2HopBridger', () => {
         action = action.connect(owner)
       })
 
-      const itPerformsTheExpectedCall = (refunds: boolean) => {
+      const itPerformsTheExpectedCall = (relayed: boolean) => {
         context('when the given token is the native token', () => {
           const token = NATIVE_TOKEN_ADDRESS
           let hopL2Amm: Contract
@@ -471,12 +472,16 @@ describe('L2HopBridger', () => {
 
                         const data = defaultAbiCoder.encode(['address', 'uint256'], [hopL2Amm.address, bonderFee])
 
+                        const expectedAmount = relayed
+                          ? amount.sub((await assertIndirectEvent(tx, smartVault.interface, 'Withdraw')).args.withdrawn)
+                          : amount
+
                         await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
                           source: SOURCE,
                           chainId: chainId,
                           token: mimic.wrappedNativeToken.address,
-                          amountIn: amount,
-                          minAmountOut: amount.sub(amount.mul(slippage).div(fp(1))),
+                          amountIn: expectedAmount,
+                          minAmountOut: expectedAmount.sub(expectedAmount.mul(slippage).div(fp(1))),
                           data,
                         })
                       })
@@ -487,7 +492,7 @@ describe('L2HopBridger', () => {
                         await assertEvent(tx, 'Executed')
                       })
 
-                      if (refunds) {
+                      if (relayed) {
                         it('refunds gas', async () => {
                           const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
@@ -497,7 +502,7 @@ describe('L2HopBridger', () => {
                           expect(currentBalance).to.be.gt(previousBalance)
 
                           const redeemedCost = currentBalance.sub(previousBalance)
-                          await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+                          await assertRelayedBaseCost(tx, redeemedCost, 0.2)
                         })
                       } else {
                         it('does not refund gas', async () => {
@@ -575,11 +580,19 @@ describe('L2HopBridger', () => {
         })
 
         context('when the given token is an ERC20 token', () => {
+          const rate = 2
           let token: Contract, hopL2Amm: Contract
 
           beforeEach('deploy token and amm mock', async () => {
             token = await createTokenMock()
             hopL2Amm = await deploy(MOCKS.HOP_L2_AMM, [token.address, token.address])
+          })
+
+          beforeEach('set price feed', async () => {
+            const feed = await createPriceFeedMock(fp(rate))
+            const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+            await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+            await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, token.address, feed.address)
           })
 
           context('when the given token has an AMM set', () => {
@@ -649,12 +662,16 @@ describe('L2HopBridger', () => {
 
                         const data = defaultAbiCoder.encode(['address', 'uint256'], [hopL2Amm.address, bonderFee])
 
+                        const expectedAmount = relayed
+                          ? amount.sub((await assertIndirectEvent(tx, smartVault.interface, 'Withdraw')).args.withdrawn)
+                          : amount
+
                         await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
                           source: SOURCE,
                           chainId,
                           token,
-                          amountIn: amount,
-                          minAmountOut: amount.sub(amount.mul(slippage).div(fp(1))),
+                          amountIn: expectedAmount,
+                          minAmountOut: expectedAmount.sub(expectedAmount.mul(slippage).div(fp(1))),
                           data,
                         })
                       })
@@ -665,25 +682,25 @@ describe('L2HopBridger', () => {
                         await assertEvent(tx, 'Executed')
                       })
 
-                      if (refunds) {
+                      if (relayed) {
                         it('refunds gas', async () => {
-                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          const previousBalance = await token.balanceOf(feeCollector.address)
 
                           const tx = await action.call(token.address, amount, slippage, bonderFee)
 
-                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          const currentBalance = await token.balanceOf(feeCollector.address)
                           expect(currentBalance).to.be.gt(previousBalance)
 
-                          const redeemedCost = currentBalance.sub(previousBalance)
-                          await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+                          const redeemedCost = currentBalance.sub(previousBalance).div(rate)
+                          await assertRelayedBaseCost(tx, redeemedCost, 0.2)
                         })
                       } else {
                         it('does not refund gas', async () => {
-                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          const previousBalance = await token.balanceOf(feeCollector.address)
 
                           await action.call(token.address, amount, slippage, bonderFee)
 
-                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          const currentBalance = await token.balanceOf(feeCollector.address)
                           expect(currentBalance).to.be.equal(previousBalance)
                         })
                       }
@@ -758,15 +775,6 @@ describe('L2HopBridger', () => {
           const setRelayerRole = action.interface.getSighash('setRelayer')
           await action.connect(owner).authorize(owner.address, setRelayerRole)
           await action.connect(owner).setRelayer(owner.address, true)
-
-          const setLimitsRole = action.interface.getSighash('setLimits')
-          await action.connect(owner).authorize(owner.address, setLimitsRole)
-          await action.connect(owner).setLimits(fp(100), 0, mimic.wrappedNativeToken.address)
-        })
-
-        beforeEach('fund smart vault to pay gas', async () => {
-          await mimic.wrappedNativeToken.connect(owner).deposit({ value: fp(1) })
-          await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, fp(1))
         })
 
         itPerformsTheExpectedCall(true)

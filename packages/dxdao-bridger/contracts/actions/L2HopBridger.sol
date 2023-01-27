@@ -25,7 +25,7 @@ contract L2HopBridger is BaseHopBridger {
     using EnumerableMap for EnumerableMap.AddressToAddressMap;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 60e3;
+    uint256 public constant override BASE_GAS = 120e3;
 
     uint256 public maxBonderFeePct;
     EnumerableMap.AddressToAddressMap private tokenAmms;
@@ -90,14 +90,17 @@ contract L2HopBridger is BaseHopBridger {
     }
 
     function call(address token, uint256 amount, uint256 slippage, uint256 bonderFee) external auth nonReentrant {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(token, amount, slippage, bonderFee);
+        _initRelayedTx();
+        bytes memory data = _prepareBridge(token, amount, slippage, bonderFee);
+        token = _wrappedIfNative(token);
+        uint256 gasRefund = _payRelayedTx(token);
+        _bridge(token, amount - gasRefund, slippage, data);
     }
 
-    function _relayedCall(address token, uint256 amount, uint256 slippage, uint256 bonderFee) internal redeemGas {
-        _call(token, amount, slippage, bonderFee);
-    }
-
-    function _call(address token, uint256 amount, uint256 slippage, uint256 bonderFee) internal {
+    function _prepareBridge(address token, uint256 amount, uint256 slippage, uint256 bonderFee)
+        internal
+        returns (bytes memory)
+    {
         (bool existsAmm, address amm) = tokenAmms.tryGet(token);
         require(existsAmm, 'BRIDGER_TOKEN_AMM_NOT_SET');
         require(amount > 0, 'BRIDGER_AMOUNT_ZERO');
@@ -112,7 +115,8 @@ contract L2HopBridger is BaseHopBridger {
         bytes memory data = _bridgingToL1()
             ? abi.encode(amm, bonderFee)
             : abi.encode(amm, bonderFee, block.timestamp + maxDeadline);
-        _bridge(token, amount, slippage, data);
+
         emit Executed();
+        return data;
     }
 }

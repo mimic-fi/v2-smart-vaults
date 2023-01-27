@@ -72,10 +72,7 @@ describe('L1SmartVault', () => {
         relayedActionParams: {
           relayers: relayers.map((m) => m.address),
           gasPriceLimit: 0,
-          totalCostLimit: fp(100),
-          payingGasToken: mimic.wrappedNativeToken.address,
-          permissiveModeAdmin: mimic.admin.address,
-          isPermissiveModeActive: false,
+          txCostLimit: fp(100),
         },
       },
       withdrawerActionParams: {
@@ -92,10 +89,7 @@ describe('L1SmartVault', () => {
         relayedActionParams: {
           relayers: relayers.map((m) => m.address),
           gasPriceLimit: 0,
-          totalCostLimit: fp(100),
-          payingGasToken: mimic.wrappedNativeToken.address,
-          permissiveModeAdmin: mimic.admin.address,
-          isPermissiveModeActive: false,
+          txCostLimit: fp(100),
         },
       },
     })
@@ -221,7 +215,7 @@ describe('L1SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['setPermissiveMode'] },
+        { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'other', account: other, roles: [] },
@@ -241,8 +235,7 @@ describe('L1SmartVault', () => {
 
     it('sets the expected gas limits', async () => {
       expect(await bridger.gasPriceLimit()).to.be.equal(0)
-      expect(await bridger.totalCostLimit()).to.be.equal(fp(100))
-      expect(await bridger.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
+      expect(await bridger.txCostLimit()).to.be.equal(fp(100))
     })
 
     it('allows the requested chain ID', async () => {
@@ -259,10 +252,6 @@ describe('L1SmartVault', () => {
       expect(await bridger.maxSlippage()).to.be.equal(fp(0.002))
       expect(await bridger.getMaxRelayerFeePct(ZERO_ADDRESS)).to.be.equal(0)
       expect(await bridger.getMaxRelayerFeePct(other.address)).to.be.equal(fp(0.02))
-    })
-
-    it('does not allow relayed permissive mode', async () => {
-      expect(await bridger.isPermissiveModeActive()).to.be.false
     })
 
     it('allows the requested relayers', async () => {
@@ -295,7 +284,7 @@ describe('L1SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['setPermissiveMode'] },
+        { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
         { name: 'other', account: other, roles: [] },
@@ -317,14 +306,9 @@ describe('L1SmartVault', () => {
       expect(await withdrawer.thresholdAmount()).to.be.equal(fp(50))
     })
 
-    it('sets the expected gas limits', async () => {
+    it('sets the expected limits', async () => {
       expect(await withdrawer.gasPriceLimit()).to.be.equal(0)
-      expect(await withdrawer.totalCostLimit()).to.be.equal(fp(100))
-      expect(await withdrawer.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
-    })
-
-    it('does not allow relayed permissive mode', async () => {
-      expect(await withdrawer.isPermissiveModeActive()).to.be.false
+      expect(await withdrawer.txCostLimit()).to.be.equal(fp(100))
     })
 
     it('whitelists the requested relayers', async () => {

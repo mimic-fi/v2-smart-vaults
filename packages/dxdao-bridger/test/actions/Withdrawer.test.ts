@@ -10,6 +10,7 @@ import {
 import {
   assertRelayedBaseCost,
   createAction,
+  createPriceFeedMock,
   createSmartVault,
   createTokenMock,
   Mimic,
@@ -48,6 +49,8 @@ describe('Withdrawer', () => {
   })
 
   describe('call', () => {
+    const REDEEM_GAS_NOTE = `0x${Buffer.from('RELAYER', 'utf-8').toString('hex')}`
+
     beforeEach('set recipient', async () => {
       const setRecipientRole = action.interface.getSighash('setRecipient')
       await action.connect(owner).authorize(owner.address, setRecipientRole)
@@ -61,7 +64,7 @@ describe('Withdrawer', () => {
         action = action.connect(owner)
       })
 
-      const itPerformsTheExpectedCall = (refunds: boolean) => {
+      const itPerformsTheExpectedCall = (relayed: boolean) => {
         context('when the requested token is the native token', () => {
           const amount = fp(0.1)
           const token = NATIVE_TOKEN_ADDRESS
@@ -71,7 +74,7 @@ describe('Withdrawer', () => {
           })
 
           context('when the given amount passes the threshold', () => {
-            const threshold = amount
+            const threshold = amount.div(2)
 
             beforeEach('set threshold', async () => {
               const setThresholdRole = action.interface.getSighash('setThreshold')
@@ -122,7 +125,7 @@ describe('Withdrawer', () => {
               await assertEvent(tx, 'Executed')
             })
 
-            if (refunds) {
+            if (relayed) {
               it('refunds gas', async () => {
                 const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
@@ -175,7 +178,7 @@ describe('Withdrawer', () => {
           })
 
           context('when the given amount passes the threshold', () => {
-            const threshold = amount
+            const threshold = amount.div(2)
 
             beforeEach('set threshold', async () => {
               const setThresholdRole = action.interface.getSighash('setThreshold')
@@ -222,7 +225,7 @@ describe('Withdrawer', () => {
               await assertEvent(tx, 'Executed')
             })
 
-            if (refunds) {
+            if (relayed) {
               it('refunds gas', async () => {
                 const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
@@ -264,6 +267,7 @@ describe('Withdrawer', () => {
         context('when the requested token is another token', () => {
           let token: Contract
           const amount = fp(0.1)
+          const rate = 2
 
           beforeEach('set token', async () => {
             token = await createTokenMock()
@@ -273,15 +277,15 @@ describe('Withdrawer', () => {
             await token.mint(smartVault.address, amount)
           })
 
-          if (refunds) {
-            beforeEach('fund smart vault to pay tx gas', async () => {
-              await mimic.wrappedNativeToken.connect(owner).deposit({ value: fp(0.01) })
-              await mimic.wrappedNativeToken.connect(owner).transfer(smartVault.address, fp(0.01))
-            })
-          }
+          beforeEach('set price feed', async () => {
+            const feed = await createPriceFeedMock(fp(rate))
+            const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+            await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+            await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, token.address, feed.address)
+          })
 
           context('when the given amount passes the threshold', () => {
-            const threshold = amount
+            const threshold = amount.div(2)
 
             beforeEach('set threshold', async () => {
               const setThresholdRole = action.interface.getSighash('setThreshold')
@@ -304,10 +308,16 @@ describe('Withdrawer', () => {
             it('calls the withdraw primitive', async () => {
               const tx = await action.call(token.address)
 
+              let expectedAmount = amount
+              if (relayed) {
+                const event = await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', { data: REDEEM_GAS_NOTE })
+                expectedAmount = expectedAmount.sub(event.args.withdrawn)
+              }
+
               await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
                 token,
                 recipient,
-                withdrawn: amount,
+                withdrawn: expectedAmount,
                 fee: 0,
                 data: '0x',
               })
@@ -319,16 +329,16 @@ describe('Withdrawer', () => {
               await assertEvent(tx, 'Executed')
             })
 
-            if (refunds) {
+            if (relayed) {
               it('refunds gas', async () => {
-                const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                const previousBalance = await token.balanceOf(feeCollector.address)
 
                 const tx = await action.call(token.address)
 
-                const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                const currentBalance = await token.balanceOf(feeCollector.address)
                 expect(currentBalance).to.be.gt(previousBalance)
 
-                const redeemedCost = currentBalance.sub(previousBalance)
+                const redeemedCost = currentBalance.sub(previousBalance).div(rate)
                 await assertRelayedBaseCost(tx, redeemedCost, 0.1)
               })
             } else {
@@ -364,10 +374,6 @@ describe('Withdrawer', () => {
           const setRelayerRole = action.interface.getSighash('setRelayer')
           await action.connect(owner).authorize(owner.address, setRelayerRole)
           await action.connect(owner).setRelayer(owner.address, true)
-
-          const setLimitsRole = action.interface.getSighash('setLimits')
-          await action.connect(owner).authorize(owner.address, setLimitsRole)
-          await action.connect(owner).setLimits(fp(100), 0, mimic.wrappedNativeToken.address)
         })
 
         itPerformsTheExpectedCall(true)

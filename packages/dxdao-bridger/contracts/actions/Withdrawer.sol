@@ -21,7 +21,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/WithdrawalAction.sol';
 
 contract Withdrawer is BaseAction, RelayedAction, TokenThresholdAction, WithdrawalAction {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 110e3;
+    uint256 public constant override BASE_GAS = 100e3;
 
     constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
@@ -32,15 +32,11 @@ contract Withdrawer is BaseAction, RelayedAction, TokenThresholdAction, Withdraw
     }
 
     function call(address token) external auth nonReentrant {
-        isRelayer[msg.sender] ? _relayedCall(token) : _call(token);
+        _call(token);
         _withdraw(_wrappedIfNative(token));
     }
 
-    function _relayedCall(address token) internal redeemGas {
-        _call(token);
-    }
-
-    function _call(address token) internal {
+    function _call(address token) internal redeemGas(_wrappedIfNative(token)) {
         uint256 balance = _balanceOf(token);
         _validateThreshold(token, balance);
         if (Denominations.isNativeToken(token)) smartVault.wrap(balance, new bytes(0));
