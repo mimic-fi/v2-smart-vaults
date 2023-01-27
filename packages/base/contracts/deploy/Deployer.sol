@@ -79,6 +79,7 @@ library Deployer {
         address priceOracle;
         PriceFeedParams[] priceFeedParams;
         address feeCollector;
+        address feeCollectorAdmin;
         SmartVaultFeeParams swapFee;
         SmartVaultFeeParams bridgeFee;
         SmartVaultFeeParams withdrawFee;
@@ -234,10 +235,9 @@ library Deployer {
             smartVault.unauthorize(address(this), smartVault.setBridgeConnector.selector);
         }
 
-        // Set fee collector if given, if not make sure no fee amounts were requested too
-        // If there is a fee collector, authorize that address to change it, otherwise authorize the requested admin
+        // If no fee collector is given, make sure no fee amounts were requested too
+        smartVault.authorize(params.feeCollectorAdmin, smartVault.setFeeCollector.selector);
         if (params.feeCollector != address(0)) {
-            smartVault.authorize(params.feeCollector, smartVault.setFeeCollector.selector);
             smartVault.authorize(address(this), smartVault.setFeeCollector.selector);
             smartVault.setFeeCollector(params.feeCollector);
             smartVault.unauthorize(address(this), smartVault.setFeeCollector.selector);
@@ -247,7 +247,6 @@ library Deployer {
                 params.bridgeFee.pct == 0 &&
                 params.performanceFee.pct == 0;
             require(noFees, 'SMART_VAULT_FEES_NO_COLLECTOR');
-            smartVault.authorize(params.admin, smartVault.setFeeCollector.selector);
         }
 
         // Set withdraw fee if not zero
