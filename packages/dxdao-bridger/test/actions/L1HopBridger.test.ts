@@ -536,7 +536,7 @@ describe('L1HopBridger', () => {
 
                     context('when the current balance does not pass the threshold', () => {
                       const threshold = amount.mul(2)
-                      const relayerFee = 0
+                      const relayerFeePct = 0
 
                       beforeEach('set threshold', async () => {
                         const setThresholdRole = action.interface.getSighash('setThreshold')
@@ -544,8 +544,12 @@ describe('L1HopBridger', () => {
                         await action.connect(owner).setThreshold(mimic.wrappedNativeToken.address, threshold)
                       })
 
+                      it('cannot execute', async () => {
+                        expect(await action.canExecute(token, amount, slippage, RELAYER, relayerFeePct)).to.be.false
+                      })
+
                       it('reverts', async () => {
-                        await expect(action.call(token, amount, slippage, RELAYER, relayerFee)).to.be.revertedWith(
+                        await expect(action.call(token, amount, slippage, RELAYER, relayerFeePct)).to.be.revertedWith(
                           'MIN_THRESHOLD_NOT_MET'
                         )
                       })
@@ -553,10 +557,14 @@ describe('L1HopBridger', () => {
                   })
 
                   context('when the relayer fee is above the limit', () => {
-                    const relayerFee = fp(1)
+                    const relayerFeePct = fp(1)
+
+                    it('cannot execute', async () => {
+                      expect(await action.canExecute(token, amount, slippage, RELAYER, relayerFeePct)).to.be.false
+                    })
 
                     it('reverts', async () => {
-                      await expect(action.call(token, amount, slippage, RELAYER, relayerFee)).to.be.revertedWith(
+                      await expect(action.call(token, amount, slippage, RELAYER, relayerFeePct)).to.be.revertedWith(
                         'BRIDGER_RELAYER_FEE_ABOVE_MAX'
                       )
                     })
@@ -565,6 +573,10 @@ describe('L1HopBridger', () => {
 
                 context('when the slippage is above the limit', () => {
                   const slippage = fp(0.01)
+
+                  it('cannot execute', async () => {
+                    expect(await action.canExecute(token, amount, slippage, RELAYER, 0)).to.be.false
+                  })
 
                   it('reverts', async () => {
                     await expect(action.call(token, amount, slippage, RELAYER, 0)).to.be.revertedWith(
@@ -575,6 +587,10 @@ describe('L1HopBridger', () => {
               })
 
               context('when the destination chain ID was not set', () => {
+                it('cannot execute', async () => {
+                  expect(await action.canExecute(token, amount, 0, RELAYER, 0)).to.be.false
+                })
+
                 it('reverts', async () => {
                   await expect(action.call(token, amount, 0, RELAYER, 0)).to.be.revertedWith('BRIDGER_CHAIN_NOT_SET')
                 })
@@ -584,6 +600,10 @@ describe('L1HopBridger', () => {
             context('when the requested amount is zero', () => {
               const amount = 0
 
+              it('cannot execute', async () => {
+                expect(await action.canExecute(token, amount, 0, RELAYER, 0)).to.be.false
+              })
+
               it('reverts', async () => {
                 await expect(action.call(token, amount, 0, RELAYER, 0)).to.be.revertedWith('BRIDGER_AMOUNT_ZERO')
               })
@@ -591,6 +611,10 @@ describe('L1HopBridger', () => {
           })
 
           context('when the given token does not have a bridge set', () => {
+            it('cannot execute', async () => {
+              expect(await action.canExecute(token, 0, 0, RELAYER, 0)).to.be.false
+            })
+
             it('reverts', async () => {
               await expect(action.call(token, 0, 0, RELAYER, 0)).to.be.revertedWith('BRIDGER_TOKEN_BRIDGE_NOT_SET')
             })
@@ -730,7 +754,7 @@ describe('L1HopBridger', () => {
 
                     context('when the current balance does not pass the threshold', () => {
                       const threshold = amount.mul(2)
-                      const relayerFee = 0
+                      const relayerFeePct = 0
 
                       beforeEach('set threshold', async () => {
                         const setThresholdRole = action.interface.getSighash('setThreshold')
@@ -738,9 +762,14 @@ describe('L1HopBridger', () => {
                         await action.connect(owner).setThreshold(token.address, threshold)
                       })
 
+                      it('cannot execute', async () => {
+                        expect(await action.canExecute(token.address, amount, slippage, RELAYER, relayerFeePct)).to.be
+                          .false
+                      })
+
                       it('reverts', async () => {
                         await expect(
-                          action.call(token.address, amount, slippage, RELAYER, relayerFee)
+                          action.call(token.address, amount, slippage, RELAYER, relayerFeePct)
                         ).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
                       })
                     })
@@ -748,6 +777,11 @@ describe('L1HopBridger', () => {
 
                   context('when the relayer fee is above the limit', () => {
                     const relayerFeePct = fp(1)
+
+                    it('cannot execute', async () => {
+                      expect(await action.canExecute(token.address, amount, slippage, RELAYER, relayerFeePct)).to.be
+                        .false
+                    })
 
                     it('reverts', async () => {
                       await expect(
@@ -760,6 +794,10 @@ describe('L1HopBridger', () => {
                 context('when the slippage is above the limit', () => {
                   const slippage = fp(0.01)
 
+                  it('cannot execute', async () => {
+                    expect(await action.canExecute(token.address, amount, slippage, RELAYER, 0)).to.be.false
+                  })
+
                   it('reverts', async () => {
                     await expect(action.call(token.address, amount, slippage, RELAYER, 0)).to.be.revertedWith(
                       'BRIDGER_SLIPPAGE_ABOVE_MAX'
@@ -769,6 +807,10 @@ describe('L1HopBridger', () => {
               })
 
               context('when the destination chain ID was not set', () => {
+                it('cannot execute', async () => {
+                  expect(await action.canExecute(token.address, amount, 0, RELAYER, 0)).to.be.false
+                })
+
                 it('reverts', async () => {
                   await expect(action.call(token.address, amount, 0, RELAYER, 0)).to.be.revertedWith(
                     'BRIDGER_CHAIN_NOT_SET'
@@ -780,6 +822,10 @@ describe('L1HopBridger', () => {
             context('when the requested amount is zero', () => {
               const amount = 0
 
+              it('cannot execute', async () => {
+                expect(await action.canExecute(token.address, amount, 0, RELAYER, 0)).to.be.false
+              })
+
               it('reverts', async () => {
                 await expect(action.call(token.address, amount, 0, RELAYER, 0)).to.be.revertedWith(
                   'BRIDGER_AMOUNT_ZERO'
@@ -789,6 +835,10 @@ describe('L1HopBridger', () => {
           })
 
           context('when the given token does not have a bridge set', () => {
+            it('cannot execute', async () => {
+              expect(await action.canExecute(token.address, 0, 0, RELAYER, 0)).to.be.false
+            })
+
             it('reverts', async () => {
               await expect(action.call(token.address, 0, 0, RELAYER, 0)).to.be.revertedWith(
                 'BRIDGER_TOKEN_BRIDGE_NOT_SET'

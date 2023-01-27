@@ -362,6 +362,10 @@ describe('Withdrawer', () => {
               await action.connect(owner).setThreshold(token.address, threshold)
             })
 
+            it('cannot execute', async () => {
+              expect(await action.canExecute(token.address)).to.be.false
+            })
+
             it('reverts', async () => {
               await expect(action.call(token.address)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
             })

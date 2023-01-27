@@ -322,7 +322,7 @@ describe('L2HopSwapper', () => {
             })
 
             it('reverts', async () => {
-              await expect(action.call(token.address, amount, 0)).to.be.revertedWith('SWAPPER_AMOUNT_EXCEEDS_BALANCE')
+              await expect(action.call(token.address, amount, 0)).to.be.revertedWith('SWAPPER_AMOUNT_ZERO')
             })
           })
         })
@@ -334,7 +334,7 @@ describe('L2HopSwapper', () => {
           })
 
           it('reverts', async () => {
-            await expect(action.call(token.address, 0, 0)).to.be.revertedWith('SWAPPER_AMOUNT_ZERO')
+            await expect(action.call(token.address, 0, 0)).to.be.revertedWith('SWAPPER_TOKEN_AMM_NOT_SET')
           })
         })
       }

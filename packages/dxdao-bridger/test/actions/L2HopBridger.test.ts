@@ -535,10 +535,14 @@ describe('L2HopBridger', () => {
                   })
 
                   context('when the bonder fee is above the limit', () => {
-                    const bonderFee = fp(1)
+                    const bonderFeePct = fp(1)
+
+                    it('cannot execute', async () => {
+                      expect(await action.canExecute(token, amount, slippage, bonderFeePct)).to.be.false
+                    })
 
                     it('reverts', async () => {
-                      await expect(action.call(token, amount, slippage, bonderFee)).to.be.revertedWith(
+                      await expect(action.call(token, amount, slippage, bonderFeePct)).to.be.revertedWith(
                         'BRIDGER_BONDER_FEE_ABOVE_MAX'
                       )
                     })
@@ -547,6 +551,10 @@ describe('L2HopBridger', () => {
 
                 context('when the slippage is above the limit', () => {
                   const slippage = fp(0.01)
+
+                  it('cannot execute', async () => {
+                    expect(await action.canExecute(token, amount, slippage, 0)).to.be.false
+                  })
 
                   it('reverts', async () => {
                     await expect(action.call(token, amount, slippage, 0)).to.be.revertedWith(
@@ -557,6 +565,10 @@ describe('L2HopBridger', () => {
               })
 
               context('when the destination chain ID was set', () => {
+                it('cannot execute', async () => {
+                  expect(await action.canExecute(token, amount, 0, 0)).to.be.false
+                })
+
                 it('reverts', async () => {
                   await expect(action.call(token, amount, 0, 0)).to.be.revertedWith('BRIDGER_CHAIN_NOT_SET')
                 })
@@ -566,6 +578,10 @@ describe('L2HopBridger', () => {
             context('when the requested amount is zero', () => {
               const amount = 0
 
+              it('cannot execute', async () => {
+                expect(await action.canExecute(token, amount, 0, 0)).to.be.false
+              })
+
               it('reverts', async () => {
                 await expect(action.call(token, amount, 0, 0)).to.be.revertedWith('BRIDGER_AMOUNT_ZERO')
               })
@@ -573,6 +589,10 @@ describe('L2HopBridger', () => {
           })
 
           context('when the given token does not have an AMM set', () => {
+            it('cannot execute', async () => {
+              expect(await action.canExecute(token, 0, 0, 0)).to.be.false
+            })
+
             it('reverts', async () => {
               await expect(action.call(token, 0, 0, 0)).to.be.revertedWith('BRIDGER_TOKEN_AMM_NOT_SET')
             })
@@ -716,6 +736,10 @@ describe('L2HopBridger', () => {
                         await action.connect(owner).setThreshold(token.address, threshold)
                       })
 
+                      it('cannot execute', async () => {
+                        expect(await action.canExecute(token.address, amount, slippage, bonderFee)).to.be.false
+                      })
+
                       it('reverts', async () => {
                         await expect(action.call(token.address, amount, slippage, bonderFee)).to.be.revertedWith(
                           'MIN_THRESHOLD_NOT_MET'
@@ -726,6 +750,10 @@ describe('L2HopBridger', () => {
 
                   context('when the bonder fee is above the limit', () => {
                     const bonderFee = fp(1)
+
+                    it('cannot execute', async () => {
+                      expect(await action.canExecute(token.address, amount, slippage, bonderFee)).to.be.false
+                    })
 
                     it('reverts', async () => {
                       await expect(action.call(token.address, amount, slippage, bonderFee)).to.be.revertedWith(
@@ -738,6 +766,10 @@ describe('L2HopBridger', () => {
                 context('when the slippage is above the limit', () => {
                   const slippage = fp(0.01)
 
+                  it('cannot execute', async () => {
+                    expect(await action.canExecute(token.address, amount, slippage, 0)).to.be.false
+                  })
+
                   it('reverts', async () => {
                     await expect(action.call(token.address, amount, slippage, 0)).to.be.revertedWith(
                       'BRIDGER_SLIPPAGE_ABOVE_MAX'
@@ -746,7 +778,11 @@ describe('L2HopBridger', () => {
                 })
               })
 
-              context('when the destination chain ID was set', () => {
+              context('when the destination chain ID was not set', () => {
+                it('cannot execute', async () => {
+                  expect(await action.canExecute(token.address, amount, 0, 0)).to.be.false
+                })
+
                 it('reverts', async () => {
                   await expect(action.call(token.address, amount, 0, 0)).to.be.revertedWith('BRIDGER_CHAIN_NOT_SET')
                 })
@@ -756,6 +792,10 @@ describe('L2HopBridger', () => {
             context('when the requested amount is zero', () => {
               const amount = 0
 
+              it('cannot execute', async () => {
+                expect(await action.canExecute(token.address, amount, 0, 0)).to.be.false
+              })
+
               it('reverts', async () => {
                 await expect(action.call(token.address, amount, 0, 0)).to.be.revertedWith('BRIDGER_AMOUNT_ZERO')
               })
@@ -763,6 +803,10 @@ describe('L2HopBridger', () => {
           })
 
           context('when the given token does not have an AMM set', () => {
+            it('cannot execute', async () => {
+              expect(await action.canExecute(token.address, 0, 0, 0)).to.be.false
+            })
+
             it('reverts', async () => {
               await expect(action.call(token.address, 0, 0, 0)).to.be.revertedWith('BRIDGER_TOKEN_AMM_NOT_SET')
             })
