@@ -18,31 +18,42 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/actions/ReceiverAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/WithdrawalAction.sol';
 
-contract Wrapper is BaseAction, TokenThresholdAction, RelayedAction, WithdrawalAction {
+contract Wrapper is BaseAction, TokenThresholdAction, ReceiverAction, RelayedAction, WithdrawalAction {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 80e3;
+    uint256 public constant override BASE_GAS = 90e3;
 
     constructor(address admin, address registry) BaseAction(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
     }
 
+    function getWrappableBalance() public view returns (uint256) {
+        uint256 actionBalance = address(this).balance;
+        uint256 smartVaultBalance = address(smartVault).balance;
+        return actionBalance + smartVaultBalance;
+    }
+
+    function canExecute() external view returns (bool) {
+        return _passesThreshold(Denominations.NATIVE_TOKEN, getWrappableBalance());
+    }
+
     function call() external auth {
-        isRelayer[msg.sender] ? _relayedCall() : _call();
+        _call();
         _withdraw(smartVault.wrappedNativeToken());
     }
 
-    function _relayedCall() internal redeemGas {
-        _call();
-    }
+    function _call() internal redeemGas(smartVault.wrappedNativeToken()) {
+        uint256 actionBalance = address(this).balance;
+        uint256 smartVaultBalance = address(smartVault).balance;
+        uint256 totalBalance = actionBalance + smartVaultBalance;
+        _validateThreshold(Denominations.NATIVE_TOKEN, totalBalance);
 
-    function _call() internal {
-        uint256 balance = address(smartVault).balance;
-        _validateThreshold(smartVault.wrappedNativeToken(), balance);
-        smartVault.wrap(balance, new bytes(0));
+        if (actionBalance > 0) _transferToSmartVault(Denominations.NATIVE_TOKEN, actionBalance);
+        smartVault.wrap(totalBalance, new bytes(0));
         emit Executed();
     }
 }
