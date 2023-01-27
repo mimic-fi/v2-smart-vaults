@@ -45,7 +45,7 @@ describe('SmartVault', () => {
       mimic: mimic.admin.address,
       registry: mimic.registry.address,
       smartVaultParams: {
-        salt: ethers.utils.solidityKeccak256(['string'], ['mimic-v2.mimic-fee-collector']),
+        salt: ethers.utils.solidityKeccak256(['string'], ['mimic-v2.paraswap-fee-redistributor']),
         factory: mimic.smartVaultsFactory.address,
         impl: mimic.smartVault.address,
         admin: owner.address,
