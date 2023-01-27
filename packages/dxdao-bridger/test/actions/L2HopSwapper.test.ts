@@ -212,99 +212,127 @@ describe('L2HopSwapper', () => {
             await action.connect(owner).setTokenAmm(token.address, hopL2Amm.address)
           })
 
-          context('when the amount is available', () => {
+          context('when the amount is greater than zero', () => {
             const amount = fp(10)
 
-            beforeEach('fund smart vault', async () => {
-              await hToken.mint(smartVault.address, amount)
-            })
-
-            beforeEach('fund swap connector', async () => {
-              await mimic.swapConnector.mockRate(fp(1))
-              await token.mint(await mimic.swapConnector.dex(), amount)
-            })
-
-            context('when the slippage is below the limit', () => {
-              const slippage = fp(0.01)
-              const minAmountOut = amount.sub(amount.mul(slippage).div(fp(1)))
-
-              beforeEach('set max slippage', async () => {
-                const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
-                await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
-                await action.connect(owner).setMaxSlippage(slippage)
+            context('when the amount is available', () => {
+              beforeEach('fund smart vault', async () => {
+                await hToken.mint(smartVault.address, amount)
               })
 
-              it('can executes', async () => {
-                const canExecute = await action.canExecute(token.address, amount, slippage)
-                expect(canExecute).to.be.true
+              beforeEach('fund swap connector', async () => {
+                await mimic.swapConnector.mockRate(fp(1))
+                await token.mint(await mimic.swapConnector.dex(), amount)
               })
 
-              it('calls the swap primitive', async () => {
-                const data = defaultAbiCoder.encode(['address'], [hopL2Amm.address])
+              context('when the slippage is below the limit', () => {
+                const slippage = fp(0.01)
+                const minAmountOut = amount.sub(amount.mul(slippage).div(fp(1)))
 
-                const tx = await action.call(token.address, amount, slippage)
-
-                await assertIndirectEvent(tx, smartVault.interface, 'Swap', {
-                  source: SOURCE,
-                  tokenIn: hToken.address,
-                  tokenOut: token.address,
-                  amountIn: amount,
-                  minAmountOut,
-                  data,
+                beforeEach('set max slippage', async () => {
+                  const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
+                  await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
+                  await action.connect(owner).setMaxSlippage(slippage)
                 })
-              })
 
-              it('emits an Executed event', async () => {
-                const tx = await action.call(token.address, amount, slippage)
+                it('can executes', async () => {
+                  const canExecute = await action.canExecute(token.address, amount, slippage)
+                  expect(canExecute).to.be.true
+                })
 
-                await assertEvent(tx, 'Executed')
-              })
-
-              if (relayed) {
-                it('refunds gas', async () => {
-                  const previousBalance = await token.balanceOf(feeCollector.address)
+                it('calls the swap primitive', async () => {
+                  const data = defaultAbiCoder.encode(['address'], [hopL2Amm.address])
 
                   const tx = await action.call(token.address, amount, slippage)
 
-                  const currentBalance = await token.balanceOf(feeCollector.address)
-                  expect(currentBalance).to.be.gt(previousBalance)
-
-                  const redeemedCost = currentBalance.sub(previousBalance).div(rate)
-                  await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+                  await assertIndirectEvent(tx, smartVault.interface, 'Swap', {
+                    source: SOURCE,
+                    tokenIn: hToken.address,
+                    tokenOut: token.address,
+                    amountIn: amount,
+                    minAmountOut,
+                    data,
+                  })
                 })
-              } else {
-                it('does not refund gas', async () => {
-                  const previousBalance = await token.balanceOf(feeCollector.address)
 
-                  await action.call(token.address, amount, slippage)
+                it('emits an Executed event', async () => {
+                  const tx = await action.call(token.address, amount, slippage)
 
-                  const currentBalance = await token.balanceOf(feeCollector.address)
-                  expect(currentBalance).to.be.equal(previousBalance)
+                  await assertEvent(tx, 'Executed')
                 })
-              }
+
+                if (relayed) {
+                  it('refunds gas', async () => {
+                    const previousBalance = await token.balanceOf(feeCollector.address)
+
+                    const tx = await action.call(token.address, amount, slippage)
+
+                    const currentBalance = await token.balanceOf(feeCollector.address)
+                    expect(currentBalance).to.be.gt(previousBalance)
+
+                    const redeemedCost = currentBalance.sub(previousBalance).div(rate)
+                    await assertRelayedBaseCost(tx, redeemedCost, 0.15)
+                  })
+                } else {
+                  it('does not refund gas', async () => {
+                    const previousBalance = await token.balanceOf(feeCollector.address)
+
+                    await action.call(token.address, amount, slippage)
+
+                    const currentBalance = await token.balanceOf(feeCollector.address)
+                    expect(currentBalance).to.be.equal(previousBalance)
+                  })
+                }
+              })
+
+              context('when the slippage is above the limit', () => {
+                const slippage = fp(1)
+
+                it('cannot execute', async () => {
+                  const canExecute = await action.canExecute(token.address, amount, slippage)
+                  expect(canExecute).to.be.false
+                })
+
+                it('reverts', async () => {
+                  await expect(action.call(token.address, amount, slippage)).to.be.revertedWith(
+                    'SWAPPER_SLIPPAGE_ABOVE_MAX'
+                  )
+                })
+              })
             })
 
-            context('when the slippage is above the limit', () => {
-              const slippage = fp(1)
+            context('when the amount is not available', () => {
+              it('cannot execute', async () => {
+                const canExecute = await action.canExecute(token.address, amount, 0)
+                expect(canExecute).to.be.false
+              })
 
               it('reverts', async () => {
-                await expect(action.call(token.address, amount, slippage)).to.be.revertedWith(
-                  'SWAPPER_SLIPPAGE_ABOVE_MAX'
-                )
+                await expect(action.call(token.address, amount, 0)).to.be.revertedWith('SWAPPER_AMOUNT_EXCEEDS_BALANCE')
               })
             })
           })
 
-          context('when the amount is not available', () => {
-            const amount = fp(1)
+          context('when the amount is zero', () => {
+            const amount = 0
+
+            it('cannot execute', async () => {
+              const canExecute = await action.canExecute(token.address, amount, 0)
+              expect(canExecute).to.be.false
+            })
 
             it('reverts', async () => {
-              await expect(action.call(token.address, amount, 0)).to.be.revertedWith('SWAPPER_AMOUNT_EXCEEDS_BALANCE')
+              await expect(action.call(token.address, amount, 0)).to.be.revertedWith('SWAPPER_AMOUNT_ZERO')
             })
           })
         })
 
         context('when the given token does not have an AMM set', () => {
+          it('cannot execute', async () => {
+            const canExecute = await action.canExecute(token.address, 0, 0)
+            expect(canExecute).to.be.false
+          })
+
           it('reverts', async () => {
             await expect(action.call(token.address, 0, 0)).to.be.revertedWith('SWAPPER_TOKEN_AMM_NOT_SET')
           })

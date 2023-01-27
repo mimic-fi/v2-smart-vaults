@@ -71,7 +71,7 @@ contract L2HopSwapper is BaseAction, RelayedAction {
 
     function canExecute(address token, uint256 amount, uint256 slippage) external view returns (bool) {
         (bool existsAmm, address amm) = tokenAmms.tryGet(token);
-        return existsAmm && amount <= _balanceOf(IHopL2AMM(amm).hToken()) && slippage <= maxSlippage;
+        return existsAmm && amount > 0 && amount <= _balanceOf(IHopL2AMM(amm).hToken()) && slippage <= maxSlippage;
     }
 
     function setMaxSlippage(uint256 newMaxSlippage) external auth {
@@ -89,6 +89,7 @@ contract L2HopSwapper is BaseAction, RelayedAction {
     function call(address token, uint256 amount, uint256 slippage) external auth nonReentrant redeemGas(token) {
         (bool existsAmm, address amm) = tokenAmms.tryGet(token);
         require(existsAmm, 'SWAPPER_TOKEN_AMM_NOT_SET');
+        require(amount > 0, 'SWAPPER_AMOUNT_ZERO');
 
         address hToken = IHopL2AMM(amm).hToken();
         require(amount <= _balanceOf(hToken), 'SWAPPER_AMOUNT_EXCEEDS_BALANCE');
