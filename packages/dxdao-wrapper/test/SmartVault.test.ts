@@ -3,6 +3,7 @@ import { assertPermissions, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
+import { ethers } from 'hardhat'
 
 describe('SmartVault', () => {
   let smartVault: Contract, wrapper: Contract, mimic: Mimic
@@ -26,6 +27,8 @@ describe('SmartVault', () => {
     const tx = await deployer.deploy({
       registry: mimic.registry.address,
       smartVaultParams: {
+        salt: ethers.utils.solidityKeccak256(['string'], ['mimic-v2.dxdao-wrapper']),
+        factory: mimic.smartVaultsFactory.address,
         impl: mimic.smartVault.address,
         admin: owner.address,
         feeCollector: mimic.admin.address,
@@ -33,7 +36,9 @@ describe('SmartVault', () => {
         priceFeedParams: [],
         priceOracle: mimic.priceOracle.address,
         swapConnector: mimic.swapConnector.address,
+        bridgeConnector: mimic.bridgeConnector.address,
         swapFee: { pct: fp(0.1), cap: fp(1), token: mimic.wrappedNativeToken.address, period: 60 },
+        bridgeFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
         withdrawFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
         performanceFee: { pct: 0, cap: 0, token: ZERO_ADDRESS, period: 0 },
       },
@@ -44,8 +49,7 @@ describe('SmartVault', () => {
         relayedActionParams: {
           relayers: relayers.map((m) => m.address),
           gasPriceLimit: 0,
-          totalCostLimit: fp(100),
-          payingGasToken: mimic.wrappedNativeToken.address,
+          txCostLimit: fp(100),
         },
         tokenThresholdActionParams: {
           amount: fp(10),
@@ -57,7 +61,7 @@ describe('SmartVault', () => {
       },
     })
 
-    const { args } = await assertIndirectEvent(tx, mimic.registry.interface, 'Cloned', {
+    const { args } = await assertIndirectEvent(tx, mimic.smartVaultsFactory.interface, 'Created', {
       implementation: mimic.smartVault,
     })
 
@@ -81,12 +85,15 @@ describe('SmartVault', () => {
             'join',
             'exit',
             'swap',
+            'bridge',
             'setStrategy',
             'setPriceFeed',
             'setPriceFeeds',
             'setPriceOracle',
             'setSwapConnector',
+            'setBridgeConnector',
             'setSwapFee',
+            'setBridgeFee',
             'setPerformanceFee',
             'setWithdrawFee',
           ],
@@ -110,6 +117,15 @@ describe('SmartVault', () => {
       expect(swapFee.cap).to.be.equal(fp(1))
       expect(swapFee.token).to.be.equal(mimic.wrappedNativeToken.address)
       expect(swapFee.period).to.be.equal(60)
+    })
+
+    it('sets no bridge fee', async () => {
+      const bridgeFee = await smartVault.bridgeFee()
+
+      expect(bridgeFee.pct).to.be.equal(0)
+      expect(bridgeFee.cap).to.be.equal(0)
+      expect(bridgeFee.token).to.be.equal(ZERO_ADDRESS)
+      expect(bridgeFee.period).to.be.equal(0)
     })
 
     it('sets no withdraw fee', async () => {
@@ -136,6 +152,10 @@ describe('SmartVault', () => {
 
     it('sets a swap connector', async () => {
       expect(await smartVault.swapConnector()).to.be.equal(mimic.swapConnector.address)
+    })
+
+    it('sets a bridge connector', async () => {
+      expect(await smartVault.bridgeConnector()).to.be.equal(mimic.bridgeConnector.address)
     })
   })
 
@@ -179,8 +199,7 @@ describe('SmartVault', () => {
 
     it('sets the expected gas limits', async () => {
       expect(await wrapper.gasPriceLimit()).to.be.equal(0)
-      expect(await wrapper.totalCostLimit()).to.be.equal(fp(100))
-      expect(await wrapper.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
+      expect(await wrapper.txCostLimit()).to.be.equal(fp(100))
     })
 
     it('whitelists the requested relayers', async () => {

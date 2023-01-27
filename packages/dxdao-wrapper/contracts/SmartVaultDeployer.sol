@@ -17,7 +17,7 @@ pragma solidity ^0.8.0;
 import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/Deployer.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/deploy/Deployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/IAction.sol';
 
 import './actions/Wrapper.sol';
@@ -48,7 +48,7 @@ contract SmartVaultDeployer {
 
     function _setupWrapperAction(SmartVault smartVault, WrapperActionParams memory params) internal returns (IAction) {
         // Create and setup action
-        Wrapper wrapper = Wrapper(params.impl);
+        Wrapper wrapper = Wrapper(payable(params.impl));
         Deployer.setupBaseAction(wrapper, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         Deployer.setupActionExecutors(wrapper, executors, wrapper.call.selector);

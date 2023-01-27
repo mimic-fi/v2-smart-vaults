@@ -1,15 +1,14 @@
 import { assertEvent, assertIndirectEvent, fp, getSigners } from '@mimic-fi/v2-helpers'
 import {
+  assertRelayedBaseCost,
   createAction,
-  createPriceFeedMock,
   createSmartVault,
-  createTokenMock,
   Mimic,
   setupMimic,
 } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
-import { Contract } from 'ethers'
+import { BigNumber, Contract } from 'ethers'
 
 describe('Wrapper', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic
@@ -40,12 +39,6 @@ describe('Wrapper', () => {
   })
 
   describe('call', () => {
-    const balance = fp(0.5)
-
-    beforeEach('fund smart vault token', async () => {
-      await owner.sendTransaction({ to: smartVault.address, value: balance })
-    })
-
     beforeEach('set recipient', async () => {
       const setRecipientRole = action.interface.getSighash('setRecipient')
       await action.connect(owner).authorize(owner.address, setRecipientRole)
@@ -59,38 +52,38 @@ describe('Wrapper', () => {
         action = action.connect(owner)
       })
 
-      const itPerformsTheExpectedCall = (refunds: boolean) => {
-        context('when the min amount passes the threshold', () => {
-          beforeEach('set threshold and mock feed', async () => {
-            const usdc = await createTokenMock()
-            const setThresholdRole = action.interface.getSighash('setThreshold')
-            await action.connect(owner).authorize(owner.address, setThresholdRole)
-            await action.connect(owner).setThreshold(usdc.address, balance)
+      const itPerformsTheExpectedCall = (relayed: boolean) => {
+        const threshold = fp(0.1)
 
-            const feed = await createPriceFeedMock(fp(2))
-            const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
-            await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
-            await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, usdc.address, feed.address)
-          })
+        beforeEach('set threshold', async () => {
+          const setThresholdRole = action.interface.getSighash('setThreshold')
+          await action.connect(owner).authorize(owner.address, setThresholdRole)
+          await action.connect(owner).setThreshold(mimic.wrappedNativeToken.address, threshold)
+        })
 
+        const itWrapsBalanceCorrectly = (wrapped: BigNumber) => {
           it('calls the wrap primitive', async () => {
             const tx = await action.call()
 
-            await assertIndirectEvent(tx, smartVault.interface, 'Wrap', { wrapped: balance, data: '0x' })
+            await assertIndirectEvent(tx, smartVault.interface, 'Wrap', { wrapped, data: '0x' })
           })
 
           it('calls the withdraw primitive', async () => {
-            const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+            const previousRecipientBalance = await mimic.wrappedNativeToken.balanceOf(recipient.address)
+            const previousFeeCollectorBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
             const tx = await action.call()
 
-            const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-            const refund = currentBalance.sub(previousBalance)
+            const currentFeeCollectorBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+            const gasRefund = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+
+            const currentRecipientBalance = await mimic.wrappedNativeToken.balanceOf(recipient.address)
+            expect(currentRecipientBalance).to.be.equal(previousRecipientBalance.add(wrapped).sub(gasRefund))
 
             await assertIndirectEvent(tx, smartVault.interface, 'Withdraw', {
               token: mimic.wrappedNativeToken,
               recipient,
-              withdrawn: balance.sub(refund),
+              withdrawn: wrapped.sub(gasRefund),
               fee: 0,
               data: '0x',
             })
@@ -102,31 +95,107 @@ describe('Wrapper', () => {
             await assertEvent(tx, 'Executed')
           })
 
-          it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-            const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+          if (relayed) {
+            it('refunds gas', async () => {
+              const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-            await action.call()
+              const tx = await action.call()
 
-            const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-            expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
-          })
-        })
+              const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+              expect(currentBalance).to.be.gt(previousBalance)
 
-        context('when the min amount does not pass the threshold', () => {
-          beforeEach('set threshold', async () => {
-            const usdc = await createTokenMock()
-            const setThresholdRole = action.interface.getSighash('setThreshold')
-            await action.connect(owner).authorize(owner.address, setThresholdRole)
-            await action.connect(owner).setThreshold(usdc.address, balance.mul(3))
+              const redeemedCost = currentBalance.sub(previousBalance)
+              await assertRelayedBaseCost(tx, redeemedCost, 0.1)
+            })
+          } else {
+            it('does not refund gas', async () => {
+              const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-            const feed = await createPriceFeedMock(fp(2))
-            const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
-            await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
-            await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, usdc.address, feed.address)
+              await action.call()
+
+              const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+              expect(currentBalance).to.be.equal(previousBalance)
+            })
+          }
+        }
+
+        const itCannotWrapBalance = () => {
+          it('cannot execute', async () => {
+            expect(await action.canExecute()).to.be.false
           })
 
           it('reverts', async () => {
             await expect(action.call()).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+          })
+        }
+
+        context('when there is balance only in the action', () => {
+          context('when the action balance passes the threshold', () => {
+            const balance = threshold
+
+            beforeEach('fund the action and the smart vault', async () => {
+              await owner.sendTransaction({ to: action.address, value: balance })
+            })
+
+            itWrapsBalanceCorrectly(balance)
+          })
+
+          context('when the action balance does not pass the threshold', () => {
+            const balance = threshold.sub(1)
+
+            beforeEach('fund the action and the smart vault', async () => {
+              await owner.sendTransaction({ to: action.address, value: balance })
+            })
+
+            itCannotWrapBalance()
+          })
+        })
+
+        context('when there is balance only in the smart vault', () => {
+          context('when the smart vault balance passes the threshold', () => {
+            const balance = threshold
+
+            beforeEach('fund the action and the smart vault', async () => {
+              await owner.sendTransaction({ to: smartVault.address, value: balance })
+            })
+
+            itWrapsBalanceCorrectly(balance)
+          })
+
+          context('when the smart vault balance does not pass the threshold', () => {
+            const balance = threshold.sub(1)
+
+            beforeEach('fund the action and the smart vault', async () => {
+              await owner.sendTransaction({ to: smartVault.address, value: balance })
+            })
+
+            itCannotWrapBalance()
+          })
+        })
+
+        context('when there is balance in both the action and the smart vault', () => {
+          const totalBalance = threshold
+          const balance = totalBalance.div(2)
+
+          context('when the total balance passes the threshold', () => {
+            beforeEach('fund the action and the smart vault', async () => {
+              await owner.sendTransaction({ to: action.address, value: balance })
+              await owner.sendTransaction({ to: smartVault.address, value: balance })
+            })
+
+            itWrapsBalanceCorrectly(totalBalance)
+          })
+
+          context('when the total balance does not pass the threshold', () => {
+            const totalBalance = threshold.sub(1)
+            const balance = totalBalance.div(2)
+
+            beforeEach('fund the action and the smart vault', async () => {
+              await owner.sendTransaction({ to: action.address, value: balance })
+              await owner.sendTransaction({ to: smartVault.address, value: balance })
+            })
+
+            itCannotWrapBalance()
           })
         })
       }
@@ -136,10 +205,6 @@ describe('Wrapper', () => {
           const setRelayerRole = action.interface.getSighash('setRelayer')
           await action.connect(owner).authorize(owner.address, setRelayerRole)
           await action.connect(owner).setRelayer(owner.address, true)
-
-          const setLimitsRole = action.interface.getSighash('setLimits')
-          await action.connect(owner).authorize(owner.address, setLimitsRole)
-          await action.connect(owner).setLimits(fp(100), 0, mimic.wrappedNativeToken.address)
         })
 
         itPerformsTheExpectedCall(true)
