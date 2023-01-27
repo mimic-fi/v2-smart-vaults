@@ -170,6 +170,14 @@ describe('ERC20Claimer', () => {
 
         expect(await action.isTokenSwapIgnored(token1.address)).to.be.true
         expect(await action.isTokenSwapIgnored(token2.address)).to.be.false
+        expect(await action.getIgnoredTokenSwaps()).to.have.lengthOf(1)
+
+        await action.setIgnoreTokenSwaps([token2.address], [true])
+
+        const tokens = await action.getIgnoredTokenSwaps()
+        expect(tokens).to.have.lengthOf(2)
+        expect(tokens[0]).to.be.equal(token1.address)
+        expect(tokens[1]).to.be.equal(token2.address)
       })
 
       it('emits an event', async () => {

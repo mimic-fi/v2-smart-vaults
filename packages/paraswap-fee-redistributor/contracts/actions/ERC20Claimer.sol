@@ -15,6 +15,7 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
+import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
@@ -25,13 +26,14 @@ import './BaseClaimer.sol';
 contract ERC20Claimer is BaseClaimer {
     using FixedPoint for uint256;
     using UncheckedMath for uint256;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     // Base gas amount charged to cover gas payment
     uint256 public constant override BASE_GAS = 55e3;
 
     address public swapSigner;
     uint256 public maxSlippage;
-    mapping (address => bool) public isTokenSwapIgnored;
+    EnumerableSet.AddressSet private ignoredTokenSwaps;
 
     event SwapSignerSet(address indexed swapSigner);
     event MaxSlippageSet(uint256 maxSlippage);
@@ -55,9 +57,18 @@ contract ERC20Claimer is BaseClaimer {
     function setIgnoreTokenSwaps(address[] memory tokens, bool[] memory ignores) external auth {
         require(tokens.length == ignores.length, 'IGNORE_SWAP_TOKENS_INVALID_LEN');
         for (uint256 i = 0; i < tokens.length; i = i.uncheckedAdd(1)) {
-            isTokenSwapIgnored[tokens[i]] = ignores[i];
+            if (ignores[i]) ignoredTokenSwaps.add(tokens[i]);
+            else ignoredTokenSwaps.remove(tokens[i]);
             emit IgnoreTokenSwapSet(tokens[i], ignores[i]);
         }
+    }
+
+    function isTokenSwapIgnored(address token) external view returns (bool) {
+        return ignoredTokenSwaps.contains(token);
+    }
+
+    function getIgnoredTokenSwaps() external view returns (address[] memory) {
+        return ignoredTokenSwaps.values();
     }
 
     function canExecute(address token) public view override returns (bool) {
@@ -96,7 +107,7 @@ contract ERC20Claimer is BaseClaimer {
         _validateSig(tokenIn, wrappedNativeToken, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
         _claim(tokenIn);
 
-        if (isTokenSwapIgnored[tokenIn]) {
+        if (ignoredTokenSwaps.contains(tokenIn)) {
             payingGasToken = tokenIn;
             payingGasTokenPrice = amountIn.divUp(expectedAmountOut);
         } else {
