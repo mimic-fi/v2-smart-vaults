@@ -78,7 +78,7 @@ contract DeployerMock {
     function _setupReceiverAction(SmartVault smartVault, ReceiverActionParams memory params) internal {
         ReceiverActionMock action = ReceiverActionMock(payable(params.impl));
         Deployer.setupBaseAction(action, params.admin, address(smartVault));
-        Deployer.setupActionExecutors(action, _arr(params.admin), action.withdraw.selector);
+        Deployer.setupActionExecutors(action, _arr(params.admin), action.transferToSmartVault.selector);
         Deployer.setupReceiverAction(action, params.admin);
         Deployer.transferAdminPermissions(action, params.admin);
     }

@@ -395,7 +395,7 @@ library Deployer {
      */
     function setupReceiverAction(ReceiverAction action, address admin) external {
         require(admin != address(0), 'RECEIVER_ACTION_ADMIN_ZERO');
-        action.authorize(admin, action.withdraw.selector);
+        action.authorize(admin, action.transferToSmartVault.selector);
     }
 
     /**
