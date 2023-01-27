@@ -161,6 +161,9 @@ library Deployer {
         external
         returns (SmartVault smartVault)
     {
+        require(params.admin != address(0), 'SMART_VAULT_ADMIN_ZERO');
+        require(params.feeCollectorAdmin != address(0), 'SMART_VAULT_FEE_ADMIN_ZERO');
+
         // Clone requested Smart Vault implementation and initialize
         require(registry.isActive(SMART_VAULT_FACTORY_NAMESPACE, params.factory), 'BAD_SMART_VAULT_FACTORY_IMPL');
         ISmartVaultsFactory factory = ISmartVaultsFactory(params.factory);
