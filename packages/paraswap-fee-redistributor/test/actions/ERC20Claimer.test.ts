@@ -263,7 +263,7 @@ describe('ERC20Claimer', () => {
         action = action.connect(owner)
       })
 
-      const itPerformsTheExpectedCall = (refunds: boolean) => {
+      const itPerformsTheExpectedCall = (relayed: boolean) => {
         context('when the token to collect is an ERC20', () => {
           context('when the amount to claim passes the threshold', () => {
             const thresholdAmount = minAmountOut.mul(thresholdRate)
@@ -302,7 +302,7 @@ describe('ERC20Claimer', () => {
               }
 
               context('when the token is marked to be swapped', () => {
-                beforeEach('do not swap token', async () => {
+                beforeEach('ignore token', async () => {
                   const setIgnoreTokenSwapsRole = action.interface.getSighash('setIgnoreTokenSwaps')
                   await action.connect(owner).authorize(owner.address, setIgnoreTokenSwapsRole)
                   await action.connect(owner).setIgnoreTokenSwaps([token.address], [false])
@@ -444,27 +444,44 @@ describe('ERC20Claimer', () => {
                         await assertEvent(tx, 'Executed')
                       })
 
-                      it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-                        const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+                      if (relayed) {
+                        it('refunds gas', async () => {
+                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
-                        const tx = await action.call(
-                          token.address,
-                          amountIn,
-                          minAmountOut,
-                          expectedAmountOut,
-                          deadline,
-                          data,
-                          signature
-                        )
+                          const tx = await action.call(
+                            token.address,
+                            amountIn,
+                            minAmountOut,
+                            expectedAmountOut,
+                            deadline,
+                            data,
+                            signature
+                          )
 
-                        const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-                        expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          expect(currentBalance).to.be.gt(previousBalance)
 
-                        if (refunds) {
                           const redeemedCost = currentBalance.sub(previousBalance)
                           await assertRelayedBaseCost(tx, redeemedCost, 0.15)
-                        }
-                      })
+                        })
+                      } else {
+                        it('does not refund gas', async () => {
+                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
+                          await action.call(
+                            token.address,
+                            amountIn,
+                            minAmountOut,
+                            expectedAmountOut,
+                            deadline,
+                            data,
+                            signature
+                          )
+
+                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          expect(currentBalance).to.be.equal(previousBalance)
+                        })
+                      }
                     })
 
                     context('when the fee claim fails', () => {
@@ -524,74 +541,170 @@ describe('ERC20Claimer', () => {
                   await action.connect(owner).setIgnoreTokenSwaps([token.address], [true])
                 })
 
-                if (refunds) {
-                  beforeEach('fund smart vault to redeem relayed tx', async () => {
-                    await wrappedNativeToken.connect(owner).deposit({ value: fp(1) })
-                    await wrappedNativeToken.connect(owner).transfer(smartVault.address, fp(1))
-                  })
-                }
+                beforeEach('set price feed to pay for relayed tx', async () => {
+                  const feed = await createPriceFeedMock(fp(1))
+                  const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+                  await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+                  await smartVault.connect(owner).setPriceFeed(wrappedNativeToken.address, token.address, feed.address)
+                })
 
-                context('when the fee claim succeeds', () => {
-                  beforeEach('mock succeeds', async () => {
-                    await feeClaimer.mockFail(false)
-                  })
-
-                  it('can execute', async () => {
-                    const canExecute = await action.canExecute(token.address)
-                    expect(canExecute).to.be.true
+                context('when the message is sign by the swap signer', () => {
+                  beforeEach('set swap signer', async () => {
+                    const setSwapSignerRole = action.interface.getSighash('setSwapSigner')
+                    await action.connect(owner).authorize(owner.address, setSwapSignerRole)
+                    await action.connect(owner).setSwapSigner(swapSigner.address)
                   })
 
-                  it('calls the call primitive', async () => {
-                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
+                  context('when the deadline is not expired', () => {
+                    beforeEach('set future deadline', async () => {
+                      deadline = (await currentTimestamp()).add(MINUTE)
+                      signature = await sign(swapSigner, deadline)
+                    })
 
-                    const callData = feeClaimer.interface.encodeFunctionData('withdrawAllERC20', [
-                      token.address,
-                      smartVault.address,
-                    ])
+                    context('when the fee claim succeeds', () => {
+                      beforeEach('mock succeeds', async () => {
+                        await feeClaimer.mockFail(false)
+                      })
 
-                    await assertIndirectEvent(tx, smartVault.interface, 'Call', {
-                      target: feeClaimer,
-                      callData,
-                      value: 0,
-                      data: '0x',
+                      it('can execute', async () => {
+                        const canExecute = await action.canExecute(token.address)
+                        expect(canExecute).to.be.true
+                      })
+
+                      it('calls the call primitive', async () => {
+                        const tx = await action.call(
+                          token.address,
+                          amountIn,
+                          minAmountOut,
+                          expectedAmountOut,
+                          deadline,
+                          data,
+                          signature
+                        )
+
+                        const callData = feeClaimer.interface.encodeFunctionData('withdrawAllERC20', [
+                          token.address,
+                          smartVault.address,
+                        ])
+
+                        await assertIndirectEvent(tx, smartVault.interface, 'Call', {
+                          target: feeClaimer,
+                          callData,
+                          value: 0,
+                          data: '0x',
+                        })
+                      })
+
+                      it('does not call swap primitive', async () => {
+                        const tx = await action.call(
+                          token.address,
+                          amountIn,
+                          minAmountOut,
+                          expectedAmountOut,
+                          deadline,
+                          data,
+                          signature
+                        )
+                        await assertNoIndirectEvent(tx, smartVault.interface, 'Swap')
+                      })
+
+                      it('emits an Executed event', async () => {
+                        const tx = await action.call(
+                          token.address,
+                          amountIn,
+                          minAmountOut,
+                          expectedAmountOut,
+                          deadline,
+                          data,
+                          signature
+                        )
+
+                        await assertEvent(tx, 'Executed')
+                      })
+
+                      if (relayed) {
+                        it('refunds gas', async () => {
+                          const previousBalance = await token.balanceOf(feeCollector.address)
+
+                          await action.call(
+                            token.address,
+                            amountIn,
+                            minAmountOut,
+                            expectedAmountOut,
+                            deadline,
+                            data,
+                            signature
+                          )
+
+                          const currentBalance = await token.balanceOf(feeCollector.address)
+                          expect(currentBalance).to.be.gt(previousBalance)
+                        })
+                      } else {
+                        it('does not refund gas', async () => {
+                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
+                          await action.call(
+                            token.address,
+                            amountIn,
+                            minAmountOut,
+                            expectedAmountOut,
+                            deadline,
+                            data,
+                            signature
+                          )
+
+                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          expect(currentBalance).to.be.equal(previousBalance)
+                        })
+                      }
+                    })
+
+                    context('when the fee claim fails', () => {
+                      beforeEach('mock fail', async () => {
+                        await feeClaimer.mockFail(true)
+                      })
+
+                      it('reverts', async () => {
+                        await expect(
+                          action.call(
+                            token.address,
+                            amountIn,
+                            minAmountOut,
+                            expectedAmountOut,
+                            deadline,
+                            data,
+                            signature
+                          )
+                        ).to.be.revertedWith('FEE_CLAIMER_WITHDRAW_FAILED')
+                      })
                     })
                   })
 
-                  it('does not call swap primitive', async () => {
-                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
-                    await assertNoIndirectEvent(tx, smartVault.interface, 'Swap')
-                  })
+                  context('when the deadline is expired', () => {
+                    beforeEach('set past deadline', async () => {
+                      deadline = (await currentTimestamp()).sub(MINUTE)
+                      signature = await sign(swapSigner, deadline)
+                    })
 
-                  it('emits an Executed event', async () => {
-                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
-
-                    await assertEvent(tx, 'Executed')
-                  })
-
-                  it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-                    const previousBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-
-                    const tx = await action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
-
-                    const currentBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-                    expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
-
-                    if (refunds) {
-                      const redeemedCost = currentBalance.sub(previousBalance)
-                      await assertRelayedBaseCost(tx, redeemedCost, 0.15)
-                    }
+                    it('reverts', async () => {
+                      await expect(
+                        action.call(token.address, amountIn, minAmountOut, expectedAmountOut, deadline, data, signature)
+                      ).to.be.revertedWith('DEADLINE_EXPIRED')
+                    })
                   })
                 })
 
-                context('when the fee claim fails', () => {
-                  beforeEach('mock fail', async () => {
-                    await feeClaimer.mockFail(true)
+                context('when the message is not sign by the swap signer', () => {
+                  const deadline = bn(0)
+
+                  beforeEach('set signature', async () => {
+                    signature = await sign(swapSigner, deadline)
                   })
 
                   it('reverts', async () => {
                     await expect(
-                      action.call(token.address, amountIn, minAmountOut, 0, 0, '0x', '0x')
-                    ).to.be.revertedWith('FEE_CLAIMER_WITHDRAW_FAILED')
+                      action.call(token.address, amountIn, minAmountOut, expectedAmountOut, deadline, data, signature)
+                    ).to.be.revertedWith('INVALID_SWAP_SIGNATURE')
                   })
                 })
               })
@@ -651,10 +764,6 @@ describe('ERC20Claimer', () => {
           const setRelayerRole = action.interface.getSighash('setRelayer')
           await action.connect(owner).authorize(owner.address, setRelayerRole)
           await action.connect(owner).setRelayer(owner.address, true)
-
-          const setLimitsRole = action.interface.getSighash('setLimits')
-          await action.connect(owner).authorize(owner.address, setLimitsRole)
-          await action.connect(owner).setLimits(fp(100), 0, wrappedNativeToken.address)
         })
 
         itPerformsTheExpectedCall(true)

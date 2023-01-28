@@ -28,15 +28,7 @@ contract NativeClaimer is BaseClaimer {
         return _isWrappedOrNativeToken(token) && _passesThreshold(token);
     }
 
-    function call(address token) external auth nonReentrant {
-        (isRelayer[msg.sender] ? _relayedCall : _call)(token);
-    }
-
-    function _relayedCall(address token) internal redeemGas {
-        _call(token);
-    }
-
-    function _call(address token) internal {
+    function call(address token) external auth nonReentrant redeemGas(_wrappedIfNative(token)) {
         require(_isWrappedOrNativeToken(token), 'NATIVE_CLAIMER_INVALID_TOKEN');
         require(_passesThreshold(token), 'MIN_THRESHOLD_NOT_MET');
 

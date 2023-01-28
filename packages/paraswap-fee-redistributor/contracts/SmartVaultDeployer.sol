@@ -66,7 +66,6 @@ contract SmartVaultDeployer {
         address admin;
         address[] managers;
         Deployer.SmartVaultFeeParams[] feeParams;
-        Deployer.RelayedActionParams relayedActionParams;
         Deployer.TimeLockedActionParams timeLockedActionParams;
     }
 
@@ -85,9 +84,8 @@ contract SmartVaultDeployer {
         // Create and setup action
         SwapFeeSetter setter = SwapFeeSetter(params.impl);
         Deployer.setupBaseAction(setter, params.admin, address(smartVault));
-        address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
+        address[] memory executors = Arrays.from(params.admin, params.managers, new address[](0));
         Deployer.setupActionExecutors(setter, executors, setter.call.selector);
-        Deployer.setupRelayedAction(setter, params.admin, params.relayedActionParams);
         Deployer.setupTimeLockedAction(setter, params.admin, params.timeLockedActionParams);
 
         // Set fees, no need to authorize admin, fees can only be set once
