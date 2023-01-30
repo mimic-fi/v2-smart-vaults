@@ -238,7 +238,7 @@ library Deployer {
             smartVault.unauthorize(address(this), smartVault.setBridgeConnector.selector);
         }
 
-        // If no fee collector is given, make sure no fee amounts were requested too
+        // If no fee collector is given, make sure no fee amounts are requested too
         smartVault.authorize(params.feeCollectorAdmin, smartVault.setFeeCollector.selector);
         if (params.feeCollector != address(0)) {
             smartVault.authorize(address(this), smartVault.setFeeCollector.selector);
