@@ -294,6 +294,7 @@ library Deployer {
      * @param smartVault Address of the Smart Vault to be set in the Base Action
      */
     function setupBaseAction(BaseAction action, address admin, address smartVault) external {
+        require(admin != address(0), 'BASE_ACTION_ADMIN_ZERO');
         action.authorize(admin, action.setSmartVault.selector);
         action.authorize(address(this), action.setSmartVault.selector);
         action.setSmartVault(smartVault);
@@ -320,6 +321,7 @@ library Deployer {
      */
     function setupRelayedAction(RelayedAction action, address admin, RelayedActionParams memory params) external {
         // Authorize admin to set relayers and txs limits
+        require(admin != address(0), 'RELAYED_ACTION_ADMIN_ZERO');
         action.authorize(admin, action.setLimits.selector);
         action.authorize(admin, action.setRelayer.selector);
 
@@ -347,6 +349,7 @@ library Deployer {
         address admin,
         TokenThresholdActionParams memory params
     ) external {
+        require(admin != address(0), 'TOKEN_THRESHOLD_ADMIN_ZERO');
         action.authorize(admin, action.setThreshold.selector);
         action.authorize(address(this), action.setThreshold.selector);
         action.setThreshold(params.token, params.amount);
@@ -362,6 +365,7 @@ library Deployer {
     function setupTimeLockedAction(TimeLockedAction action, address admin, TimeLockedActionParams memory params)
         external
     {
+        require(admin != address(0), 'TIME_LOCKED_ACTION_ADMIN_ZERO');
         action.authorize(admin, action.setTimeLock.selector);
         action.authorize(address(this), action.setTimeLock.selector);
         action.setTimeLock(params.period);
@@ -377,6 +381,7 @@ library Deployer {
     function setupWithdrawalAction(WithdrawalAction action, address admin, WithdrawalActionParams memory params)
         external
     {
+        require(admin != address(0), 'WITHDRAWAL_ACTION_ADMIN_ZERO');
         action.authorize(admin, action.setRecipient.selector);
         action.authorize(address(this), action.setRecipient.selector);
         action.setRecipient(params.recipient);
@@ -389,7 +394,8 @@ library Deployer {
      * @param admin Address that will be granted with admin rights for the Receiver action
      */
     function setupReceiverAction(ReceiverAction action, address admin) external {
-        action.authorize(admin, action.withdraw.selector);
+        require(admin != address(0), 'RECEIVER_ACTION_ADMIN_ZERO');
+        action.authorize(admin, action.transferToSmartVault.selector);
     }
 
     /**
@@ -398,6 +404,7 @@ library Deployer {
      * @param to Address that will receive the admin rights
      */
     function transferAdminPermissions(IAuthorizer target, address to) public {
+        require(to != address(0), 'ADMIN_PERMISSIONS_TRANSFER_ZERO');
         grantAdminPermissions(target, to);
         revokeAdminPermissions(target, address(this));
     }

@@ -175,7 +175,7 @@ describe('SmartVault', () => {
             'setThreshold',
             'setRecipient',
             'call',
-            'withdraw',
+            'transferToSmartVault',
           ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },

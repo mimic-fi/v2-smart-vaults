@@ -6,7 +6,7 @@ import { ethers } from 'hardhat'
 
 import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
 
-describe('WithdrawalAction', () => {
+describe('ReceiverAction', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic
   let owner: SignerWithAddress, other: SignerWithAddress
 
@@ -21,13 +21,13 @@ describe('WithdrawalAction', () => {
     action = await createAction('ReceiverActionMock', mimic, owner, smartVault)
   })
 
-  describe('withdraw', () => {
+  describe('transferToSmartVault', () => {
     const balance = fp(1)
 
     context('when the sender has permissions', async () => {
       beforeEach('authorize sender', async () => {
-        const withdrawRole = action.interface.getSighash('withdraw')
-        await action.connect(owner).authorize(owner.address, withdrawRole)
+        const transferToSmartVaultRole = action.interface.getSighash('transferToSmartVault')
+        await action.connect(owner).authorize(owner.address, transferToSmartVaultRole)
         action = action.connect(owner)
       })
 
@@ -42,7 +42,7 @@ describe('WithdrawalAction', () => {
           const previousActionBalance = await ethers.provider.getBalance(action.address)
           const previousSmartVaultBalance = await ethers.provider.getBalance(smartVault.address)
 
-          await action.withdraw(token, balance)
+          await action.transferToSmartVault(token, balance)
 
           const currentActionBalance = await ethers.provider.getBalance(action.address)
           expect(currentActionBalance).to.be.equal(previousActionBalance.sub(balance))
@@ -64,7 +64,7 @@ describe('WithdrawalAction', () => {
           const previousActionBalance = await token.balanceOf(action.address)
           const previousSmartVaultBalance = await token.balanceOf(smartVault.address)
 
-          await action.withdraw(token.address, balance)
+          await action.transferToSmartVault(token.address, balance)
 
           const currentActionBalance = await token.balanceOf(action.address)
           expect(currentActionBalance).to.be.equal(previousActionBalance.sub(balance))
@@ -81,7 +81,9 @@ describe('WithdrawalAction', () => {
       })
 
       it('reverts', async () => {
-        await expect(action.withdraw(NATIVE_TOKEN_ADDRESS, balance)).to.be.revertedWith('SENDER_NOT_ALLOWED')
+        await expect(action.transferToSmartVault(NATIVE_TOKEN_ADDRESS, balance)).to.be.revertedWith(
+          'SENDER_NOT_ALLOWED'
+        )
       })
     })
   })

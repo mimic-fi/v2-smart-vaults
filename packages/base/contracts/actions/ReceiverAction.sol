@@ -27,7 +27,7 @@ abstract contract ReceiverAction is BaseAction {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function withdraw(address token, uint256 amount) external auth {
+    function transferToSmartVault(address token, uint256 amount) external auth {
         _transferToSmartVault(token, amount);
     }
 

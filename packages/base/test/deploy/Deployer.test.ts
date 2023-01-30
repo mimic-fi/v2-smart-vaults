@@ -212,7 +212,7 @@ describe('Deployer', () => {
         {
           name: 'owner',
           account: config.receiverActionParams.admin,
-          roles: ['authorize', 'unauthorize', 'setSmartVault', 'withdraw', 'call'],
+          roles: ['authorize', 'unauthorize', 'setSmartVault', 'transferToSmartVault', 'call'],
         },
         { name: 'fee collector admin', account: config.smartVaultParams.feeCollectorAdmin, roles: [] },
         { name: 'receiver action', account: receiver, roles: [] },
