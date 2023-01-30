@@ -212,7 +212,7 @@ describe('L1SmartVault', () => {
             'setMaxRelayerFeePct',
             'setDestinationChainId',
             'setTokenBridge',
-            'withdraw',
+            'transferToSmartVault',
             'call',
           ],
         },
