@@ -79,6 +79,7 @@ library Deployer {
         address priceOracle;
         PriceFeedParams[] priceFeedParams;
         address feeCollector;
+        address feeCollectorAdmin;
         SmartVaultFeeParams swapFee;
         SmartVaultFeeParams bridgeFee;
         SmartVaultFeeParams withdrawFee;
@@ -160,6 +161,9 @@ library Deployer {
         external
         returns (SmartVault smartVault)
     {
+        require(params.admin != address(0), 'SMART_VAULT_ADMIN_ZERO');
+        require(params.feeCollectorAdmin != address(0), 'SMART_VAULT_FEE_ADMIN_ZERO');
+
         // Clone requested Smart Vault implementation and initialize
         require(registry.isActive(SMART_VAULT_FACTORY_NAMESPACE, params.factory), 'BAD_SMART_VAULT_FACTORY_IMPL');
         ISmartVaultsFactory factory = ISmartVaultsFactory(params.factory);
@@ -234,10 +238,9 @@ library Deployer {
             smartVault.unauthorize(address(this), smartVault.setBridgeConnector.selector);
         }
 
-        // Set fee collector if given, if not make sure no fee amounts were requested too
-        // If there is a fee collector, authorize that address to change it, otherwise authorize the requested admin
+        // If no fee collector is given, make sure no fee amounts are requested too
+        smartVault.authorize(params.feeCollectorAdmin, smartVault.setFeeCollector.selector);
         if (params.feeCollector != address(0)) {
-            smartVault.authorize(params.feeCollector, smartVault.setFeeCollector.selector);
             smartVault.authorize(address(this), smartVault.setFeeCollector.selector);
             smartVault.setFeeCollector(params.feeCollector);
             smartVault.unauthorize(address(this), smartVault.setFeeCollector.selector);
@@ -247,7 +250,6 @@ library Deployer {
                 params.bridgeFee.pct == 0 &&
                 params.performanceFee.pct == 0;
             require(noFees, 'SMART_VAULT_FEES_NO_COLLECTOR');
-            smartVault.authorize(params.admin, smartVault.setFeeCollector.selector);
         }
 
         // Set withdraw fee if not zero

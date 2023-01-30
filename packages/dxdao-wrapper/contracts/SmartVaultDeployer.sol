@@ -52,6 +52,7 @@ contract SmartVaultDeployer {
         Deployer.setupBaseAction(wrapper, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
         Deployer.setupActionExecutors(wrapper, executors, wrapper.call.selector);
+        Deployer.setupReceiverAction(wrapper, params.admin);
         Deployer.setupRelayedAction(wrapper, params.admin, params.relayedActionParams);
         Deployer.setupTokenThresholdAction(wrapper, params.admin, params.tokenThresholdActionParams);
         Deployer.setupWithdrawalAction(wrapper, params.admin, params.withdrawalActionParams);

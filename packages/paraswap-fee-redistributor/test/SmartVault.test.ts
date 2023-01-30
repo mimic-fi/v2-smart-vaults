@@ -50,6 +50,7 @@ describe('SmartVault', () => {
         impl: mimic.smartVault.address,
         admin: owner.address,
         feeCollector: mimic.admin.address,
+        feeCollectorAdmin: mimic.admin.address,
         strategies: [],
         priceFeedParams: [],
         priceOracle: mimic.priceOracle.address,
