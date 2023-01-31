@@ -24,23 +24,24 @@ contract NativeClaimer is BaseClaimer {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function canExecute(address token) public view override returns (bool) {
-        return _isWrappedOrNativeToken(token) && _passesThreshold(token);
+    function canExecute(address token) external view override returns (bool) {
+        return
+            _isWrappedOrNativeToken(token) &&
+            _passesThreshold(smartVault.wrappedNativeToken(), _thresholdBalance(token));
     }
 
     function call(address token) external auth nonReentrant redeemGas(_wrappedIfNative(token)) {
         require(_isWrappedOrNativeToken(token), 'NATIVE_CLAIMER_INVALID_TOKEN');
-        require(_passesThreshold(token), 'MIN_THRESHOLD_NOT_MET');
+        _validateThreshold(smartVault.wrappedNativeToken(), _thresholdBalance(token));
 
         _claim(token);
         if (Denominations.isNativeToken(token)) smartVault.wrap(address(smartVault).balance, new bytes(0));
         emit Executed();
     }
 
-    function _passesThreshold(address token) internal view returns (bool) {
-        address wrappedNativeToken = smartVault.wrappedNativeToken();
-        uint256 amountToClaim = IFeeClaimer(feeClaimer).getBalance(token, address(smartVault));
-        uint256 totalBalance = amountToClaim + (Denominations.isNativeToken(token) ? address(smartVault).balance : 0);
-        return _passesThreshold(wrappedNativeToken, totalBalance);
+    function _thresholdBalance(address token) internal view returns (uint256) {
+        uint256 amountToClaim = claimableBalance(token);
+        uint256 wrappableBalance = Denominations.isNativeToken(token) ? address(smartVault).balance : 0;
+        return amountToClaim + wrappableBalance;
     }
 }
