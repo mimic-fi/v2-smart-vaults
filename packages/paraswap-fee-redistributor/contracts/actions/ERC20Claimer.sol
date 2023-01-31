@@ -29,7 +29,7 @@ contract ERC20Claimer is BaseClaimer {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 55e3;
+    uint256 public constant override BASE_GAS = 53e3;
 
     address public swapSigner;
     uint256 public maxSlippage;
@@ -63,7 +63,7 @@ contract ERC20Claimer is BaseClaimer {
         }
     }
 
-    function isTokenSwapIgnored(address token) external view returns (bool) {
+    function isTokenSwapIgnored(address token) public view returns (bool) {
         return ignoredTokenSwaps.contains(token);
     }
 
@@ -71,7 +71,7 @@ contract ERC20Claimer is BaseClaimer {
         return ignoredTokenSwaps.values();
     }
 
-    function canExecute(address token) public view override returns (bool) {
+    function canExecute(address token) external view override returns (bool) {
         return !_isWrappedOrNativeToken(token) && totalBalance(token) > 0;
     }
 
@@ -100,19 +100,29 @@ contract ERC20Claimer is BaseClaimer {
     ) internal returns (address payingGasToken, uint256 payingGasTokenPrice) {
         require(!_isWrappedOrNativeToken(tokenIn), 'ERC20_CLAIMER_INVALID_TOKEN');
 
-        // Min amount already includes both the current balance and the amount to be claimed
         address wrappedNativeToken = smartVault.wrappedNativeToken();
-        _validateThreshold(wrappedNativeToken, minAmountOut);
-        _validateSlippage(minAmountOut, expectedAmountOut);
         _validateSig(tokenIn, wrappedNativeToken, amountIn, minAmountOut, expectedAmountOut, deadline, data, sig);
-        _claim(tokenIn);
 
-        if (ignoredTokenSwaps.contains(tokenIn)) {
+        if (isTokenSwapIgnored(tokenIn)) {
+            // The threshold must be checked against the claimable balance, not against the amount out. The amount out
+            // is computed considering both the claimable balance and the smart vault balance in case of a swap, but
+            // if the token in is ignored, the smart vault balance must be ignored.
+            // We can leverage the call information to rate the claimable balance in the wrapped native token:
+            uint256 wrappedNativeTokenPrice = amountIn.divUp(expectedAmountOut);
+            uint256 wrappedNativeTokenClaimableBalance = claimableBalance(tokenIn).divDown(wrappedNativeTokenPrice);
+            _validateThreshold(wrappedNativeToken, wrappedNativeTokenClaimableBalance);
+
+            _claim(tokenIn);
             payingGasToken = tokenIn;
-            payingGasTokenPrice = amountIn.divUp(expectedAmountOut);
+            payingGasTokenPrice = wrappedNativeTokenPrice;
         } else {
-            payingGasToken = wrappedNativeToken;
-            payingGasTokenPrice = FixedPoint.ONE;
+            // The threshold must be checked against the total balance (claimable balance + smart vault balance) which
+            // is already contemplated in the amount out. We use the min amount out as it represents the minimum
+            // amount of token out tokens we will receive for the swap to validate the threshold.
+            _validateThreshold(wrappedNativeToken, minAmountOut);
+            _validateSlippage(minAmountOut, expectedAmountOut);
+
+            _claim(tokenIn);
             smartVault.swap(
                 uint8(ISwapConnector.Source.ParaswapV5),
                 tokenIn,
@@ -122,7 +132,11 @@ contract ERC20Claimer is BaseClaimer {
                 minAmountOut,
                 data
             );
+
+            payingGasToken = wrappedNativeToken;
+            payingGasTokenPrice = FixedPoint.ONE;
         }
+
         emit Executed();
     }
 
