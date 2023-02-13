@@ -925,6 +925,20 @@
     ethers "~5.6.0"
     hardhat "^2.12.4"
 
+"@mimic-fi/v2-helpers@0.1.2":
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.1.2.tgz#f7d567639273554a2439ff428a4ffcb7cd8f0340"
+  integrity sha512-GZXdWHIE6VY94Up2Xbwjxc6ja12nSFRjMwBanwzh92IxoHKIbFtWE+kfAbea3aXJdy3KRkcpMYHJBveo0N3zQg==
+  dependencies:
+    "@nomiclabs/hardhat-ethers" "^2.2.1"
+    "@nomiclabs/hardhat-waffle" "^2.0.3"
+    "@types/chai" "^4.2.18"
+    "@types/mocha" "^8.2.2"
+    chai "^4.2.0"
+    decimal.js "^10.3.1"
+    ethers "~5.6.0"
+    hardhat "^2.12.4"
+
 "@mimic-fi/v2-price-oracle@0.0.7":
   version "0.0.7"
   resolved "https://registry.yarnpkg.com/@mimic-fi/v2-price-oracle/-/v2-price-oracle-0.0.7.tgz#1f79a75e83caba115750793f8a212c3798c17265"
@@ -959,6 +973,15 @@
   dependencies:
     "@mimic-fi/v2-helpers" "0.1.0"
 
+"@mimic-fi/v2-registry@0.1.1":
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-registry/-/v2-registry-0.1.1.tgz#e29437f48dcfeb35b9b78be51f45adf3b2b3701c"
+  integrity sha512-2g5eUEJdS/G/rV9hPMxiP4uxEkVscI6Cbzq+SUN5rELbTJhFta9wbyuiViJLE4tqHWV1umGlmQed8lh9XcWnHw==
+  dependencies:
+    "@mimic-fi/v2-helpers" "0.1.0"
+    "@openzeppelin/contracts" "4.7.0"
+    "@openzeppelin/contracts-upgradeable" "4.7.0"
+
 "@mimic-fi/v2-smart-vault@0.0.11":
   version "0.0.11"
   resolved "https://registry.yarnpkg.com/@mimic-fi/v2-smart-vault/-/v2-smart-vault-0.0.11.tgz#2f0ad268fc8dc1af991220b7d9655f6099bf8245"
@@ -983,6 +1006,20 @@
     "@mimic-fi/v2-strategies" "0.1.0"
     "@mimic-fi/v2-swap-connector" "0.1.0"
     "@openzeppelin/contracts" "4.7.0"
+
+"@mimic-fi/v2-smart-vault@0.1.1":
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-smart-vault/-/v2-smart-vault-0.1.1.tgz#3fe4bc13cf3b3aaf0ddcb87c533cd38b820c0d24"
+  integrity sha512-5TobsXTOCBBiXfbLZnNtX1UnRPqbWRMiBOPf9rLsuZWTWpOZqBAKYQ0UpAxtzWFaNjyHRLxlmN7F+RQFhcLqXA==
+  dependencies:
+    "@mimic-fi/v2-bridge-connector" "0.1.0"
+    "@mimic-fi/v2-helpers" "0.1.1"
+    "@mimic-fi/v2-price-oracle" "0.1.0"
+    "@mimic-fi/v2-registry" "0.1.1"
+    "@mimic-fi/v2-strategies" "0.1.0"
+    "@mimic-fi/v2-swap-connector" "0.1.0"
+    "@openzeppelin/contracts" "4.7.0"
+    "@openzeppelin/contracts-upgradeable" "4.7.0"
 
 "@mimic-fi/v2-smart-vaults-base@0.0.3":
   version "0.0.3"
@@ -1367,6 +1404,11 @@
   dependencies:
     "@types/sinon-chai" "^3.2.3"
     "@types/web3" "1.0.19"
+
+"@openzeppelin/contracts-upgradeable@4.7.0":
+  version "4.7.0"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts-upgradeable/-/contracts-upgradeable-4.7.0.tgz#6437261286879d353f6de7bf3ac8216bef8a486d"
+  integrity sha512-wO3PyoAaAV/rA77cK8H4c3SbO98QylTjfiFxyvURUZKTFLV180rnAvna1x7/Nxvt0Gqv+jt1sXKC7ygxsq8iCw==
 
 "@openzeppelin/contracts@3.4.2-solc-0.7":
   version "3.4.2-solc-0.7"
