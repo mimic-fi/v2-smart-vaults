@@ -16,7 +16,7 @@ describe('TokensAcceptance', () => {
   const tokenB = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
   const tokenC = '0xf584F8728B874a6a5c7A8d4d387C9aae9172D621'
 
-  beforeEach('deploy map', async () => {
+  beforeEach('deploy acceptance list', async () => {
     config = await deploy('TokensAcceptanceMock')
   })
 
