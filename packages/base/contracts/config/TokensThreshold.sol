@@ -281,7 +281,7 @@ library TokensThreshold {
     }
 
     /**
-     * @dev Tells if a token and amount are compliant with a threshold, returns false if the threshold is not set
+     * @dev Tells if a token and amount are compliant with a threshold, returns true if the threshold is not set
      * @param threshold Threshold to be evaluated
      * @param token Address of the token to be validated
      * @param amount Token amount to be validated
@@ -293,7 +293,7 @@ library TokensThreshold {
         uint256 amount,
         function(address, address) internal view returns (uint256) getPrice
     ) internal view returns (bool) {
-        if (threshold.token == address(0)) return false;
+        if (threshold.token == address(0)) return true;
         uint256 price = token == threshold.token ? FixedPoint.ONE : getPrice(token, threshold.token);
         uint256 convertedAmount = amount.mulDown(price);
         return convertedAmount >= threshold.min && (threshold.max == 0 || convertedAmount <= threshold.max);

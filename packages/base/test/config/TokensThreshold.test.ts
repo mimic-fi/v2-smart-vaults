@@ -249,15 +249,15 @@ describe('TokensThreshold', () => {
 
     context('when there is no default threshold set', () => {
       context('when there are no custom thresholds set', () => {
-        it('rejects any combination', async () => {
-          await assertInvalid(WETH, fp(0))
-          await assertInvalid(WETH, fp(1000))
+        it('allows any combination', async () => {
+          await assertValid(WETH, fp(0))
+          await assertValid(WETH, fp(1000))
 
-          await assertInvalid(USDC, fp(0))
-          await assertInvalid(USDC, fp(1000))
+          await assertValid(USDC, fp(0))
+          await assertValid(USDC, fp(1000))
 
-          await assertInvalid(ZERO_ADDRESS, fp(0))
-          await assertInvalid(ZERO_ADDRESS, fp(1000))
+          await assertValid(ZERO_ADDRESS, fp(0))
+          await assertValid(ZERO_ADDRESS, fp(1000))
         })
       })
 
@@ -268,6 +268,7 @@ describe('TokensThreshold', () => {
         })
 
         it('applies only for when the requested token matches', async () => {
+          // Applies the default threshold for WETH
           await assertInvalid(WETH, fp(0))
           await assertInvalid(WETH, fp(1))
           await assertValid(WETH, fp(2))
@@ -276,11 +277,13 @@ describe('TokensThreshold', () => {
           await assertInvalid(WETH, fp(5))
           await assertInvalid(WETH, fp(100))
 
-          await assertInvalid(USDC, fp(0))
-          await assertInvalid(USDC, fp(1000))
+          // No threshold set
+          await assertValid(USDC, fp(0))
+          await assertValid(USDC, fp(1000))
 
-          await assertInvalid(ZERO_ADDRESS, fp(0))
-          await assertInvalid(ZERO_ADDRESS, fp(1000))
+          // No threshold set
+          await assertValid(ZERO_ADDRESS, fp(0))
+          await assertValid(ZERO_ADDRESS, fp(1000))
         })
       })
     })
