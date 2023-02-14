@@ -33,8 +33,8 @@ contract TokensAcceptanceMock {
         return tokensAcceptance.at(index);
     }
 
-    function values() external view returns (address[] memory) {
-        return tokensAcceptance.values();
+    function getTokens() external view returns (address[] memory) {
+        return tokensAcceptance.getTokens();
     }
 
     function isAllowList() external view returns (bool) {
@@ -45,24 +45,24 @@ contract TokensAcceptanceMock {
         return tokensAcceptance.isDenyList();
     }
 
-    function add(address token) external {
-        tokensAcceptance.add(token);
+    function setType(TokensAcceptance.Type acceptanceType) external {
+        tokensAcceptance.set(acceptanceType);
+    }
+
+    function clean() external {
+        tokensAcceptance.clean();
     }
 
     function remove(address token) external {
         tokensAcceptance.remove(token);
     }
 
+    function add(address token) external {
+        tokensAcceptance.add(token);
+    }
+
     function addMany(address[] memory tokens) external {
         tokensAcceptance.add(tokens);
-    }
-
-    function removeMany(address[] memory tokens) external {
-        tokensAcceptance.remove(tokens);
-    }
-
-    function setType(TokensAcceptance.Type acceptanceType) external {
-        tokensAcceptance.set(acceptanceType);
     }
 
     function setTokens(address[] memory tokens) external {

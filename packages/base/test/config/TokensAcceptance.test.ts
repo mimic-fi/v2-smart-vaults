@@ -25,14 +25,14 @@ describe('TokensAcceptance', () => {
       await config.add(tokenA)
 
       expect(await config.length()).to.be.eq(1)
-      expect(await config.values()).to.be.have.members([tokenA])
+      expect(await config.getTokens()).to.be.have.members([tokenA])
       expect(await config.includes(tokenA)).to.be.true
       expect(await config.excludes(tokenB)).to.be.true
 
       await config.add(tokenB)
 
       expect(await config.length()).to.be.eq(2)
-      expect(await config.values()).to.be.have.members([tokenA, tokenB])
+      expect(await config.getTokens()).to.be.have.members([tokenA, tokenB])
       expect(await config.includes(tokenA)).to.be.true
       expect(await config.excludes(tokenB)).to.be.false
     })
@@ -45,7 +45,7 @@ describe('TokensAcceptance', () => {
       expect(await config.excludes(tokenB)).to.be.true
 
       expect(await config.length()).to.be.eq(2)
-      expect(await config.values()).to.be.have.members([tokenA, tokenC])
+      expect(await config.getTokens()).to.be.have.members([tokenA, tokenC])
     })
 
     it('removes tokens', async () => {
@@ -59,31 +59,27 @@ describe('TokensAcceptance', () => {
       expect(await config.excludes(tokenB)).to.be.true
 
       expect(await config.length()).to.be.eq(2)
-      expect(await config.values()).to.be.have.members([tokenA, tokenC])
+      expect(await config.getTokens()).to.be.have.members([tokenA, tokenC])
     })
 
-    it('removes many tokens at once', async () => {
+    it('cleans list', async () => {
       await config.addMany([tokenA, tokenB, tokenC])
-      await config.removeMany([tokenA, tokenC])
+      await config.clean()
 
-      expect(await config.includes(tokenA)).to.be.false
-      expect(await config.includes(tokenC)).to.be.false
-      expect(await config.excludes(tokenB)).to.be.false
-
-      expect(await config.length()).to.be.eq(1)
-      expect(await config.values()).to.be.have.members([tokenB])
+      expect(await config.length()).to.be.eq(0)
+      expect(await config.getTokens()).to.be.have.members([])
     })
 
     it('can overrides the list of tokens', async () => {
       await config.addMany([tokenA, tokenB, tokenC])
 
       expect(await config.length()).to.be.eq(3)
-      expect(await config.values()).to.be.have.members([tokenA, tokenB, tokenC])
+      expect(await config.getTokens()).to.be.have.members([tokenA, tokenB, tokenC])
 
       await config.setTokens([tokenC, tokenA])
 
       expect(await config.length()).to.be.eq(2)
-      expect(await config.values()).to.be.have.members([tokenC, tokenA])
+      expect(await config.getTokens()).to.be.have.members([tokenC, tokenA])
 
       expect(await config.includes(tokenA)).to.be.true
       expect(await config.includes(tokenC)).to.be.true
@@ -94,7 +90,7 @@ describe('TokensAcceptance', () => {
   describe('init', () => {
     it('starts empty', async () => {
       expect(await config.length()).to.be.eq(0)
-      expect(await config.values()).to.be.empty
+      expect(await config.getTokens()).to.be.empty
     })
 
     it('is an allow list', async () => {
@@ -115,14 +111,14 @@ describe('TokensAcceptance', () => {
       expect(await config.isAllowList()).to.be.false
 
       expect(await config.length()).to.be.eq(3)
-      expect(await config.values()).to.be.have.members([tokenA, tokenB, tokenC])
+      expect(await config.getTokens()).to.be.have.members([tokenA, tokenB, tokenC])
     })
 
     it('can overrides the tokens list and type at once', async () => {
       await config.addMany([tokenA, tokenB, tokenC])
 
       expect(await config.length()).to.be.eq(3)
-      expect(await config.values()).to.be.have.members([tokenA, tokenB, tokenC])
+      expect(await config.getTokens()).to.be.have.members([tokenA, tokenB, tokenC])
 
       await config.set(TYPE.DENY_LIST, [tokenC, tokenA])
 
@@ -130,7 +126,7 @@ describe('TokensAcceptance', () => {
       expect(await config.isAllowList()).to.be.false
 
       expect(await config.length()).to.be.eq(2)
-      expect(await config.values()).to.be.have.members([tokenC, tokenA])
+      expect(await config.getTokens()).to.be.have.members([tokenC, tokenA])
     })
 
     it('can validates correctly', async () => {
@@ -161,7 +157,8 @@ describe('TokensAcceptance', () => {
       await expect(config.validate(tokenB)).not.to.be.reverted
       await expect(config.validate(tokenC)).not.to.be.reverted
 
-      await config.removeMany([tokenA, tokenB])
+      await config.remove(tokenA)
+      await config.remove(tokenB)
 
       expect(await config.isValid(tokenA)).to.be.false
       expect(await config.isValid(tokenB)).to.be.false
@@ -197,14 +194,14 @@ describe('TokensAcceptance', () => {
       expect(await config.isAllowList()).to.be.true
 
       expect(await config.length()).to.be.eq(3)
-      expect(await config.values()).to.be.have.members([tokenA, tokenB, tokenC])
+      expect(await config.getTokens()).to.be.have.members([tokenA, tokenB, tokenC])
     })
 
     it('can overrides the tokens list and type at once', async () => {
       await config.addMany([tokenA, tokenB, tokenC])
 
       expect(await config.length()).to.be.eq(3)
-      expect(await config.values()).to.be.have.members([tokenA, tokenB, tokenC])
+      expect(await config.getTokens()).to.be.have.members([tokenA, tokenB, tokenC])
 
       await config.set(TYPE.ALLOW_LIST, [tokenC, tokenA])
 
@@ -212,7 +209,7 @@ describe('TokensAcceptance', () => {
       expect(await config.isAllowList()).to.be.true
 
       expect(await config.length()).to.be.eq(2)
-      expect(await config.values()).to.be.have.members([tokenC, tokenA])
+      expect(await config.getTokens()).to.be.have.members([tokenC, tokenA])
     })
 
     it('can validates correctly', async () => {
@@ -243,7 +240,8 @@ describe('TokensAcceptance', () => {
       await expect(config.validate(tokenB)).to.be.revertedWith('TOKEN_ACCEPTANCE_FORBIDDEN')
       await expect(config.validate(tokenC)).to.be.revertedWith('TOKEN_ACCEPTANCE_FORBIDDEN')
 
-      await config.removeMany([tokenA, tokenB])
+      await config.remove(tokenA)
+      await config.remove(tokenB)
 
       expect(await config.isValid(tokenA)).to.be.true
       expect(await config.isValid(tokenB)).to.be.true
