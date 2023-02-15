@@ -1,12 +1,12 @@
-import { deploy } from '@mimic-fi/v2-helpers'
+import { deploy, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
 /* eslint-disable no-secrets/no-secrets */
 
 const TYPE: { [key: string]: number } = {
-  ALLOW_LIST: 0,
-  DENY_LIST: 1,
+  DENY_LIST: 0,
+  ALLOW_LIST: 1,
 }
 
 describe('TokensAcceptance', () => {
@@ -93,13 +93,24 @@ describe('TokensAcceptance', () => {
       expect(await config.getTokens()).to.be.empty
     })
 
-    it('is an allow list', async () => {
-      expect(await config.isAllowList()).to.be.true
-      expect(await config.isDenyList()).to.be.false
+    it('is a deny list', async () => {
+      expect(await config.isDenyList()).to.be.true
+      expect(await config.isAllowList()).to.be.false
+    })
+
+    it('allows any token by default', async () => {
+      expect(await config.isValid(tokenA)).to.be.true
+      expect(await config.isValid(tokenB)).to.be.true
+      expect(await config.isValid(tokenC)).to.be.true
+      expect(await config.isValid(ZERO_ADDRESS)).to.be.true
     })
   })
 
   describe('allow list', () => {
+    beforeEach('set to allow list', async () => {
+      await config.setType(TYPE.ALLOW_LIST)
+    })
+
     itAddsAndRemovesTokensProperly()
 
     it('can be changed to a deny list', async () => {

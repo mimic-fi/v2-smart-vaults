@@ -8,14 +8,15 @@ import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
  * @dev Library to operate tokens acceptance configs.
  * Token acceptance configs can be configured either as an allow list or as a deny list.
  * It consist basically on an enumerable set of tokens, which will consider a token valid if it is included
- * for allow lists or if its excluded for deny lists.
+ * for allow lists or if its excluded for deny lists. By default tokens acceptance configs act as a deny list
+ * to make sure any token can be compliant with it initially.
  */
 library TokensAcceptance {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     enum Type {
-        AllowList,
-        DenyList
+        DenyList,
+        AllowList
     }
 
     /**
