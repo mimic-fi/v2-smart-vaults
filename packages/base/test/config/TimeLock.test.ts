@@ -80,7 +80,7 @@ describe('TimeLock', () => {
         await expect(config.validate()).not.to.be.reverted
       })
 
-      it('is not updated', async () => {
+      it('is not updated when validated', async () => {
         const previousTimeLock = await config.getTimeLock()
 
         await config.validate()
@@ -117,7 +117,7 @@ describe('TimeLock', () => {
           await config.initialize(initialDelay, delay)
         })
 
-        it('reverts', async () => {
+        it('applies the time-lock correctly', async () => {
           expect(await config.isValid()).to.be.false
           await expect(config.validate()).to.be.revertedWith('TIME_LOCK_FORBIDDEN')
 
