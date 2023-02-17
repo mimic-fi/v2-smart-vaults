@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.3;
 
-import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
-
 /**
  * @dev Library to operate time-lock configs.
  * It allows users to make sure a certain period of time has passed between two bumps.
