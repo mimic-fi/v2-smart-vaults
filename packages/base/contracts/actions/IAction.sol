@@ -28,7 +28,7 @@ interface IAction is IAuthorizer {
     event Executed();
 
     /**
-     * @dev Tells the address of the Smart Vault tied to it, it cannot be changed
+     * @dev Tells the address or the Smart Vault referenced by the action
      */
-    function smartVault() external view returns (ISmartVault);
+    function getSmartVault() external view returns (ISmartVault);
 }

@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.3;
 
-import '../../config/TrustedSigners.sol';
+import '../../../actions/config/TrustedSigners.sol';
 
 contract TrustedSignersMock {
     using TrustedSigners for TrustedSigners.Config;

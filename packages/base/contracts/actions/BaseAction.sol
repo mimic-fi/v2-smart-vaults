@@ -15,48 +15,83 @@
 pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 
 import '@mimic-fi/v2-smart-vault/contracts/ISmartVault.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
-import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
-import '@mimic-fi/v2-registry/contracts/implementations/BaseAuthorizedImplementation.sol';
 
 import './IAction.sol';
+import './base/GasLimitedAction.sol';
+import './base/RelayedAction.sol';
+import './base/TimeLockedAction.sol';
 
 /**
  * @title BaseAction
  * @dev Simple action implementation with a Smart Vault reference and using the Authorizer mixin
  */
-contract BaseAction is IAction, BaseAuthorizedImplementation, ReentrancyGuard {
-    bytes32 public constant override NAMESPACE = keccak256('ACTION');
+abstract contract BaseAction is IAction, Authorizer, GasLimitedAction, RelayedAction, TimeLockedAction {
+    using SafeERC20 for IERC20;
 
     // Smart Vault reference
-    ISmartVault public override smartVault;
+    ISmartVault private _smartVault;
 
     /**
-     * @dev Emitted every time a new smart vault is set
+     * @dev Action params data struct
+     * @param admin Address to be granted authorize and unauthorize permissions
+     * @param smartVault Address of the smart vault to reference
+     * @param gasPriceLimit Gas price limit expressed in the native token
+     * @param priorityFeeLimit Priority fee limit expressed in the native token
+     * @param txCostLimit Transaction cost limit to be set
+     * @param relayers List of relayers to be added to the allow-list
+     * @param initialDelay Initial delay to be set for the time-lock
+     * @param delay Time-lock delay to be used after the initial delay has passed
      */
-    event SmartVaultSet(address indexed smartVault);
+    struct Params {
+        address admin;
+        address smartVault;
+        uint256 gasPriceLimit;
+        uint256 priorityFeeLimit;
+        uint256 txCostLimit;
+        address[] relayers;
+        uint256 initialDelay;
+        uint256 delay;
+    }
 
     /**
      * @dev Creates a new BaseAction
-     * @param admin Address to be granted authorize and unauthorize permissions
-     * @param registry Address of the Mimic Registry
+     * @param params Action parameters
      */
-    constructor(address admin, address registry) BaseAuthorizedImplementation(admin, registry) {
+    constructor(Params memory params)
+        GasLimitedAction(params.gasPriceLimit, params.priorityFeeLimit)
+        RelayedAction(params.txCostLimit, params.relayers)
+        TimeLockedAction(params.initialDelay, params.delay)
+    {
+        _smartVault = ISmartVault(params.smartVault);
+        _authorize(params.admin, Authorizer.authorize.selector);
+        _authorize(params.admin, Authorizer.unauthorize.selector);
+    }
+
+    /**
+     * @dev It allows receiving native token transfers
+     */
+    receive() external payable {
         // solhint-disable-previous-line no-empty-blocks
     }
 
     /**
-     * @dev Sets the Smart Vault tied to the Action. Sender must be authorized. It can be set only once.
-     * @param newSmartVault Address of the smart vault to be set
+     * @dev Tells the address or the Smart Vault referenced by the action
      */
-    function setSmartVault(address newSmartVault) external auth {
-        require(address(smartVault) == address(0), 'SMART_VAULT_ALREADY_SET');
-        smartVault = ISmartVault(newSmartVault);
-        emit SmartVaultSet(newSmartVault);
+    function getSmartVault() public view override returns (ISmartVault) {
+        return _smartVault;
+    }
+
+    /**
+     * @dev Tells the balance of the action for a given token
+     * @param token Address of the token querying the balance of1
+     * @notice Denominations.NATIVE_TOKEN_ADDRESS can be used to query the native token balance
+     */
+    function getActionBalance(address token) public view returns (uint256) {
+        return ERC20Helpers.balanceOf(token, address(this));
     }
 
     /**
@@ -64,23 +99,84 @@ contract BaseAction is IAction, BaseAuthorizedImplementation, ReentrancyGuard {
      * @param token Address of the token querying the balance of
      * @notice Denominations.NATIVE_TOKEN_ADDRESS can be used to query the native token balance
      */
-    function _balanceOf(address token) internal view returns (uint256) {
-        return ERC20Helpers.balanceOf(token, address(smartVault));
+    function getSmartVaultBalance(address token) public view returns (uint256) {
+        return ERC20Helpers.balanceOf(token, address(_smartVault));
     }
 
     /**
-     * @dev Tells the wrapped native token address if the given address is the native token
-     * @param token Address of the token to be checked
+     * @dev Tells the total balance for a given token
+     * @param token Address of the token querying the balance of
+     * @notice Denominations.NATIVE_TOKEN_ADDRESS can be used to query the native token balance
      */
-    function _wrappedIfNative(address token) internal view returns (address) {
-        return Denominations.isNativeToken(token) ? smartVault.wrappedNativeToken() : token;
+    function getTotalBalance(address token) public view returns (uint256) {
+        return getActionBalance(token) + getSmartVaultBalance(token);
+    }
+
+    /**
+     * @dev Transfers action's assets to the Smart Vault
+     * @param token Address of the token to be transferred
+     * @param amount Amount of tokens to be transferred
+     * @notice Denominations.NATIVE_TOKEN_ADDRESS can be used to query the native token balance
+     */
+    function transferToSmartVault(address token, uint256 amount) external auth {
+        _transferToSmartVault(token, amount);
+    }
+
+    /**
+     * @dev Internal function to transfer action's assets to the Smart Vault
+     * @param token Address of the token to be transferred
+     * @param amount Amount of tokens to be transferred
+     * @notice Denominations.NATIVE_TOKEN_ADDRESS can be used to query the native token balance
+     */
+    function _transferToSmartVault(address token, uint256 amount) internal {
+        ERC20Helpers.transfer(token, address(_smartVault), amount);
+    }
+
+    /**
+     * @dev Performs a gas cost payment to the Smart Vault's fee collector in an arbitrary token
+     * @param token Address of the paying token
+     * @param amount Amount of tokens to be transferred to the Smart Vault's fee collector
+     * @param data Redeem gas cost note
+     */
+    function _redeemGasCost(address token, uint256 amount, bytes memory data) internal override {
+        _smartVault.withdraw(token, amount, _smartVault.feeCollector(), data);
     }
 
     /**
      * @dev Tells whether the given token is either the native or wrapped native token
      * @param token Address of the token being queried
      */
+    function _getNativeTokenPrice(address token) internal view virtual override returns (uint256) {
+        return _isWrappedOrNativeToken(token) ? FixedPoint.ONE : _smartVault.getPrice(_wrappedNativeToken(), token);
+    }
+
+    /**
+     * @dev Tells whether a token is either the native or wrapped native token
+     * @param token Address of the token being queried
+     */
     function _isWrappedOrNativeToken(address token) internal view returns (bool) {
-        return Denominations.isNativeToken(token) || token == smartVault.wrappedNativeToken();
+        return Denominations.isNativeToken(token) || token == _wrappedNativeToken();
+    }
+
+    /**
+     * @dev Tells the address of the wrapped native token configured in the Smart Vault
+     */
+    function _wrappedNativeToken() internal view returns (address) {
+        return _smartVault.wrappedNativeToken();
+    }
+
+    /**
+     * @dev Tells if the execution context is valid based on the base action configuration
+     */
+    function _isValid() internal view virtual override(GasLimitedAction, TimeLockedAction) returns (bool) {
+        return GasLimitedAction._isValid() && TimeLockedAction._isValid();
+    }
+
+    /**
+     * @dev Validates the execution context is valid based on the base action configuration
+     */
+    function _validate() internal virtual override(GasLimitedAction, TimeLockedAction) {
+        GasLimitedAction._validate();
+        TimeLockedAction._validate();
     }
 }

@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.3;
 
-import '../../config/TokensAcceptance.sol';
+import '../../../actions/config/TokensAcceptance.sol';
 
 contract TokensAcceptanceMock {
     using TokensAcceptance for TokensAcceptance.Config;

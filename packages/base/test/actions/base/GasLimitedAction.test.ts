@@ -1,13 +1,70 @@
-import { assertEvent, BigNumberish, bn, deploy, pct } from '@mimic-fi/v2-helpers'
+import { assertEvent, BigNumberish, bn, deploy, getSigner, pct } from '@mimic-fi/v2-helpers'
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { expect } from 'chai'
 import { Contract, ContractTransaction } from 'ethers'
 import { ethers } from 'hardhat'
 
-describe('TransactionGas', () => {
-  let config: Contract
+describe('GasLimitedAction', () => {
+  let action: Contract, admin: SignerWithAddress
 
-  beforeEach('deploy acceptance list', async () => {
-    config = await deploy('TransactionGasMock')
+  before('load signer', async () => {
+    admin = await getSigner(2)
+  })
+
+  beforeEach('deploy action', async () => {
+    action = await deploy('GasLimitedActionMock', [0, 0])
+  })
+
+  describe('setGasLimit', () => {
+    context('when the sender is authorized', async () => {
+      beforeEach('authorize sender', async () => {
+        const setGasLimitRole = action.interface.getSighash('setGasLimit')
+        await action.authorize(admin.address, setGasLimitRole)
+        action = action.connect(admin)
+      })
+
+      context('when the limits are not zero', async () => {
+        const gasPriceLimit = 100e9
+        const priorityFeeLimit = 1e9
+
+        it('sets the limits', async () => {
+          await action.setGasLimit(gasPriceLimit, priorityFeeLimit)
+
+          const limits = await action.getGasLimit()
+          expect(limits.gasPriceLimit).to.be.equal(gasPriceLimit)
+          expect(limits.priorityFeeLimit).to.be.equal(priorityFeeLimit)
+        })
+
+        it('emits an event', async () => {
+          const tx = await action.setGasLimit(gasPriceLimit, priorityFeeLimit)
+          await assertEvent(tx, 'GasLimitSet', { gasPriceLimit, priorityFeeLimit })
+        })
+      })
+
+      context('when the limits are zero', async () => {
+        const gasPriceLimit = 0
+        const priorityFeeLimit = 0
+
+        it('sets the limits', async () => {
+          await action.setGasLimit(gasPriceLimit, priorityFeeLimit)
+
+          const limits = await action.getGasLimit()
+          expect(limits.gasPriceLimit).to.be.equal(gasPriceLimit)
+          expect(limits.priorityFeeLimit).to.be.equal(priorityFeeLimit)
+        })
+
+        it('emits an event', async () => {
+          const tx = await action.setGasLimit(gasPriceLimit, priorityFeeLimit)
+          await assertEvent(tx, 'GasLimitSet', { gasPriceLimit, priorityFeeLimit })
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      it('reverts', async () => {
+        await expect(action.setGasLimit(0, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
   })
 
   describe('validate', () => {
@@ -17,7 +74,7 @@ describe('TransactionGas', () => {
       const { priorityFee, gasPrice } = fee
       if (priorityFee && gasPrice) throw Error('Please specify only a priority fee or a gas price')
       if (!priorityFee && !gasPrice) throw Error('Please specify either a priority fee or a gas price')
-      return priorityFee ? config.call({ maxPriorityFeePerGas: priorityFee }) : config.call({ gasPrice })
+      return priorityFee ? action.call({ maxPriorityFeePerGas: priorityFee }) : action.call({ gasPrice })
     }
 
     const assertValid = async (feeData: { priorityFee?: BigNumberish; gasPrice?: BigNumberish }) => {
@@ -28,8 +85,13 @@ describe('TransactionGas', () => {
     }
 
     const assertInvalid = async (feeData: { priorityFee?: BigNumberish; gasPrice?: BigNumberish }) => {
-      await expect(call(feeData)).to.be.revertedWith('TRANSACTION_GAS_FORBIDDEN')
+      await expect(call(feeData)).to.be.revertedWith('GAS_PRICE_LIMIT_EXCEEDED')
     }
+
+    beforeEach('authorize sender', async () => {
+      const setGasLimitRole = action.interface.getSighash('setGasLimit')
+      await action.authorize(admin.address, setGasLimitRole)
+    })
 
     context('when no base fee limit is set', () => {
       const priorityFeeLimit = 0
@@ -54,7 +116,7 @@ describe('TransactionGas', () => {
         const gasPriceLimit = bn(40e9)
 
         beforeEach('set gas price limit', async () => {
-          await config.set(gasPriceLimit, priorityFeeLimit)
+          await action.connect(admin).setGasLimit(gasPriceLimit, priorityFeeLimit)
         })
 
         it('considers valid any priority fee that makes the gas price below the limit', async () => {
@@ -82,7 +144,7 @@ describe('TransactionGas', () => {
         const gasPriceLimit = 0
 
         beforeEach('set gas price limit', async () => {
-          await config.set(gasPriceLimit, priorityFeeLimit)
+          await action.connect(admin).setGasLimit(gasPriceLimit, priorityFeeLimit)
         })
 
         it('considers valid any priority fee below the limit ', async () => {
@@ -106,7 +168,7 @@ describe('TransactionGas', () => {
         const gasPriceLimit = bn(4e9)
 
         beforeEach('set gas price limit', async () => {
-          await config.set(gasPriceLimit, priorityFeeLimit)
+          await action.connect(admin).setGasLimit(gasPriceLimit, priorityFeeLimit)
         })
 
         it('considers valid any fee below the combination limit ', async () => {

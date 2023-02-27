@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.3;
 
-import '../../config/TokensThreshold.sol';
+import '../../../actions/config/TokensThreshold.sol';
 
 contract TokensThresholdMock {
     using TokensThreshold for TokensThreshold.Config;
