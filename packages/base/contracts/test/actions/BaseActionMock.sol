@@ -9,7 +9,7 @@ contract BaseActionMock is BaseAction {
     uint256 public constant override BASE_GAS = 21e3 + 20e3;
 
     constructor(address admin, address smartVault)
-        BaseAction(Params(admin, smartVault, 0, 0, 0, new address[](0), 0, 0))
+        BaseAction(Params(admin, smartVault, 0, 0, 0, new address[](0), 0, 0, new bytes32[](0), new bytes32[](0)))
     {
         // solhint-disable-previous-line no-empty-blocks
     }

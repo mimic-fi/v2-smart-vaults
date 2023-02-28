@@ -22,6 +22,7 @@ import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
 import './IAction.sol';
 import './base/GasLimitedAction.sol';
+import './base/ParameterizedAction.sol';
 import './base/RelayedAction.sol';
 import './base/TimeLockedAction.sol';
 
@@ -29,7 +30,14 @@ import './base/TimeLockedAction.sol';
  * @title BaseAction
  * @dev Simple action implementation with a Smart Vault reference and using the Authorizer mixin
  */
-abstract contract BaseAction is IAction, Authorizer, GasLimitedAction, RelayedAction, TimeLockedAction {
+abstract contract BaseAction is
+    IAction,
+    Authorizer,
+    GasLimitedAction,
+    RelayedAction,
+    TimeLockedAction,
+    ParameterizedAction
+{
     using SafeERC20 for IERC20;
 
     // Smart Vault reference
@@ -45,6 +53,8 @@ abstract contract BaseAction is IAction, Authorizer, GasLimitedAction, RelayedAc
      * @param relayers List of relayers to be added to the allow-list
      * @param initialDelay Initial delay to be set for the time-lock
      * @param delay Time-lock delay to be used after the initial delay has passed
+     * @param keys Custom params keys
+     * @param values Custom params values
      */
     struct Params {
         address admin;
@@ -55,6 +65,8 @@ abstract contract BaseAction is IAction, Authorizer, GasLimitedAction, RelayedAc
         address[] relayers;
         uint256 initialDelay;
         uint256 delay;
+        bytes32[] keys;
+        bytes32[] values;
     }
 
     /**
@@ -65,6 +77,7 @@ abstract contract BaseAction is IAction, Authorizer, GasLimitedAction, RelayedAc
         GasLimitedAction(params.gasPriceLimit, params.priorityFeeLimit)
         RelayedAction(params.txCostLimit, params.relayers)
         TimeLockedAction(params.initialDelay, params.delay)
+        ParameterizedAction(params.keys, params.values)
     {
         _smartVault = ISmartVault(params.smartVault);
         _authorize(params.admin, Authorizer.authorize.selector);
