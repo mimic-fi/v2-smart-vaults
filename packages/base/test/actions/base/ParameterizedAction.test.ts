@@ -22,7 +22,7 @@ describe('ParameterizedAction', () => {
     action = await deploy('ParameterizedActionMock')
   })
 
-  describe('set', () => {
+  describe('setCustomParams', () => {
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
         const setCustomParamsRole = action.interface.getSighash('setCustomParams')
@@ -111,7 +111,7 @@ describe('ParameterizedAction', () => {
     })
   })
 
-  describe('unset', () => {
+  describe('unsetCustomParams', () => {
     beforeEach('authorize sender', async () => {
       const setCustomParamsRole = action.interface.getSighash('setCustomParams')
       await action.authorize(admin.address, setCustomParamsRole)

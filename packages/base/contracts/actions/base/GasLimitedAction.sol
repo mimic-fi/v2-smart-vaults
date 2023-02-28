@@ -1,23 +1,32 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity ^0.8.3;
 
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 
+import './interfaces/IGasLimitedAction.sol';
+
 /**
  * @dev Action that can be limited due to gas: gas price limit, a priority fee limit, or both.
  */
-abstract contract GasLimitedAction is Authorizer {
+abstract contract GasLimitedAction is IGasLimitedAction, Authorizer {
     // Gas price limit expressed in the native token
     uint256 private _gasPriceLimit;
 
     // Priority fee limit expressed in the native token
     uint256 private _priorityFeeLimit;
-
-    /**
-     * @dev Emitted every time the relayer limits are set
-     */
-    event GasLimitSet(uint256 gasPriceLimit, uint256 priorityFeeLimit);
 
     /**
      * @dev Creates a new gas limited action
@@ -40,21 +49,21 @@ abstract contract GasLimitedAction is Authorizer {
     /**
      * @dev Tells the action gas limits
      */
-    function getGasLimit() public view returns (uint256 gasPriceLimit, uint256 priorityFeeLimit) {
+    function getGasLimit() public view override returns (uint256 gasPriceLimit, uint256 priorityFeeLimit) {
         return (_gasPriceLimit, _priorityFeeLimit);
     }
 
     /**
      * @dev Reverts if the tx fee does not comply with the configured gas limits
      */
-    function _validate() internal virtual {
-        require(_isValid(), 'GAS_PRICE_LIMIT_EXCEEDED');
+    function _validateGasLimit() internal view {
+        require(_isGasLimitValid(), 'GAS_PRICE_LIMIT_EXCEEDED');
     }
 
     /**
      * @dev Tells if the tx fee data is compliant with the configured gas limits
      */
-    function _isValid() internal view virtual returns (bool) {
+    function _isGasLimitValid() internal view returns (bool) {
         return _isGasPriceValid() && _isPriorityFeeValid();
     }
 

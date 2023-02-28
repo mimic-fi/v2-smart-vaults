@@ -27,8 +27,8 @@ describe('RelayedAction', () => {
   describe('setTxCostLimit', () => {
     context('when the sender is allowed', () => {
       beforeEach('authorize sender', async () => {
-        const setTxCostLimit = action.interface.getSighash('setTxCostLimit')
-        await action.authorize(admin.address, setTxCostLimit)
+        const setTxCostLimitRole = action.interface.getSighash('setTxCostLimit')
+        await action.authorize(admin.address, setTxCostLimitRole)
         action = action.connect(admin)
       })
 

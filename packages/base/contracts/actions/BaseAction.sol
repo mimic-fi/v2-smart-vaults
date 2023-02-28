@@ -34,9 +34,9 @@ abstract contract BaseAction is
     IAction,
     Authorizer,
     GasLimitedAction,
+    ParameterizedAction,
     RelayedAction,
-    TimeLockedAction,
-    ParameterizedAction
+    TimeLockedAction
 {
     using SafeERC20 for IERC20;
 
@@ -100,7 +100,7 @@ abstract contract BaseAction is
 
     /**
      * @dev Tells the balance of the action for a given token
-     * @param token Address of the token querying the balance of1
+     * @param token Address of the token querying the balance of
      * @notice Denominations.NATIVE_TOKEN_ADDRESS can be used to query the native token balance
      */
     function getActionBalance(address token) public view returns (uint256) {
@@ -179,17 +179,10 @@ abstract contract BaseAction is
     }
 
     /**
-     * @dev Tells if the execution context is valid based on the base action configuration
-     */
-    function _isValid() internal view virtual override(GasLimitedAction, TimeLockedAction) returns (bool) {
-        return GasLimitedAction._isValid() && TimeLockedAction._isValid();
-    }
-
-    /**
      * @dev Validates the execution context is valid based on the base action configuration
      */
-    function _validate() internal virtual override(GasLimitedAction, TimeLockedAction) {
-        GasLimitedAction._validate();
-        TimeLockedAction._validate();
+    function _validate() internal {
+        _validateGasLimit();
+        _validateTimeLock();
     }
 }

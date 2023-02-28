@@ -10,6 +10,6 @@ contract TimeLockedActionMock is TimeLockedAction {
     }
 
     function call() external {
-        _validate();
+        _validateTimeLock();
     }
 }

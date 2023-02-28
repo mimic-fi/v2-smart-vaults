@@ -1,4 +1,16 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity ^0.8.3;
 
@@ -7,10 +19,12 @@ import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 
+import './interfaces/IRelayedAction.sol';
+
 /**
  * @dev Action that can be used to redeem consumed gas costs based on an allow-list of relayers and cost limit.
  */
-abstract contract RelayedAction is Authorizer {
+abstract contract RelayedAction is IRelayedAction, Authorizer {
     using FixedPoint for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -32,21 +46,6 @@ abstract contract RelayedAction is Authorizer {
     EnumerableSet.AddressSet private _relayers;
 
     /**
-     * @dev Emitted every time the tx cost limit is set
-     */
-    event TxCostLimitSet(uint256 txCostLimit);
-
-    /**
-     * @dev Emitted every time a relayer is added to the allow-list
-     */
-    event RelayerAllowed(address indexed relayer);
-
-    /**
-     * @dev Emitted every time a relayer is removed from the allow-list
-     */
-    event RelayerDisallowed(address indexed relayer);
-
-    /**
      * @dev Modifier that can be used to reimburse the gas cost of the tagged function paying in a specific token
      */
     modifier redeemGas(address token) {
@@ -66,6 +65,28 @@ abstract contract RelayedAction is Authorizer {
     }
 
     /**
+     * @dev Tells the transaction cost limit
+     */
+    function getTxCostLimit() public override view returns (uint256) {
+        return _txCostLimit;
+    }
+
+    /**
+     * @dev Tells if a relayer is allowed or not
+     * @param relayer Address of the relayer to be checked
+     */
+    function isRelayer(address relayer) public override view returns (bool) {
+        return _relayers.contains(relayer);
+    }
+
+    /**
+     * @dev Tells the list of allowed relayers
+     */
+    function getRelayers() public override view returns (address[] memory) {
+        return _relayers.values();
+    }
+
+    /**
      * @dev Sets the transaction cost limit
      * @param txCostLimit New transaction cost limit to be set
      */
@@ -82,28 +103,6 @@ abstract contract RelayedAction is Authorizer {
     function setRelayers(address[] memory relayersToAdd, address[] memory relayersToRemove) external auth {
         _addRelayers(relayersToAdd);
         _removeRelayers(relayersToRemove);
-    }
-
-    /**
-     * @dev Tells the transaction cost limit
-     */
-    function getTxCostLimit() public view returns (uint256) {
-        return _txCostLimit;
-    }
-
-    /**
-     * @dev Tells if a relayer is allowed or not
-     * @param relayer Address of the relayer to be checked
-     */
-    function isRelayer(address relayer) public view returns (bool) {
-        return _relayers.contains(relayer);
-    }
-
-    /**
-     * @dev Tells the list of allowed relayers
-     */
-    function getRelayers() public view returns (address[] memory) {
-        return _relayers.values();
     }
 
     /**

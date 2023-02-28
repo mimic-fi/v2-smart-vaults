@@ -12,7 +12,7 @@ contract GasLimitedActionMock is GasLimitedAction {
     }
 
     function call() external {
-        _validate();
+        _validateGasLimit();
         emit FeeData(tx.gasprice, block.basefee, tx.gasprice - block.basefee);
     }
 }

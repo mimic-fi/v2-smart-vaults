@@ -17,11 +17,16 @@ pragma solidity >=0.8.0;
 import '@mimic-fi/v2-smart-vault/contracts/ISmartVault.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
+import './base/interfaces/IGasLimitedAction.sol';
+import './base/interfaces/IParameterizedAction.sol';
+import './base/interfaces/IRelayedAction.sol';
+import './base/interfaces/ITimeLockedAction.sol';
+
 /**
  * @title IAction
- * @dev Action interface it must follow the IAuthorizer interface
+ * @dev Action generic interface
  */
-interface IAction is IAuthorizer {
+interface IAction is IAuthorizer, IGasLimitedAction, IParameterizedAction, IRelayedAction, ITimeLockedAction {
     /**
      * @dev Emitted every time an action is executed
      */
@@ -31,4 +36,29 @@ interface IAction is IAuthorizer {
      * @dev Tells the address or the Smart Vault referenced by the action
      */
     function getSmartVault() external view returns (ISmartVault);
+
+    /**
+     * @dev Tells the balance of the action for a given token
+     * @param token Address of the token querying the balance of
+     */
+    function getActionBalance(address token) external view returns (uint256);
+
+    /**
+     * @dev Tells the balance of the Smart Vault for a given token
+     * @param token Address of the token querying the balance of
+     */
+    function getSmartVaultBalance(address token) external view returns (uint256);
+
+    /**
+     * @dev Tells the total balance for a given token
+     * @param token Address of the token querying the balance of
+     */
+    function getTotalBalance(address token) external view returns (uint256);
+
+    /**
+     * @dev Transfers action's assets to the Smart Vault
+     * @param token Address of the token to be transferred
+     * @param amount Amount of tokens to be transferred
+     */
+    function transferToSmartVault(address token, uint256 amount) external;
 }
