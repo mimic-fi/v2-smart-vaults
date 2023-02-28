@@ -25,6 +25,7 @@ import './base/GasLimitedAction.sol';
 import './base/ParameterizedAction.sol';
 import './base/RelayedAction.sol';
 import './base/TimeLockedAction.sol';
+import './base/TokenIndexedAction.sol';
 
 /**
  * @title BaseAction
@@ -36,7 +37,8 @@ abstract contract BaseAction is
     GasLimitedAction,
     ParameterizedAction,
     RelayedAction,
-    TimeLockedAction
+    TimeLockedAction,
+    TokenIndexedAction
 {
     using SafeERC20 for IERC20;
 
@@ -53,6 +55,8 @@ abstract contract BaseAction is
      * @param relayers List of relayers to be added to the allow-list
      * @param initialDelay Initial delay to be set for the time-lock
      * @param delay Time-lock delay to be used after the initial delay has passed
+     * @param tokensAcceptanceType Tokens acceptance type to be set
+     * @param tokens List of tokens to be added to the token acceptance list
      * @param keys Custom params keys
      * @param values Custom params values
      */
@@ -65,6 +69,8 @@ abstract contract BaseAction is
         address[] relayers;
         uint256 initialDelay;
         uint256 delay;
+        ITokenIndexedAction.TokensAcceptanceType tokensAcceptanceType;
+        address[] tokens;
         bytes32[] keys;
         bytes32[] values;
     }
@@ -77,6 +83,7 @@ abstract contract BaseAction is
         GasLimitedAction(params.gasPriceLimit, params.priorityFeeLimit)
         RelayedAction(params.txCostLimit, params.relayers)
         TimeLockedAction(params.initialDelay, params.delay)
+        TokenIndexedAction(params.tokensAcceptanceType, params.tokens)
         ParameterizedAction(params.keys, params.values)
     {
         _smartVault = ISmartVault(params.smartVault);
@@ -179,10 +186,11 @@ abstract contract BaseAction is
     }
 
     /**
-     * @dev Validates the execution context is valid based on the base action configuration
+     * @dev Validates the execution of an action indexed by a token
      */
-    function _validate() internal {
+    function _validateAction(address token) internal {
         _validateGasLimit();
         _validateTimeLock();
+        _validateTokenAcceptance(token);
     }
 }

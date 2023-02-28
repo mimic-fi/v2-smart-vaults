@@ -67,7 +67,7 @@ abstract contract RelayedAction is IRelayedAction, Authorizer {
     /**
      * @dev Tells the transaction cost limit
      */
-    function getTxCostLimit() public override view returns (uint256) {
+    function getTxCostLimit() public view override returns (uint256) {
         return _txCostLimit;
     }
 
@@ -75,14 +75,14 @@ abstract contract RelayedAction is IRelayedAction, Authorizer {
      * @dev Tells if a relayer is allowed or not
      * @param relayer Address of the relayer to be checked
      */
-    function isRelayer(address relayer) public override view returns (bool) {
+    function isRelayer(address relayer) public view override returns (bool) {
         return _relayers.contains(relayer);
     }
 
     /**
      * @dev Tells the list of allowed relayers
      */
-    function getRelayers() public override view returns (address[] memory) {
+    function getRelayers() public view override returns (address[] memory) {
         return _relayers.values();
     }
 
