@@ -16,12 +16,12 @@ pragma solidity ^0.8.3;
 
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 
-import './interfaces/IGasLimitedAction.sol';
+import './interfaces/IGasLimitConfig.sol';
 
 /**
- * @dev Action that can be limited due to gas: gas price limit, a priority fee limit, or both.
+ * @dev Gas limit config for actions. It allows limiting either the gas price, the priority fee, or both.
  */
-abstract contract GasLimitedAction is IGasLimitedAction, Authorizer {
+abstract contract GasLimitConfig is IGasLimitConfig, Authorizer {
     // Gas price limit expressed in the native token
     uint256 private _gasPriceLimit;
 
@@ -29,7 +29,7 @@ abstract contract GasLimitedAction is IGasLimitedAction, Authorizer {
     uint256 private _priorityFeeLimit;
 
     /**
-     * @dev Creates a new gas limited action
+     * @dev Creates a new gas limit config
      * @param gasPriceLimit Gas price limit expressed in the native token
      * @param priorityFeeLimit Priority fee limit expressed in the native token
      */

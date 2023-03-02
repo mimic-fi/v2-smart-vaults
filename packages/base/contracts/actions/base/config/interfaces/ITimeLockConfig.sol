@@ -17,9 +17,9 @@ pragma solidity >=0.8.0;
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
 /**
- * @dev Time-locked action interface
+ * @dev Time-lock config interface
  */
-interface ITimeLockedAction is IAuthorizer {
+interface ITimeLockConfig is IAuthorizer {
     /**
      * @dev Emitted every time a new time-lock delay is set
      */

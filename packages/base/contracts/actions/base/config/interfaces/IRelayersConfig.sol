@@ -17,9 +17,9 @@ pragma solidity >=0.8.0;
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
 /**
- * @dev Relayed action interface
+ * @dev Relayers config interface
  */
-interface IRelayedAction is IAuthorizer {
+interface IRelayersConfig is IAuthorizer {
     /**
      * @dev Emitted every time the tx cost limit is set
      */

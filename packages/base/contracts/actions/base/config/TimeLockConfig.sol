@@ -16,12 +16,12 @@ pragma solidity ^0.8.3;
 
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 
-import './interfaces/ITimeLockedAction.sol';
+import './interfaces/ITimeLockConfig.sol';
 
 /**
- * @dev Action that can be limited using time locks
+ * @dev Time lock config for actions. It allows limiting the frequency of an action.
  */
-abstract contract TimeLockedAction is ITimeLockedAction, Authorizer {
+abstract contract TimeLockConfig is ITimeLockConfig, Authorizer {
     // Period in seconds that must be waited between two bumps
     uint256 private _delay;
 
@@ -29,7 +29,7 @@ abstract contract TimeLockedAction is ITimeLockedAction, Authorizer {
     uint256 private _expiresAt;
 
     /**
-     * @dev Creates a new time-locked action
+     * @dev Creates a new time-lock config
      * @param initialDelay Initial delay to be set for the time-lock
      * @param delay Time-lock delay to be used after the initial delay has passed
      */

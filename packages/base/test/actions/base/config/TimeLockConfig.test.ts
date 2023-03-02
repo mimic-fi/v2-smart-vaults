@@ -13,7 +13,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-describe('TimeLockedAction', () => {
+describe('TimeLockConfig', () => {
   let action: Contract, admin: SignerWithAddress
 
   before('load signer', async () => {
@@ -24,7 +24,7 @@ describe('TimeLockedAction', () => {
     const delay = MONTH
 
     beforeEach('deploy action', async () => {
-      action = await deploy('TimeLockedActionMock', [0, 0])
+      action = await deploy('TimeLockConfigMock', [0, 0])
     })
 
     context('when the sender is authorized', () => {
@@ -66,7 +66,7 @@ describe('TimeLockedAction', () => {
         const timeLockDelay = 0
 
         beforeEach('deploy action', async () => {
-          action = await deploy('TimeLockedActionMock', [initialDelay, timeLockDelay])
+          action = await deploy('TimeLockConfigMock', [initialDelay, timeLockDelay])
         })
 
         it('has no time-lock delay', async () => {
@@ -116,7 +116,7 @@ describe('TimeLockedAction', () => {
         const timeLockDelay = MONTH
 
         beforeEach('deploy action', async () => {
-          action = await deploy('TimeLockedActionMock', [initialDelay, timeLockDelay])
+          action = await deploy('TimeLockConfigMock', [initialDelay, timeLockDelay])
         })
 
         it('has a time-lock delay', async () => {
@@ -196,7 +196,7 @@ describe('TimeLockedAction', () => {
         const timeLockDelay = 0
 
         beforeEach('deploy action', async () => {
-          action = await deploy('TimeLockedActionMock', [initialDelay, timeLockDelay])
+          action = await deploy('TimeLockConfigMock', [initialDelay, timeLockDelay])
         })
 
         it('has only an initial delay', async () => {
@@ -248,7 +248,7 @@ describe('TimeLockedAction', () => {
         const timeLockDelay = MONTH
 
         beforeEach('deploy action', async () => {
-          action = await deploy('TimeLockedActionMock', [initialDelay, timeLockDelay])
+          action = await deploy('TimeLockConfigMock', [initialDelay, timeLockDelay])
         })
 
         it('has a time-lock with an initial delay', async () => {

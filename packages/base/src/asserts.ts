@@ -35,7 +35,7 @@ export async function assertRelayedBaseCost(
   const redeemedGas = redeemedCost.div(effectiveGasPrice)
 
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  const relayedAction = await instanceAt('RelayedAction', tx.to!)
+  const relayedAction = await instanceAt('RelayersConfig', tx.to!)
   const BASE_GAS = await relayedAction.BASE_GAS()
 
   if (redeemedGas.lt(gasUsed)) {

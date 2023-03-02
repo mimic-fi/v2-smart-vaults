@@ -18,12 +18,13 @@ import '@openzeppelin/contracts/utils/structs/EnumerableMap.sol';
 
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 
-import './interfaces/IParameterizedAction.sol';
+import './interfaces/ICustomParamsConfig.sol';
 
 /**
- * @dev Action that can be define custom parameters to be used for any custom functionality
+ * @dev Custom params config for actions. It allows defining arbitrary custom parameters that can be used later on in
+ * any action to customize specific aspects that are not modeled in the standard action ABIs.
  */
-abstract contract ParameterizedAction is IParameterizedAction, Authorizer {
+abstract contract CustomParamsConfig is ICustomParamsConfig, Authorizer {
     using EnumerableMap for EnumerableMap.Bytes32ToBytes32Map;
 
     // List of custom parameters

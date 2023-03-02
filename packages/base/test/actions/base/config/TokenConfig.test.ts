@@ -10,7 +10,7 @@ const TYPE: { [key: string]: number } = {
   ALLOW_LIST: 1,
 }
 
-describe('TokenIndexedAction', () => {
+describe('TokenConfig', () => {
   let action: Contract, admin: SignerWithAddress
 
   const tokenA = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
@@ -23,7 +23,7 @@ describe('TokenIndexedAction', () => {
 
   describe('setTokensAcceptanceType', () => {
     beforeEach('deploy action', async () => {
-      action = await deploy('TokenIndexedActionMock', [TYPE.DENY_LIST, []])
+      action = await deploy('TokenConfigMock', [TYPE.DENY_LIST, []])
     })
 
     context('when the sender is allowed', () => {
@@ -80,7 +80,7 @@ describe('TokenIndexedAction', () => {
 
   describe('setTokensAcceptanceList', () => {
     beforeEach('deploy action', async () => {
-      action = await deploy('TokenIndexedActionMock', [TYPE.ALLOW_LIST, []])
+      action = await deploy('TokenConfigMock', [TYPE.ALLOW_LIST, []])
     })
 
     context('when the sender is allowed', () => {
@@ -161,7 +161,7 @@ describe('TokenIndexedAction', () => {
   context('validate', () => {
     describe('when validating an allow list', () => {
       beforeEach('deploy action', async () => {
-        action = await deploy('TokenIndexedActionMock', [TYPE.ALLOW_LIST, []])
+        action = await deploy('TokenConfigMock', [TYPE.ALLOW_LIST, []])
         const setTokensAcceptanceTypeRole = action.interface.getSighash('setTokensAcceptanceType')
         await action.authorize(admin.address, setTokensAcceptanceTypeRole)
         const setTokensAcceptanceListRole = action.interface.getSighash('setTokensAcceptanceList')
@@ -220,7 +220,7 @@ describe('TokenIndexedAction', () => {
 
     describe('when validating a deny list', () => {
       beforeEach('deploy action', async () => {
-        action = await deploy('TokenIndexedActionMock', [TYPE.DENY_LIST, []])
+        action = await deploy('TokenConfigMock', [TYPE.DENY_LIST, []])
         const setTokensAcceptanceTypeRole = action.interface.getSighash('setTokensAcceptanceType')
         await action.authorize(admin.address, setTokensAcceptanceTypeRole)
         const setTokensAcceptanceListRole = action.interface.getSighash('setTokensAcceptanceList')

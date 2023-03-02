@@ -17,9 +17,9 @@ pragma solidity >=0.8.0;
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
 /**
- * @dev Time-locked action interface
+ * @dev Token config interface
  */
-interface ITokenIndexedAction is IAuthorizer {
+interface ITokenConfig is IAuthorizer {
     /**
      * @dev Acceptance list types: either deny-list to express "all except" or allow-list to express "only"
      */

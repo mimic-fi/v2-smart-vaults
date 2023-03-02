@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import '../../actions/BaseAction.sol';
+import '../../../actions/base/BaseAction.sol';
 
 contract BaseActionMock is BaseAction {
     // Cost in gas of a call op + gas cost computation + withdraw form SV
@@ -16,11 +16,11 @@ contract BaseActionMock is BaseAction {
                 0, // gas price limit
                 0, // tx fee limit
                 0, // tx cost limit
-                new address[](0), // relayers
-                0, // time-lock initial delay
+                new address[](0), // allowed relayers
+                0, // initial delay
                 0, // time-lock delay
-                ITokenIndexedAction.TokensAcceptanceType.DenyList, // token acceptance list type
-                new address[](0), // tokens acceptance addresses
+                ITokenConfig.TokensAcceptanceType.DenyList, // token acceptance list type
+                new address[](0), // tokens acceptance list
                 new bytes32[](0), // custom param keys
                 new bytes32[](0) // custom param values
             )

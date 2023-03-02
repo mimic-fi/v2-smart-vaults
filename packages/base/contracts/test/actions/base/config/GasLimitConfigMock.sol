@@ -2,12 +2,12 @@
 
 pragma solidity ^0.8.3;
 
-import '../../../actions/base/GasLimitedAction.sol';
+import '../../../../actions/base/config/GasLimitConfig.sol';
 
-contract GasLimitedActionMock is GasLimitedAction {
+contract GasLimitConfigMock is GasLimitConfig {
     event FeeData(uint256 gasPrice, uint256 baseFee, uint256 priorityFee);
 
-    constructor(uint256 gasPriceLimit, uint256 priorityFeeLimit) GasLimitedAction(gasPriceLimit, priorityFeeLimit) {
+    constructor(uint256 gasPriceLimit, uint256 priorityFeeLimit) GasLimitConfig(gasPriceLimit, priorityFeeLimit) {
         _authorize(msg.sender, Authorizer.authorize.selector);
     }
 

@@ -19,12 +19,12 @@ import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 
-import './interfaces/IRelayedAction.sol';
+import './interfaces/IRelayersConfig.sol';
 
 /**
- * @dev Action that can be used to redeem consumed gas costs based on an allow-list of relayers and cost limit.
+ * @dev Relayers config for actions. It allows redeeming consumed gas based on an allow-list of relayers and cost limit.
  */
-abstract contract RelayedAction is IRelayedAction, Authorizer {
+abstract contract RelayersConfig is IRelayersConfig, Authorizer {
     using FixedPoint for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -55,7 +55,7 @@ abstract contract RelayedAction is IRelayedAction, Authorizer {
     }
 
     /**
-     * @dev Creates a new relayed action
+     * @dev Creates a new relayers config
      * @param txCostLimit Transaction cost limit to be set
      * @param relayers List of relayers to be added to the allow-list
      */
@@ -136,7 +136,7 @@ abstract contract RelayedAction is IRelayedAction, Authorizer {
         if (!isRelayer(msg.sender)) return 0;
         require(__initialGas__ > 0, 'RELAYED_TX_NOT_INITIALIZED');
 
-        uint256 totalGas = RelayedAction(this).BASE_GAS() + __initialGas__ - gasleft();
+        uint256 totalGas = RelayersConfig(this).BASE_GAS() + __initialGas__ - gasleft();
         uint256 totalCostNative = totalGas * tx.gasprice;
         require(_isTxCostValid(totalCostNative), 'TRANSACTION_COST_LIMIT_EXCEEDED');
 

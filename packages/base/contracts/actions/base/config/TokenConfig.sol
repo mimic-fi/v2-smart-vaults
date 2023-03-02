@@ -18,13 +18,13 @@ import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 
-import './interfaces/ITokenIndexedAction.sol';
+import './interfaces/ITokenConfig.sol';
 
 /**
- * @dev Action indexed by token. It defines a token acceptance list to tell which are the tokens supported by the
+ * @dev Token config for actions. It defines a token acceptance list to tell which are the tokens supported by the
  * action. Tokens acceptance can be configured either as an allow list or as a deny list.
  */
-contract TokenIndexedAction is ITokenIndexedAction, Authorizer {
+contract TokenConfig is ITokenConfig, Authorizer {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     // Acceptance list type
@@ -34,7 +34,7 @@ contract TokenIndexedAction is ITokenIndexedAction, Authorizer {
     EnumerableSet.AddressSet private _tokens;
 
     /**
-     * @dev Creates a new token indexed action
+     * @dev Creates a new token config
      * @param acceptanceType Token acceptance type to be set
      * @param tokens List of token addresses to be set for the acceptance list
      */

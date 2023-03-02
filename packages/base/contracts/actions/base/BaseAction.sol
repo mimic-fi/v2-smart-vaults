@@ -21,11 +21,11 @@ import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
 import './IAction.sol';
-import './base/GasLimitedAction.sol';
-import './base/ParameterizedAction.sol';
-import './base/RelayedAction.sol';
-import './base/TimeLockedAction.sol';
-import './base/TokenIndexedAction.sol';
+import './config/CustomParamsConfig.sol';
+import './config/GasLimitConfig.sol';
+import './config/RelayersConfig.sol';
+import './config/TimeLockConfig.sol';
+import './config/TokenConfig.sol';
 
 /**
  * @title BaseAction
@@ -34,11 +34,11 @@ import './base/TokenIndexedAction.sol';
 abstract contract BaseAction is
     IAction,
     Authorizer,
-    GasLimitedAction,
-    ParameterizedAction,
-    RelayedAction,
-    TimeLockedAction,
-    TokenIndexedAction
+    CustomParamsConfig,
+    GasLimitConfig,
+    RelayersConfig,
+    TimeLockConfig,
+    TokenConfig
 {
     using SafeERC20 for IERC20;
 
@@ -52,13 +52,13 @@ abstract contract BaseAction is
      * @param gasPriceLimit Gas price limit expressed in the native token
      * @param priorityFeeLimit Priority fee limit expressed in the native token
      * @param txCostLimit Transaction cost limit to be set
-     * @param relayers List of relayers to be added to the allow-list
+     * @param allowedRelayers List of allowed relayers
      * @param initialDelay Initial delay to be set for the time-lock
-     * @param delay Time-lock delay to be used after the initial delay has passed
+     * @param timeLockDelay Time-lock delay to be used after the initial delay has passed
      * @param tokensAcceptanceType Tokens acceptance type to be set
-     * @param tokens List of tokens to be added to the token acceptance list
-     * @param keys Custom params keys
-     * @param values Custom params values
+     * @param tokensAcceptanceList List of tokens to be added to the acceptance list
+     * @param customParamsKeys Custom params keys
+     * @param customParamsValues Custom params values
      */
     struct Params {
         address admin;
@@ -66,25 +66,25 @@ abstract contract BaseAction is
         uint256 gasPriceLimit;
         uint256 priorityFeeLimit;
         uint256 txCostLimit;
-        address[] relayers;
+        address[] allowedRelayers;
         uint256 initialDelay;
-        uint256 delay;
-        ITokenIndexedAction.TokensAcceptanceType tokensAcceptanceType;
-        address[] tokens;
-        bytes32[] keys;
-        bytes32[] values;
+        uint256 timeLockDelay;
+        ITokenConfig.TokensAcceptanceType tokensAcceptanceType;
+        address[] tokensAcceptanceList;
+        bytes32[] customParamKeys;
+        bytes32[] customParamValues;
     }
 
     /**
-     * @dev Creates a new BaseAction
+     * @dev Creates a new action
      * @param params Action parameters
      */
     constructor(Params memory params)
-        GasLimitedAction(params.gasPriceLimit, params.priorityFeeLimit)
-        RelayedAction(params.txCostLimit, params.relayers)
-        TimeLockedAction(params.initialDelay, params.delay)
-        TokenIndexedAction(params.tokensAcceptanceType, params.tokens)
-        ParameterizedAction(params.keys, params.values)
+        GasLimitConfig(params.gasPriceLimit, params.priorityFeeLimit)
+        RelayersConfig(params.txCostLimit, params.allowedRelayers)
+        TimeLockConfig(params.initialDelay, params.timeLockDelay)
+        TokenConfig(params.tokensAcceptanceType, params.tokensAcceptanceList)
+        CustomParamsConfig(params.customParamKeys, params.customParamValues)
     {
         _smartVault = ISmartVault(params.smartVault);
         _authorize(params.admin, Authorizer.authorize.selector);
@@ -103,6 +103,32 @@ abstract contract BaseAction is
      */
     function getSmartVault() public view override returns (ISmartVault) {
         return _smartVault;
+    }
+
+    /**
+     * @dev Tells the complete config of an action
+     */
+    function getActionConfig()
+        public
+        view
+        override
+        returns (
+            address smartVault,
+            uint256 gasPriceLimit,
+            uint256 priorityFeeLimit,
+            uint256 txCostLimit,
+            uint256 timeLockDelay,
+            uint256 timeLockExpiresAt,
+            uint8 tokensAcceptanceType,
+            address[] memory tokensAcceptanceList
+        )
+    {
+        smartVault = address(_smartVault);
+        (gasPriceLimit, priorityFeeLimit) = getGasLimit();
+        txCostLimit = getTxCostLimit();
+        (timeLockDelay, timeLockExpiresAt) = getTimeLock();
+        tokensAcceptanceType = uint8(getTokensAcceptanceType());
+        tokensAcceptanceList = getTokensAcceptanceList();
     }
 
     /**

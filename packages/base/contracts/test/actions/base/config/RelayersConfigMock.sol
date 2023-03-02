@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.3;
 
-import '../../../actions/base/RelayedAction.sol';
+import '../../../../actions/base/config/RelayersConfig.sol';
 
-contract RelayedActionMock is RelayedAction {
+contract RelayersConfigMock is RelayersConfig {
     // Cost in gas of a call op + emit event
     uint256 public constant override BASE_GAS = 21e3 + 2e3;
 
@@ -12,7 +12,7 @@ contract RelayedActionMock is RelayedAction {
 
     event TransactionCostPaid(address indexed token, uint256 amount, bytes data);
 
-    constructor(uint256 txCostLimit, address[] memory relayers) RelayedAction(txCostLimit, relayers) {
+    constructor(uint256 txCostLimit, address[] memory relayers) RelayersConfig(txCostLimit, relayers) {
         _authorize(msg.sender, Authorizer.authorize.selector);
     }
 

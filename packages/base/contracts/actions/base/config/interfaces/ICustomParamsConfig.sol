@@ -17,9 +17,9 @@ pragma solidity >=0.8.0;
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
 /**
- * @dev Parameterized action interface
+ * @dev Custom params config interface
  */
-interface IParameterizedAction is IAuthorizer {
+interface ICustomParamsConfig is IAuthorizer {
     /**
      * @dev Emitted every time an action custom param is set
      */

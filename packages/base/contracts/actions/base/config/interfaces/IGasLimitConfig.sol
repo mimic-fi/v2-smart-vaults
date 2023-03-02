@@ -17,9 +17,9 @@ pragma solidity >=0.8.0;
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
 /**
- * @dev Gas limited action interface
+ * @dev Gas limit config interface
  */
-interface IGasLimitedAction is IAuthorizer {
+interface IGasLimitConfig is IAuthorizer {
     /**
      * @dev Emitted every time the relayer limits are set
      */

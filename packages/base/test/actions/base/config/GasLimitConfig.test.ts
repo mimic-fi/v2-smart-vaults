@@ -4,7 +4,7 @@ import { expect } from 'chai'
 import { Contract, ContractTransaction } from 'ethers'
 import { ethers } from 'hardhat'
 
-describe('GasLimitedAction', () => {
+describe('GasLimitConfig', () => {
   let action: Contract, admin: SignerWithAddress
 
   before('load signer', async () => {
@@ -12,7 +12,7 @@ describe('GasLimitedAction', () => {
   })
 
   beforeEach('deploy action', async () => {
-    action = await deploy('GasLimitedActionMock', [0, 0])
+    action = await deploy('GasLimitConfigMock', [0, 0])
   })
 
   describe('setGasLimit', () => {

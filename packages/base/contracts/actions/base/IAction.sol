@@ -17,16 +17,17 @@ pragma solidity >=0.8.0;
 import '@mimic-fi/v2-smart-vault/contracts/ISmartVault.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
-import './base/interfaces/IGasLimitedAction.sol';
-import './base/interfaces/IParameterizedAction.sol';
-import './base/interfaces/IRelayedAction.sol';
-import './base/interfaces/ITimeLockedAction.sol';
+import './config/interfaces/ICustomParamsConfig.sol';
+import './config/interfaces/IGasLimitConfig.sol';
+import './config/interfaces/IRelayersConfig.sol';
+import './config/interfaces/ITimeLockConfig.sol';
+import './config/interfaces/ITokenConfig.sol';
 
 /**
  * @title IAction
  * @dev Action generic interface
  */
-interface IAction is IAuthorizer, IGasLimitedAction, IParameterizedAction, IRelayedAction, ITimeLockedAction {
+interface IAction is IAuthorizer, IGasLimitConfig, ICustomParamsConfig, IRelayersConfig, ITimeLockConfig, ITokenConfig {
     /**
      * @dev Emitted every time an action is executed
      */
@@ -36,6 +37,23 @@ interface IAction is IAuthorizer, IGasLimitedAction, IParameterizedAction, IRela
      * @dev Tells the address or the Smart Vault referenced by the action
      */
     function getSmartVault() external view returns (ISmartVault);
+
+    /**
+     * @dev Tells the complete config of an action
+     */
+    function getActionConfig()
+        external
+        view
+        returns (
+            address smartVault,
+            uint256 gasPriceLimit,
+            uint256 priorityFeeLimit,
+            uint256 txCostLimit,
+            uint256 timeLockDelay,
+            uint256 timeLockExpiresAt,
+            uint8 tokensAcceptanceType,
+            address[] memory tokensAcceptanceList
+        );
 
     /**
      * @dev Tells the balance of the action for a given token

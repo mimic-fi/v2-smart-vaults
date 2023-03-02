@@ -13,7 +13,7 @@ import { Contract } from 'ethers'
 
 /* eslint-disable no-secrets/no-secrets */
 
-describe('RelayedAction', () => {
+describe('RelayersConfig', () => {
   let action: Contract, admin: SignerWithAddress
 
   before('load signer', async () => {
@@ -21,7 +21,7 @@ describe('RelayedAction', () => {
   })
 
   beforeEach('deploy action', async () => {
-    action = await deploy('RelayedActionMock', [0, []])
+    action = await deploy('RelayersConfigMock', [0, []])
   })
 
   describe('setTxCostLimit', () => {

@@ -3,7 +3,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-describe('ParameterizedAction', () => {
+describe('CustomParamsConfig', () => {
   let action: Contract, admin: SignerWithAddress
 
   const key1 = '0x0000000000000000000000000000000000000000000000000000000000000001'
@@ -19,7 +19,7 @@ describe('ParameterizedAction', () => {
   })
 
   beforeEach('deploy action', async () => {
-    action = await deploy('ParameterizedActionMock')
+    action = await deploy('CustomParamsConfigMock')
   })
 
   describe('setCustomParams', () => {
