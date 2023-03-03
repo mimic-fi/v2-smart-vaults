@@ -54,9 +54,10 @@ abstract contract GasLimitConfig is IGasLimitConfig, Authorizer {
     }
 
     /**
-     * @dev Reverts if the tx fee does not comply with the configured gas limits
+     * @dev Reverts if the tx fee does not comply with the configured gas limits. This function can be overridden
+     * by action developers to customize how gas limit configs should be validated.
      */
-    function _validateGasLimit() internal view {
+    function _validateGasLimit() internal view virtual {
         require(_isGasLimitValid(), 'GAS_PRICE_LIMIT_EXCEEDED');
     }
 

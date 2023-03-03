@@ -54,7 +54,8 @@ abstract contract TimeLockConfig is ITimeLockConfig, Authorizer {
     }
 
     /**
-     * @dev Reverts if the given time-lock is not expired, otherwise it bumps it based on its delay
+     * @dev Reverts if the given time-lock is not expired, otherwise it bumps it based on its delay. This function can
+     * be overridden by action developers to customize how time-lock configs should be validated.
      */
     function _validateTimeLock() internal {
         require(_isTimeLockValid(), 'TIME_LOCK_NOT_EXPIRED');

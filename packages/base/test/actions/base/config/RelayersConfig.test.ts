@@ -16,7 +16,7 @@ import { Contract } from 'ethers'
 describe('RelayersConfig', () => {
   let action: Contract, admin: SignerWithAddress
 
-  before('load signer', async () => {
+  before('load admin', async () => {
     admin = await getSigner(2)
   })
 

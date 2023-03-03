@@ -25,6 +25,7 @@ import './config/CustomParamsConfig.sol';
 import './config/GasLimitConfig.sol';
 import './config/RelayersConfig.sol';
 import './config/TimeLockConfig.sol';
+import './config/TokenAmountConfig.sol';
 import './config/TokenConfig.sol';
 
 /**
@@ -38,6 +39,7 @@ abstract contract BaseAction is
     GasLimitConfig,
     RelayersConfig,
     TimeLockConfig,
+    TokenAmountConfig,
     TokenConfig
 {
     using SafeERC20 for IERC20;
@@ -57,6 +59,9 @@ abstract contract BaseAction is
      * @param timeLockDelay Time-lock delay to be used after the initial delay has passed
      * @param tokensAcceptanceType Tokens acceptance type to be set
      * @param tokensAcceptanceList List of tokens to be added to the acceptance list
+     * @param defaultThreshold TODO
+     * @param customThresholdTokens TODO
+     * @param customThresholdValues TODO
      * @param customParamsKeys Custom params keys
      * @param customParamsValues Custom params values
      */
@@ -71,6 +76,9 @@ abstract contract BaseAction is
         uint256 timeLockDelay;
         ITokenConfig.TokensAcceptanceType tokensAcceptanceType;
         address[] tokensAcceptanceList;
+        Threshold defaultThreshold;
+        address[] customThresholdTokens;
+        Threshold[] customThresholdValues;
         bytes32[] customParamKeys;
         bytes32[] customParamValues;
     }
@@ -83,6 +91,7 @@ abstract contract BaseAction is
         GasLimitConfig(params.gasPriceLimit, params.priorityFeeLimit)
         RelayersConfig(params.txCostLimit, params.allowedRelayers)
         TimeLockConfig(params.initialDelay, params.timeLockDelay)
+        TokenAmountConfig(params.defaultThreshold, params.customThresholdTokens, params.customThresholdValues)
         TokenConfig(params.tokensAcceptanceType, params.tokensAcceptanceList)
         CustomParamsConfig(params.customParamKeys, params.customParamValues)
     {
@@ -212,11 +221,11 @@ abstract contract BaseAction is
     }
 
     /**
-     * @dev Validates the execution of an action indexed by a token
+     * @dev Validates the execution of an action. This function can be overridden by action developers to customize
+     * how action configs should be validated.
      */
-    function _validateAction(address token) internal {
+    function _validateAction() internal virtual {
         _validateGasLimit();
         _validateTimeLock();
-        _validateTokenAcceptance(token);
     }
 }

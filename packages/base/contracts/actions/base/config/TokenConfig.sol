@@ -85,10 +85,11 @@ contract TokenConfig is ITokenConfig, Authorizer {
     }
 
     /**
-     * @dev Reverts if the requested token does not comply with the tokens acceptance list
+     * @dev Reverts if the requested token does not comply with the tokens acceptance list. This function can be
+     * overridden by action developers to customize how token configs should be validated.
      * @param token Address of the token to be validated
      */
-    function _validateTokenAcceptance(address token) internal view {
+    function _validateToken(address token) internal view virtual {
         require(isTokenAllowed(token), 'ACTION_TOKEN_NOT_ALLOWED');
     }
 

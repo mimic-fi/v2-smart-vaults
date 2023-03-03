@@ -16,7 +16,7 @@ import { Contract } from 'ethers'
 describe('TimeLockConfig', () => {
   let action: Contract, admin: SignerWithAddress
 
-  before('load signer', async () => {
+  before('load admin', async () => {
     admin = await getSigner(2)
   })
 
@@ -28,7 +28,7 @@ describe('TimeLockConfig', () => {
     })
 
     context('when the sender is authorized', () => {
-      beforeEach('set sender', async () => {
+      beforeEach('authorize sender', async () => {
         const setTimeLockDelayRole = action.interface.getSighash('setTimeLockDelay')
         await action.authorize(admin.address, setTimeLockDelayRole)
         action = action.connect(admin)

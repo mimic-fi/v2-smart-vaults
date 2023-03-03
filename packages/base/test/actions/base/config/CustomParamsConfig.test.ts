@@ -14,7 +14,7 @@ describe('CustomParamsConfig', () => {
   const value2 = '0x2000000000000000000000000000000000000000000000000000000000000000'
   const value3 = '0x3000000000000000000000000000000000000000000000000000000000000000'
 
-  before('load signer', async () => {
+  before('load admin', async () => {
     admin = await getSigner(2)
   })
 
@@ -24,7 +24,7 @@ describe('CustomParamsConfig', () => {
 
   describe('setCustomParams', () => {
     context('when the sender is authorized', () => {
-      beforeEach('set sender', async () => {
+      beforeEach('authorize sender', async () => {
         const setCustomParamsRole = action.interface.getSighash('setCustomParams')
         await action.authorize(admin.address, setCustomParamsRole)
         action = action.connect(admin)
@@ -118,7 +118,7 @@ describe('CustomParamsConfig', () => {
     })
 
     context('when the sender is authorized', () => {
-      beforeEach('set sender', async () => {
+      beforeEach('authorize sender', async () => {
         const unsetCustomParamsRole = action.interface.getSighash('unsetCustomParams')
         await action.authorize(admin.address, unsetCustomParamsRole)
         action = action.connect(admin)

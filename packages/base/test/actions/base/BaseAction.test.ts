@@ -11,8 +11,8 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { createSmartVault, createTokenMock, Mimic, setupMimic } from '../../'
-import { createPriceFeedMock } from '../../src/samples'
+import { createSmartVault, createTokenMock, Mimic, setupMimic } from '../../..'
+import { createPriceFeedMock } from '../../../src/samples'
 
 describe('BaseAction', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic

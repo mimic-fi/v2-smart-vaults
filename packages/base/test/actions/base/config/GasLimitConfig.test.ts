@@ -7,7 +7,7 @@ import { ethers } from 'hardhat'
 describe('GasLimitConfig', () => {
   let action: Contract, admin: SignerWithAddress
 
-  before('load signer', async () => {
+  before('load admin', async () => {
     admin = await getSigner(2)
   })
 

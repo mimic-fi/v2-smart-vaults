@@ -10,6 +10,6 @@ contract TokenConfigMock is TokenConfig {
     }
 
     function call(address token) external view {
-        _validateTokenAcceptance(token);
+        _validateToken(token);
     }
 }

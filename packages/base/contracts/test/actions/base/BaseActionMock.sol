@@ -21,6 +21,9 @@ contract BaseActionMock is BaseAction {
                 0, // time-lock delay
                 ITokenConfig.TokensAcceptanceType.DenyList, // token acceptance list type
                 new address[](0), // tokens acceptance list
+                Threshold(address(0), 0, 0), // default threshold
+                new address[](0), // list of custom threshold tokens
+                new Threshold[](0), // list of custom threshold values
                 new bytes32[](0), // custom param keys
                 new bytes32[](0) // custom param values
             )
@@ -30,7 +33,8 @@ contract BaseActionMock is BaseAction {
     }
 
     function call(address token) external redeemGas(token) {
-        _validateAction(token);
+        _validateAction();
+        _validateToken(token);
         emit Executed();
     }
 }
