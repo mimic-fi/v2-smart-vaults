@@ -39,12 +39,15 @@ contract Claimer is BaseAction, TokenThresholdAction, RelayedAction {
     }
 
     function setProtocolFeeWithdrawer(address newProtocolFeeWithdrawer) external auth {
+        require(newProtocolFeeWithdrawer != address(0), 'CLAIMER_WITHDRAWER_ADDRESS_ZERO');
         protocolFeeWithdrawer = newProtocolFeeWithdrawer;
         emit ProtocolFeeWithdrawerSet(newProtocolFeeWithdrawer);
     }
 
     function call(address token) external auth nonReentrant redeemGas(token) {
-        require(token != address(0), 'TOKEN_ADDRESS_ZERO');
+        require(token != address(0), 'CLAIMER_TOKEN_ADDRESS_ZERO');
+        require(!Denominations.isNativeToken(token), 'CLAIMER_NATIVE_TOKEN');
+
         uint256 amount = getClaimableBalance(token);
         _validateThreshold(token, amount);
 
