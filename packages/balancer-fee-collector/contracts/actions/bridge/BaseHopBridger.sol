@@ -16,10 +16,9 @@ pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/ReceiverAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
-abstract contract BaseHopBridger is BaseAction, ReceiverAction, TokenThresholdAction, RelayedAction {
+abstract contract BaseHopBridger is BaseAction, TokenThresholdAction, RelayedAction {
     // Hop Exchange source number
     uint8 internal constant HOP_SOURCE = 0;
 
