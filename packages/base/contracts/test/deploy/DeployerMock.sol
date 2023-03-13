@@ -14,9 +14,8 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
-
 import '../../deploy/Deployer.sol';
+import '../../permissions/Arrays.sol';
 import '../actions/ReceiverActionMock.sol';
 import '../actions/RelayedActionMock.sol';
 import '../actions/TokenThresholdActionMock.sol';
@@ -27,7 +26,9 @@ import '../actions/WithdrawalActionMock.sol';
 
 contract DeployerMock {
     struct Params {
+        address owner;
         IRegistry registry;
+        PermissionsManager manager;
         Deployer.SmartVaultParams smartVaultParams;
         ReceiverActionParams receiverActionParams;
         RelayedActionParams relayedActionParams;
@@ -66,58 +67,65 @@ contract DeployerMock {
     }
 
     function deploy(Params memory params) external {
-        SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
-        _setupReceiverAction(smartVault, params.receiverActionParams);
-        _setupRelayedAction(smartVault, params.relayedActionParams);
-        _setupTokenThresholdAction(smartVault, params.tokenThresholdActionParams);
-        _setupTimeLockedAction(smartVault, params.timeLockedActionParams);
-        _setupWithdrawalAction(smartVault, params.withdrawalActionParams);
-        Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
+        Deployer.startPermissionManagerSetup(params.manager);
+        SmartVault smartVault = Deployer.createSmartVault(params.registry, params.manager, params.smartVaultParams);
+        _setupReceiverAction(smartVault, params.manager, params.receiverActionParams);
+        _setupRelayedAction(smartVault, params.manager, params.relayedActionParams);
+        _setupTokenThresholdAction(smartVault, params.manager, params.tokenThresholdActionParams);
+        _setupTimeLockedAction(smartVault, params.manager, params.timeLockedActionParams);
+        _setupWithdrawalAction(smartVault, params.manager, params.withdrawalActionParams);
+        Deployer.endPermissionManagerSetup(params.manager, Arrays.from(params.owner));
     }
 
-    function _setupReceiverAction(SmartVault smartVault, ReceiverActionParams memory params) internal {
+    function _setupReceiverAction(SmartVault smartVault, PermissionsManager manager, ReceiverActionParams memory params)
+        internal
+    {
         ReceiverActionMock action = ReceiverActionMock(payable(params.impl));
-        Deployer.setupBaseAction(action, params.admin, address(smartVault));
-        Deployer.setupActionExecutors(action, _arr(params.admin), action.transferToSmartVault.selector);
-        Deployer.setupReceiverAction(action, params.admin);
-        Deployer.transferAdminPermissions(action, params.admin);
+        Deployer.setupBaseAction(action, manager, params.admin, address(smartVault));
+        Deployer.setupActionExecutors(action, manager, Arrays.from(params.admin), action.transferToSmartVault.selector);
+        Deployer.setupReceiverAction(action, manager, params.admin);
     }
 
-    function _setupRelayedAction(SmartVault smartVault, RelayedActionParams memory params) internal {
+    function _setupRelayedAction(SmartVault smartVault, PermissionsManager manager, RelayedActionParams memory params)
+        internal
+    {
         RelayedActionMock action = RelayedActionMock(params.impl);
-        Deployer.setupBaseAction(action, params.admin, address(smartVault));
-        address[] memory executors = Arrays.from(params.admin, params.relayedActionParams.relayers, new address[](0));
-        Deployer.setupActionExecutors(action, executors, action.call.selector);
-        Deployer.setupRelayedAction(action, params.admin, params.relayedActionParams);
-        Deployer.transferAdminPermissions(action, params.admin);
+        Deployer.setupBaseAction(action, manager, params.admin, address(smartVault));
+        address[] memory executors = Arrays.concat(Arrays.from(params.admin), params.relayedActionParams.relayers);
+        Deployer.setupActionExecutors(action, manager, executors, action.call.selector);
+        Deployer.setupRelayedAction(action, manager, params.admin, params.relayedActionParams);
     }
 
-    function _setupTokenThresholdAction(SmartVault smartVault, TokenThresholdActionParams memory params) internal {
+    function _setupTokenThresholdAction(
+        SmartVault smartVault,
+        PermissionsManager manager,
+        TokenThresholdActionParams memory params
+    ) internal {
         TokenThresholdActionMock action = TokenThresholdActionMock(params.impl);
-        Deployer.setupBaseAction(action, params.admin, address(smartVault));
-        Deployer.setupActionExecutors(action, _arr(params.admin), action.call.selector);
-        Deployer.setupTokenThresholdAction(action, params.admin, params.tokenThresholdActionParams);
-        Deployer.transferAdminPermissions(action, params.admin);
+        Deployer.setupBaseAction(action, manager, params.admin, address(smartVault));
+        Deployer.setupActionExecutors(action, manager, Arrays.from(params.admin), action.call.selector);
+        Deployer.setupTokenThresholdAction(action, manager, params.admin, params.tokenThresholdActionParams);
     }
 
-    function _setupTimeLockedAction(SmartVault smartVault, TimeLockedActionParams memory params) internal {
+    function _setupTimeLockedAction(
+        SmartVault smartVault,
+        PermissionsManager manager,
+        TimeLockedActionParams memory params
+    ) internal {
         TimeLockedActionMock action = TimeLockedActionMock(params.impl);
-        Deployer.setupBaseAction(action, params.admin, address(smartVault));
-        Deployer.setupActionExecutors(action, _arr(params.admin), action.call.selector);
-        Deployer.setupTimeLockedAction(action, params.admin, params.timeLockedActionParams);
-        Deployer.transferAdminPermissions(action, params.admin);
+        Deployer.setupBaseAction(action, manager, params.admin, address(smartVault));
+        Deployer.setupActionExecutors(action, manager, Arrays.from(params.admin), action.call.selector);
+        Deployer.setupTimeLockedAction(action, manager, params.admin, params.timeLockedActionParams);
     }
 
-    function _setupWithdrawalAction(SmartVault smartVault, WithdrawalActionParams memory params) internal {
+    function _setupWithdrawalAction(
+        SmartVault smartVault,
+        PermissionsManager manager,
+        WithdrawalActionParams memory params
+    ) internal {
         WithdrawalActionMock action = WithdrawalActionMock(params.impl);
-        Deployer.setupBaseAction(action, params.admin, address(smartVault));
-        Deployer.setupActionExecutors(action, _arr(params.admin), action.call.selector);
-        Deployer.setupWithdrawalAction(action, params.admin, params.withdrawalActionParams);
-        Deployer.transferAdminPermissions(action, params.admin);
-    }
-
-    function _arr(address a) internal pure returns (address[] memory r) {
-        r = new address[](1);
-        r[0] = a;
+        Deployer.setupBaseAction(action, manager, params.admin, address(smartVault));
+        Deployer.setupActionExecutors(action, manager, Arrays.from(params.admin), action.call.selector);
+        Deployer.setupWithdrawalAction(action, manager, params.admin, params.withdrawalActionParams);
     }
 }

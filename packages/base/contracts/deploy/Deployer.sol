@@ -25,6 +25,8 @@ import '../actions/RelayedAction.sol';
 import '../actions/TimeLockedAction.sol';
 import '../actions/TokenThresholdAction.sol';
 import '../actions/WithdrawalAction.sol';
+import '../permissions/PermissionsManager.sol';
+import '../permissions/PermissionsHelpers.sol';
 
 /**
  * @title Deployer
@@ -32,6 +34,7 @@ import '../actions/WithdrawalAction.sol';
  */
 library Deployer {
     using UncheckedMath for uint256;
+    using PermissionsHelpers for PermissionsManager;
 
     // Namespace to use by this deployer to fetch ISmartVaultFactory implementations from the Mimic Registry
     bytes32 private constant SMART_VAULT_FACTORY_NAMESPACE = keccak256('SMART_VAULTS_FACTORY');
@@ -151,13 +154,55 @@ library Deployer {
     }
 
     /**
+     * @dev Set up a Permission Manager
+     * @param manager Permissions manager that will control the entire Smart Vault and its actions
+     */
+    function startPermissionManagerSetup(PermissionsManager manager) external {
+        // Grant permissions to deployer to control manager
+        manager.authorize(address(this), manager.execute.selector);
+        manager.authorize(address(this), manager.executeMany.selector);
+        manager.authorize(address(this), manager.grantAdminPermissions.selector);
+        manager.authorize(address(this), manager.revokeAdminPermissions.selector);
+        manager.authorize(address(this), manager.transferAdminPermissions.selector);
+    }
+
+    /**
+     * @dev Finish Permission Manager set up
+     * @param manager Permissions manager that will control the entire Smart Vault and its actions
+     * @param owners Addresses that will be able to call the permission manager
+     */
+    function endPermissionManagerSetup(PermissionsManager manager, address[] memory owners) external {
+        bytes4[] memory whats = Arrays.from(
+            manager.execute.selector,
+            manager.executeMany.selector,
+            manager.grantAdminPermissions.selector,
+            manager.revokeAdminPermissions.selector,
+            manager.transferAdminPermissions.selector
+        );
+
+        // Grant manager admin permissions to the manager itself
+        manager.authorize(address(manager), IAuthorizer.authorize.selector);
+        manager.authorize(address(manager), IAuthorizer.unauthorize.selector);
+
+        // Grant permissions to owners to control manager
+        manager.authorize(manager, owners, whats);
+
+        // Revoke permissions to control manager from the deployer
+        manager.unauthorize(manager, address(this), whats);
+
+        // Revoke manager admin permissions from the deployer
+        manager.unauthorize(address(this), IAuthorizer.authorize.selector);
+        manager.unauthorize(address(this), IAuthorizer.unauthorize.selector);
+    }
+
+    /**
      * @dev Create a new Smart Vault instance
      * @param registry Address of the registry to validate the Smart Vault implementation
+     * @param manager Permissions manager that will control the entire Smart Vault and its actions
      * @param params Params to customize the Smart Vault to be deployed
-     * @param transferPermissions Whether the Smart Vault admin permissions should be transfer to the admin right after
      * creating the Smart Vault. Sometimes this is not desired if further customization might take in place.
      */
-    function createSmartVault(IRegistry registry, SmartVaultParams memory params, bool transferPermissions)
+    function createSmartVault(IRegistry registry, PermissionsManager manager, SmartVaultParams memory params)
         external
         returns (SmartVault smartVault)
     {
@@ -168,82 +213,84 @@ library Deployer {
         require(registry.isActive(SMART_VAULT_FACTORY_NAMESPACE, params.factory), 'BAD_SMART_VAULT_FACTORY_IMPL');
         ISmartVaultsFactory factory = ISmartVaultsFactory(params.factory);
 
-        bytes memory initializeData = abi.encodeWithSelector(SmartVault.initialize.selector, address(this));
+        bytes memory initializeData = abi.encodeWithSelector(SmartVault.initialize.selector, address(manager));
         bytes32 senderSalt = keccak256(abi.encodePacked(msg.sender, params.salt));
         smartVault = SmartVault(payable(factory.create(senderSalt, params.impl, initializeData)));
 
-        // Authorize admin to perform any action except setting the fee collector, see below
-        smartVault.authorize(params.admin, smartVault.collect.selector);
-        smartVault.authorize(params.admin, smartVault.withdraw.selector);
-        smartVault.authorize(params.admin, smartVault.wrap.selector);
-        smartVault.authorize(params.admin, smartVault.unwrap.selector);
-        smartVault.authorize(params.admin, smartVault.claim.selector);
-        smartVault.authorize(params.admin, smartVault.join.selector);
-        smartVault.authorize(params.admin, smartVault.exit.selector);
-        smartVault.authorize(params.admin, smartVault.swap.selector);
-        smartVault.authorize(params.admin, smartVault.bridge.selector);
-        smartVault.authorize(params.admin, smartVault.setStrategy.selector);
-        smartVault.authorize(params.admin, smartVault.setPriceFeed.selector);
-        smartVault.authorize(params.admin, smartVault.setPriceFeeds.selector);
-        smartVault.authorize(params.admin, smartVault.setPriceOracle.selector);
-        smartVault.authorize(params.admin, smartVault.setSwapConnector.selector);
-        smartVault.authorize(params.admin, smartVault.setBridgeConnector.selector);
-        smartVault.authorize(params.admin, smartVault.setWithdrawFee.selector);
-        smartVault.authorize(params.admin, smartVault.setPerformanceFee.selector);
-        smartVault.authorize(params.admin, smartVault.setSwapFee.selector);
-        smartVault.authorize(params.admin, smartVault.setBridgeFee.selector);
+        // Authorize admin to perform any action except from fee collector setter
+        bytes4[] memory whats = new bytes4[](19);
+        whats[0] = smartVault.collect.selector;
+        whats[1] = smartVault.withdraw.selector;
+        whats[2] = smartVault.wrap.selector;
+        whats[3] = smartVault.unwrap.selector;
+        whats[4] = smartVault.claim.selector;
+        whats[5] = smartVault.join.selector;
+        whats[6] = smartVault.exit.selector;
+        whats[7] = smartVault.swap.selector;
+        whats[8] = smartVault.bridge.selector;
+        whats[9] = smartVault.setStrategy.selector;
+        whats[10] = smartVault.setPriceFeed.selector;
+        whats[11] = smartVault.setPriceFeeds.selector;
+        whats[12] = smartVault.setPriceOracle.selector;
+        whats[13] = smartVault.setSwapConnector.selector;
+        whats[14] = smartVault.setBridgeConnector.selector;
+        whats[15] = smartVault.setWithdrawFee.selector;
+        whats[16] = smartVault.setPerformanceFee.selector;
+        whats[17] = smartVault.setSwapFee.selector;
+        whats[18] = smartVault.setBridgeFee.selector;
+        manager.authorize(smartVault, params.admin, whats);
 
         // Set price feeds if any
         if (params.priceFeedParams.length > 0) {
-            smartVault.authorize(address(this), smartVault.setPriceFeed.selector);
+            manager.authorize(smartVault, address(this), smartVault.setPriceFeed.selector);
             for (uint256 i = 0; i < params.priceFeedParams.length; i = i.uncheckedAdd(1)) {
                 PriceFeedParams memory feedParams = params.priceFeedParams[i];
                 smartVault.setPriceFeed(feedParams.base, feedParams.quote, feedParams.feed);
             }
-            smartVault.unauthorize(address(this), smartVault.setPriceFeed.selector);
+            manager.unauthorize(smartVault, address(this), smartVault.setPriceFeed.selector);
         }
 
         // Set price oracle if given
         if (params.priceOracle != address(0)) {
             require(registry.isActive(PRICE_ORACLE_NAMESPACE, params.priceOracle), 'BAD_PRICE_ORACLE_DEPENDENCY');
-            smartVault.authorize(address(this), smartVault.setPriceOracle.selector);
+            manager.authorize(smartVault, address(this), smartVault.setPriceOracle.selector);
             smartVault.setPriceOracle(params.priceOracle);
-            smartVault.unauthorize(address(this), smartVault.setPriceOracle.selector);
+            manager.unauthorize(smartVault, address(this), smartVault.setPriceOracle.selector);
         }
 
         // Set strategies if any
         if (params.strategies.length > 0) {
-            smartVault.authorize(address(this), smartVault.setStrategy.selector);
+            manager.authorize(smartVault, address(this), smartVault.setStrategy.selector);
             for (uint256 i = 0; i < params.strategies.length; i = i.uncheckedAdd(1)) {
                 require(registry.isActive(STRATEGY_NAMESPACE, params.strategies[i]), 'BAD_STRATEGY_DEPENDENCY');
                 smartVault.setStrategy(params.strategies[i], true);
             }
-            smartVault.unauthorize(address(this), smartVault.setStrategy.selector);
+            manager.unauthorize(smartVault, address(this), smartVault.setStrategy.selector);
         }
 
         // Set swap connector if given
         if (params.swapConnector != address(0)) {
             require(registry.isActive(SWAP_CONNECTOR_NAMESPACE, params.swapConnector), 'BAD_SWAP_CONNECTOR_DEPENDENCY');
-            smartVault.authorize(address(this), smartVault.setSwapConnector.selector);
+            manager.authorize(smartVault, address(this), smartVault.setSwapConnector.selector);
             smartVault.setSwapConnector(params.swapConnector);
-            smartVault.unauthorize(address(this), smartVault.setSwapConnector.selector);
+            manager.unauthorize(smartVault, address(this), smartVault.setSwapConnector.selector);
         }
 
         // Set bridge connector if given
         if (params.bridgeConnector != address(0)) {
             bool isActive = registry.isActive(BRIDGE_CONNECTOR_NAMESPACE, params.bridgeConnector);
             require(isActive, 'BAD_BRIDGE_CONNECTOR_DEPENDENCY');
-            smartVault.authorize(address(this), smartVault.setBridgeConnector.selector);
+            manager.authorize(smartVault, address(this), smartVault.setBridgeConnector.selector);
             smartVault.setBridgeConnector(params.bridgeConnector);
-            smartVault.unauthorize(address(this), smartVault.setBridgeConnector.selector);
+            manager.unauthorize(smartVault, address(this), smartVault.setBridgeConnector.selector);
         }
 
         // If no fee collector is given, make sure no fee amounts are requested too
-        smartVault.authorize(params.feeCollectorAdmin, smartVault.setFeeCollector.selector);
+        manager.authorize(smartVault, params.feeCollectorAdmin, smartVault.setFeeCollector.selector);
         if (params.feeCollector != address(0)) {
-            smartVault.authorize(address(this), smartVault.setFeeCollector.selector);
+            manager.authorize(smartVault, address(this), smartVault.setFeeCollector.selector);
             smartVault.setFeeCollector(params.feeCollector);
-            smartVault.unauthorize(address(this), smartVault.setFeeCollector.selector);
+            manager.unauthorize(smartVault, address(this), smartVault.setFeeCollector.selector);
         } else {
             bool noFees = params.withdrawFee.pct == 0 &&
                 params.swapFee.pct == 0 &&
@@ -255,177 +302,163 @@ library Deployer {
         // Set withdraw fee if not zero
         SmartVaultFeeParams memory withdrawFee = params.withdrawFee;
         if (withdrawFee.pct != 0) {
-            smartVault.authorize(address(this), smartVault.setWithdrawFee.selector);
+            manager.authorize(smartVault, address(this), smartVault.setWithdrawFee.selector);
             smartVault.setWithdrawFee(withdrawFee.pct, withdrawFee.cap, withdrawFee.token, withdrawFee.period);
-            smartVault.unauthorize(address(this), smartVault.setWithdrawFee.selector);
+            manager.unauthorize(smartVault, address(this), smartVault.setWithdrawFee.selector);
         }
 
         // Set swap fee if not zero
         SmartVaultFeeParams memory swapFee = params.swapFee;
         if (swapFee.pct != 0) {
-            smartVault.authorize(address(this), smartVault.setSwapFee.selector);
+            manager.authorize(smartVault, address(this), smartVault.setSwapFee.selector);
             smartVault.setSwapFee(swapFee.pct, swapFee.cap, swapFee.token, swapFee.period);
-            smartVault.unauthorize(address(this), smartVault.setSwapFee.selector);
+            manager.unauthorize(smartVault, address(this), smartVault.setSwapFee.selector);
         }
 
         // Set bridge fee if not zero
         SmartVaultFeeParams memory bridgeFee = params.bridgeFee;
         if (bridgeFee.pct != 0) {
-            smartVault.authorize(address(this), smartVault.setBridgeFee.selector);
+            manager.authorize(smartVault, address(this), smartVault.setBridgeFee.selector);
             smartVault.setBridgeFee(bridgeFee.pct, bridgeFee.cap, bridgeFee.token, bridgeFee.period);
-            smartVault.unauthorize(address(this), smartVault.setBridgeFee.selector);
+            manager.unauthorize(smartVault, address(this), smartVault.setBridgeFee.selector);
         }
 
         // Set performance fee if not zero
         SmartVaultFeeParams memory perfFee = params.performanceFee;
         if (perfFee.pct != 0) {
-            smartVault.authorize(address(this), smartVault.setPerformanceFee.selector);
+            manager.authorize(smartVault, address(this), smartVault.setPerformanceFee.selector);
             smartVault.setPerformanceFee(perfFee.pct, perfFee.cap, perfFee.token, perfFee.period);
-            smartVault.unauthorize(address(this), smartVault.setPerformanceFee.selector);
+            manager.unauthorize(smartVault, address(this), smartVault.setPerformanceFee.selector);
         }
-
-        if (transferPermissions) transferAdminPermissions(smartVault, params.admin);
     }
 
     /**
      * @dev Set up a base action
      * @param action Base action to be set up
+     * @param manager Permissions manager that will control the entire Smart Vault and its actions
      * @param admin Address that will be granted with admin rights for the Base Action
      * @param smartVault Address of the Smart Vault to be set in the Base Action
      */
-    function setupBaseAction(BaseAction action, address admin, address smartVault) external {
+    function setupBaseAction(BaseAction action, PermissionsManager manager, address admin, address smartVault)
+        external
+    {
         require(admin != address(0), 'BASE_ACTION_ADMIN_ZERO');
-        action.authorize(admin, action.setSmartVault.selector);
-        action.authorize(address(this), action.setSmartVault.selector);
+
+        manager.authorize(action, Arrays.from(admin, address(this)), action.setSmartVault.selector);
         action.setSmartVault(smartVault);
-        action.unauthorize(address(this), action.setSmartVault.selector);
+        manager.unauthorize(action, address(this), action.setSmartVault.selector);
     }
 
     /**
      * @dev Set up a list of executors for a given action
      * @param action Action whose executors are being allowed
+     * @param manager Permissions manager that will control the entire Smart Vault and its actions
      * @param executors List of addresses to be allowed to call the given action
      * @param callSelector Selector of the function to allow the list of executors
      */
-    function setupActionExecutors(BaseAction action, address[] memory executors, bytes4 callSelector) external {
-        for (uint256 i = 0; i < executors.length; i = i.uncheckedAdd(1)) {
-            action.authorize(executors[i], callSelector);
-        }
+    function setupActionExecutors(
+        BaseAction action,
+        PermissionsManager manager,
+        address[] memory executors,
+        bytes4 callSelector
+    ) external {
+        manager.authorize(action, executors, callSelector);
     }
 
     /**
      * @dev Set up a Relayed action
      * @param action Relayed action to be configured
+     * @param manager Permissions manager that will control the entire Smart Vault and its actions
      * @param admin Address that will be granted with admin rights for the Relayed action
      * @param params Params to customize the Relayed action
      */
-    function setupRelayedAction(RelayedAction action, address admin, RelayedActionParams memory params) external {
+    function setupRelayedAction(
+        RelayedAction action,
+        PermissionsManager manager,
+        address admin,
+        RelayedActionParams memory params
+    ) external {
         // Authorize admin to set relayers and txs limits
         require(admin != address(0), 'RELAYED_ACTION_ADMIN_ZERO');
-        action.authorize(admin, action.setLimits.selector);
-        action.authorize(admin, action.setRelayer.selector);
 
-        // Authorize relayers to call action
-        action.authorize(address(this), action.setRelayer.selector);
+        address[] memory whos = Arrays.from(admin, address(this));
+        bytes4[] memory whats = Arrays.from(action.setLimits.selector, action.setRelayer.selector);
+
+        manager.authorize(action, whos, whats);
+
+        action.setLimits(params.gasPriceLimit, params.txCostLimit);
         for (uint256 i = 0; i < params.relayers.length; i = i.uncheckedAdd(1)) {
             action.setRelayer(params.relayers[i], true);
         }
-        action.unauthorize(address(this), action.setRelayer.selector);
 
-        // Set relayed transactions limits
-        action.authorize(address(this), action.setLimits.selector);
-        action.setLimits(params.gasPriceLimit, params.txCostLimit);
-        action.unauthorize(address(this), action.setLimits.selector);
+        manager.unauthorize(action, address(this), whats);
     }
 
     /**
      * @dev Set up a Token Threshold action
      * @param action Token threshold action to be configured
+     * @param manager Permissions manager that will control the entire Smart Vault and its actions
      * @param admin Address that will be granted with admin rights for the Token Threshold action
      * @param params Params to customize the Token Threshold action
      */
     function setupTokenThresholdAction(
         TokenThresholdAction action,
+        PermissionsManager manager,
         address admin,
         TokenThresholdActionParams memory params
     ) external {
         require(admin != address(0), 'TOKEN_THRESHOLD_ADMIN_ZERO');
-        action.authorize(admin, action.setThreshold.selector);
-        action.authorize(address(this), action.setThreshold.selector);
+        manager.authorize(action, Arrays.from(admin, address(this)), action.setThreshold.selector);
         action.setThreshold(params.token, params.amount);
-        action.unauthorize(address(this), action.setThreshold.selector);
+        manager.unauthorize(action, address(this), action.setThreshold.selector);
     }
 
     /**
      * @dev Set up a Time-locked action
      * @param action Time-locked action to be configured
+     * @param manager Permissions manager that will control the entire Smart Vault and its actions
      * @param admin Address that will be granted with admin rights for the Time-locked action
      * @param params Params to customize the Time-locked action
      */
-    function setupTimeLockedAction(TimeLockedAction action, address admin, TimeLockedActionParams memory params)
-        external
-    {
+    function setupTimeLockedAction(
+        TimeLockedAction action,
+        PermissionsManager manager,
+        address admin,
+        TimeLockedActionParams memory params
+    ) external {
         require(admin != address(0), 'TIME_LOCKED_ACTION_ADMIN_ZERO');
-        action.authorize(admin, action.setTimeLock.selector);
-        action.authorize(address(this), action.setTimeLock.selector);
+        manager.authorize(action, Arrays.from(admin, address(this)), action.setTimeLock.selector);
         action.setTimeLock(params.period);
-        action.unauthorize(address(this), action.setTimeLock.selector);
+        manager.unauthorize(action, address(this), action.setTimeLock.selector);
     }
 
     /**
      * @dev Set up a Withdrawal action
      * @param action Relayed action to be configured
+     * @param manager Permissions manager that will control the entire Smart Vault and its actions
      * @param admin Address that will be granted with admin rights for the Withdrawal action
      * @param params Params to customize the Withdrawal action
      */
-    function setupWithdrawalAction(WithdrawalAction action, address admin, WithdrawalActionParams memory params)
-        external
-    {
+    function setupWithdrawalAction(
+        WithdrawalAction action,
+        PermissionsManager manager,
+        address admin,
+        WithdrawalActionParams memory params
+    ) external {
         require(admin != address(0), 'WITHDRAWAL_ACTION_ADMIN_ZERO');
-        action.authorize(admin, action.setRecipient.selector);
-        action.authorize(address(this), action.setRecipient.selector);
+        manager.authorize(action, Arrays.from(admin, address(this)), action.setRecipient.selector);
         action.setRecipient(params.recipient);
-        action.unauthorize(address(this), action.setRecipient.selector);
+        manager.unauthorize(action, address(this), action.setRecipient.selector);
     }
 
     /**
      * @dev Set up a Receiver action
      * @param action Relayed action to be configured
+     * @param manager Permissions manager that will control the entire Smart Vault and its actions
      * @param admin Address that will be granted with admin rights for the Receiver action
      */
-    function setupReceiverAction(ReceiverAction action, address admin) external {
+    function setupReceiverAction(ReceiverAction action, PermissionsManager manager, address admin) external {
         require(admin != address(0), 'RECEIVER_ACTION_ADMIN_ZERO');
-        action.authorize(admin, action.transferToSmartVault.selector);
-    }
-
-    /**
-     * @dev Transfer admin rights from the deployer to another account
-     * @param target Contract whose permissions are being transferred
-     * @param to Address that will receive the admin rights
-     */
-    function transferAdminPermissions(IAuthorizer target, address to) public {
-        require(to != address(0), 'ADMIN_PERMISSIONS_TRANSFER_ZERO');
-        grantAdminPermissions(target, to);
-        revokeAdminPermissions(target, address(this));
-    }
-
-    /**
-     * @dev Grant admin permissions to an account
-     * @param target Contract whose permissions are being granted
-     * @param to Address that will receive the admin rights
-     */
-    function grantAdminPermissions(IAuthorizer target, address to) public {
-        target.authorize(to, target.authorize.selector);
-        target.authorize(to, target.unauthorize.selector);
-    }
-
-    /**
-     * @dev Revoke admin permissions from an account
-     * @param target Contract whose permissions are being revoked
-     * @param from Address that will be revoked
-     */
-    function revokeAdminPermissions(IAuthorizer target, address from) public {
-        target.unauthorize(from, target.authorize.selector);
-        target.unauthorize(from, target.unauthorize.selector);
+        manager.authorize(action, admin, action.transferToSmartVault.selector);
     }
 }

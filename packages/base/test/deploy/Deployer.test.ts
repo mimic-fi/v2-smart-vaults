@@ -3,11 +3,13 @@ import {
   currentTimestamp,
   deploy,
   fp,
+  getSigner,
   instanceAt,
   MONTH,
   ONES_BYTES32,
 } from '@mimic-fi/v2-helpers'
 import { assertPermissions, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
@@ -15,11 +17,13 @@ import { ethers } from 'hardhat'
 const randomAddress = (): string => ethers.utils.getAddress(ethers.utils.hexlify(ethers.utils.randomBytes(20)))
 
 describe('Deployer', () => {
-  let smartVault: Contract, mimic: Mimic
+  let smartVault: Contract, manager: Contract, mimic: Mimic, owner: SignerWithAddress
   let receiver: Contract, relayed: Contract, timeLocked: Contract, tokenThreshold: Contract, withdrawal: Contract
 
   const config = {
     registry: undefined,
+    manager: undefined,
+    owner: undefined,
     smartVaultParams: {
       factory: undefined,
       impl: undefined,
@@ -81,15 +85,22 @@ describe('Deployer', () => {
     mimic = await setupMimic(false)
   })
 
+  before('setup owner', async () => {
+    owner = await getSigner(4)
+  })
+
   before('deploy smart vault', async () => {
     const deployer = await deploy('DeployerMock', [], undefined, { Deployer: mimic.deployer.address })
-    receiver = await deploy('ReceiverActionMock', [deployer.address, mimic.registry.address])
-    relayed = await deploy('RelayedActionMock', [deployer.address, mimic.registry.address])
-    timeLocked = await deploy('TimeLockedActionMock', [deployer.address, mimic.registry.address])
-    tokenThreshold = await deploy('TokenThresholdActionMock', [deployer.address, mimic.registry.address])
-    withdrawal = await deploy('WithdrawalActionMock', [deployer.address, mimic.registry.address])
+    manager = await deploy('PermissionsManager', [deployer.address])
+    receiver = await deploy('ReceiverActionMock', [manager.address, mimic.registry.address])
+    relayed = await deploy('RelayedActionMock', [manager.address, mimic.registry.address])
+    timeLocked = await deploy('TimeLockedActionMock', [manager.address, mimic.registry.address])
+    tokenThreshold = await deploy('TokenThresholdActionMock', [manager.address, mimic.registry.address])
+    withdrawal = await deploy('WithdrawalActionMock', [manager.address, mimic.registry.address])
 
+    config.owner = owner.address
     config.registry = mimic.registry.address
+    config.manager = manager.address
     config.smartVaultParams.impl = mimic.smartVault.address
     config.smartVaultParams.factory = mimic.smartVaultsFactory.address
     config.smartVaultParams.priceOracle = mimic.priceOracle.address
@@ -113,15 +124,41 @@ describe('Deployer', () => {
     smartVault = await instanceAt('SmartVault', args.instance)
   })
 
+  describe('permissions manager', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(manager, [
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
+        {
+          name: 'owner',
+          account: config.owner,
+          roles: [
+            'execute',
+            'executeMany',
+            'grantAdminPermissions',
+            'revokeAdminPermissions',
+            'transferAdminPermissions',
+          ],
+        },
+        { name: 'fee collector admin', account: config.smartVaultParams.feeCollectorAdmin, roles: [] },
+        { name: 'receiver action', account: receiver, roles: [] },
+        { name: 'relayed action', account: relayed, roles: [] },
+        { name: 'time locked action', account: timeLocked, roles: [] },
+        { name: 'token threshold action', account: tokenThreshold, roles: [] },
+        { name: 'withdrawal action', account: withdrawal, roles: [] },
+        { name: 'relayers', account: config.relayedActionParams.relayedActionParams.relayers, roles: [] },
+      ])
+    })
+  })
+
   describe('smart vault', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(smartVault, [
+        { name: 'owner', account: owner, roles: [] },
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
         {
-          name: 'owner',
+          name: 'smart vault admin',
           account: config.smartVaultParams.admin,
           roles: [
-            'authorize',
-            'unauthorize',
             'collect',
             'withdraw',
             'wrap',
@@ -204,15 +241,43 @@ describe('Deployer', () => {
     it('sets a bridge connector', async () => {
       expect(await smartVault.bridgeConnector()).to.be.equal(config.smartVaultParams.bridgeConnector)
     })
+
+    it('can authorize smart vault methods', async () => {
+      const who = mimic.admin.address
+      const what = smartVault.interface.getSighash('wrap')
+      expect(await smartVault.isAuthorized(who, what)).to.be.false
+
+      const request = { target: smartVault.address, changes: [{ grant: true, permission: { who, what } }] }
+      await manager.connect(owner).execute(request)
+
+      expect(await smartVault.isAuthorized(who, what)).to.be.true
+    })
+
+    it('can transfer smart vault admin rights to another account', async () => {
+      const who = mimic.admin.address
+      const authorizeRole = smartVault.interface.getSighash('authorize')
+      const unauthorizeRole = smartVault.interface.getSighash('unauthorize')
+      expect(await smartVault.isAuthorized(who, authorizeRole)).to.be.false
+      expect(await smartVault.isAuthorized(who, unauthorizeRole)).to.be.false
+
+      await manager.connect(owner).transferAdminPermissions(smartVault.address, who)
+
+      expect(await smartVault.isAuthorized(who, authorizeRole)).to.be.true
+      expect(await smartVault.isAuthorized(who, unauthorizeRole)).to.be.true
+      expect(await smartVault.isAuthorized(manager.address, authorizeRole)).to.be.false
+      expect(await smartVault.isAuthorized(manager.address, unauthorizeRole)).to.be.false
+    })
   })
 
   describe('receiver action', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(receiver, [
+        { name: 'owner', account: owner, roles: [] },
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
         {
-          name: 'owner',
+          name: 'receiver admin',
           account: config.receiverActionParams.admin,
-          roles: ['authorize', 'unauthorize', 'setSmartVault', 'transferToSmartVault', 'call'],
+          roles: ['setSmartVault', 'transferToSmartVault', 'call'],
         },
         { name: 'fee collector admin', account: config.smartVaultParams.feeCollectorAdmin, roles: [] },
         { name: 'receiver action', account: receiver, roles: [] },
@@ -227,15 +292,43 @@ describe('Deployer', () => {
     it('has the proper smart vault set', async () => {
       expect(await relayed.smartVault()).to.be.equal(smartVault.address)
     })
+
+    it('can authorize other accounts', async () => {
+      const who = mimic.admin.address
+      const what = receiver.interface.getSighash('transferToSmartVault')
+      expect(await receiver.isAuthorized(who, what)).to.be.false
+
+      const request = { target: receiver.address, changes: [{ grant: true, permission: { who, what } }] }
+      await manager.connect(owner).execute(request)
+
+      expect(await receiver.isAuthorized(who, what)).to.be.true
+    })
+
+    it('can transfer admin rights to another account', async () => {
+      const who = mimic.admin.address
+      const authorizeRole = receiver.interface.getSighash('authorize')
+      const unauthorizeRole = receiver.interface.getSighash('unauthorize')
+      expect(await receiver.isAuthorized(who, authorizeRole)).to.be.false
+      expect(await receiver.isAuthorized(who, unauthorizeRole)).to.be.false
+
+      await manager.connect(owner).transferAdminPermissions(receiver.address, who)
+
+      expect(await receiver.isAuthorized(who, authorizeRole)).to.be.true
+      expect(await receiver.isAuthorized(who, unauthorizeRole)).to.be.true
+      expect(await receiver.isAuthorized(manager.address, authorizeRole)).to.be.false
+      expect(await receiver.isAuthorized(manager.address, unauthorizeRole)).to.be.false
+    })
   })
 
   describe('relayed action', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(relayed, [
+        { name: 'owner', account: owner, roles: [] },
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
         {
-          name: 'owner',
+          name: 'relayed admin',
           account: config.relayedActionParams.admin,
-          roles: ['authorize', 'unauthorize', 'setSmartVault', 'setLimits', 'setRelayer', 'call'],
+          roles: ['setSmartVault', 'setLimits', 'setRelayer', 'call'],
         },
         { name: 'fee collector admin', account: config.smartVaultParams.feeCollectorAdmin, roles: [] },
         { name: 'receiver action', account: receiver, roles: [] },
@@ -261,15 +354,43 @@ describe('Deployer', () => {
         expect(await relayed.isRelayer(relayer)).to.be.true
       }
     })
+
+    it('can authorize other accounts', async () => {
+      const who = mimic.admin.address
+      const what = relayed.interface.getSighash('setLimits')
+      expect(await relayed.isAuthorized(who, what)).to.be.false
+
+      const request = { target: relayed.address, changes: [{ grant: true, permission: { who, what } }] }
+      await manager.connect(owner).execute(request)
+
+      expect(await relayed.isAuthorized(who, what)).to.be.true
+    })
+
+    it('can transfer admin rights to another account', async () => {
+      const who = mimic.admin.address
+      const authorizeRole = relayed.interface.getSighash('authorize')
+      const unauthorizeRole = relayed.interface.getSighash('unauthorize')
+      expect(await relayed.isAuthorized(who, authorizeRole)).to.be.false
+      expect(await relayed.isAuthorized(who, unauthorizeRole)).to.be.false
+
+      await manager.connect(owner).transferAdminPermissions(relayed.address, who)
+
+      expect(await relayed.isAuthorized(who, authorizeRole)).to.be.true
+      expect(await relayed.isAuthorized(who, unauthorizeRole)).to.be.true
+      expect(await relayed.isAuthorized(manager.address, authorizeRole)).to.be.false
+      expect(await relayed.isAuthorized(manager.address, unauthorizeRole)).to.be.false
+    })
   })
 
   describe('time locked action', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(timeLocked, [
+        { name: 'owner', account: owner, roles: [] },
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
         {
-          name: 'owner',
+          name: 'timelocked admin',
           account: config.timeLockedActionParams.admin,
-          roles: ['authorize', 'unauthorize', 'setSmartVault', 'setTimeLock', 'call'],
+          roles: ['setSmartVault', 'setTimeLock', 'call'],
         },
         { name: 'fee collector admin', account: config.smartVaultParams.feeCollectorAdmin, roles: [] },
         { name: 'receiver action', account: receiver, roles: [] },
@@ -289,15 +410,43 @@ describe('Deployer', () => {
       expect(await timeLocked.period()).to.be.equal(config.timeLockedActionParams.timeLockedActionParams.period)
       expect(await timeLocked.nextResetTime()).to.be.lt(await currentTimestamp())
     })
+
+    it('can authorize other accounts', async () => {
+      const who = mimic.admin.address
+      const what = timeLocked.interface.getSighash('setTimeLock')
+      expect(await timeLocked.isAuthorized(who, what)).to.be.false
+
+      const request = { target: timeLocked.address, changes: [{ grant: true, permission: { who, what } }] }
+      await manager.connect(owner).execute(request)
+
+      expect(await timeLocked.isAuthorized(who, what)).to.be.true
+    })
+
+    it('can transfer admin rights to another account', async () => {
+      const who = mimic.admin.address
+      const authorizeRole = timeLocked.interface.getSighash('authorize')
+      const unauthorizeRole = timeLocked.interface.getSighash('unauthorize')
+      expect(await timeLocked.isAuthorized(who, authorizeRole)).to.be.false
+      expect(await timeLocked.isAuthorized(who, unauthorizeRole)).to.be.false
+
+      await manager.connect(owner).transferAdminPermissions(timeLocked.address, who)
+
+      expect(await timeLocked.isAuthorized(who, authorizeRole)).to.be.true
+      expect(await timeLocked.isAuthorized(who, unauthorizeRole)).to.be.true
+      expect(await timeLocked.isAuthorized(manager.address, authorizeRole)).to.be.false
+      expect(await timeLocked.isAuthorized(manager.address, unauthorizeRole)).to.be.false
+    })
   })
 
   describe('token threshold action', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(tokenThreshold, [
+        { name: 'owner', account: owner, roles: [] },
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
         {
-          name: 'owner',
+          name: 'token threshold admin',
           account: config.tokenThresholdActionParams.admin,
-          roles: ['authorize', 'unauthorize', 'setSmartVault', 'setThreshold', 'call'],
+          roles: ['setSmartVault', 'setThreshold', 'call'],
         },
         { name: 'fee collector admin', account: config.smartVaultParams.feeCollectorAdmin, roles: [] },
         { name: 'receiver action', account: receiver, roles: [] },
@@ -321,15 +470,43 @@ describe('Deployer', () => {
         config.tokenThresholdActionParams.tokenThresholdActionParams.amount
       )
     })
+
+    it('can authorize other accounts', async () => {
+      const who = mimic.admin.address
+      const what = tokenThreshold.interface.getSighash('setThreshold')
+      expect(await tokenThreshold.isAuthorized(who, what)).to.be.false
+
+      const request = { target: tokenThreshold.address, changes: [{ grant: true, permission: { who, what } }] }
+      await manager.connect(owner).execute(request)
+
+      expect(await tokenThreshold.isAuthorized(who, what)).to.be.true
+    })
+
+    it('can transfer admin rights to another account', async () => {
+      const who = mimic.admin.address
+      const authorizeRole = tokenThreshold.interface.getSighash('authorize')
+      const unauthorizeRole = tokenThreshold.interface.getSighash('unauthorize')
+      expect(await tokenThreshold.isAuthorized(who, authorizeRole)).to.be.false
+      expect(await tokenThreshold.isAuthorized(who, unauthorizeRole)).to.be.false
+
+      await manager.connect(owner).transferAdminPermissions(tokenThreshold.address, who)
+
+      expect(await tokenThreshold.isAuthorized(who, authorizeRole)).to.be.true
+      expect(await tokenThreshold.isAuthorized(who, unauthorizeRole)).to.be.true
+      expect(await tokenThreshold.isAuthorized(manager.address, authorizeRole)).to.be.false
+      expect(await tokenThreshold.isAuthorized(manager.address, unauthorizeRole)).to.be.false
+    })
   })
 
   describe('withdrawal action', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(withdrawal, [
+        { name: 'owner', account: owner, roles: [] },
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
         {
-          name: 'owner',
+          name: 'withdrawal admin',
           account: config.withdrawalActionParams.admin,
-          roles: ['authorize', 'unauthorize', 'setSmartVault', 'setRecipient', 'call'],
+          roles: ['setSmartVault', 'setRecipient', 'call'],
         },
         { name: 'fee collector admin', account: config.smartVaultParams.feeCollectorAdmin, roles: [] },
         { name: 'receiver action', account: receiver, roles: [] },
@@ -347,6 +524,32 @@ describe('Deployer', () => {
 
     it('sets the expected recipient', async () => {
       expect(await withdrawal.recipient()).to.be.equal(config.withdrawalActionParams.withdrawalActionParams.recipient)
+    })
+
+    it('can authorize other accounts', async () => {
+      const who = mimic.admin.address
+      const what = withdrawal.interface.getSighash('setRecipient')
+      expect(await withdrawal.isAuthorized(who, what)).to.be.false
+
+      const request = { target: withdrawal.address, changes: [{ grant: true, permission: { who, what } }] }
+      await manager.connect(owner).execute(request)
+
+      expect(await withdrawal.isAuthorized(who, what)).to.be.true
+    })
+
+    it('can transfer admin rights to another account', async () => {
+      const who = mimic.admin.address
+      const authorizeRole = withdrawal.interface.getSighash('authorize')
+      const unauthorizeRole = withdrawal.interface.getSighash('unauthorize')
+      expect(await withdrawal.isAuthorized(who, authorizeRole)).to.be.false
+      expect(await withdrawal.isAuthorized(who, unauthorizeRole)).to.be.false
+
+      await manager.connect(owner).transferAdminPermissions(withdrawal.address, who)
+
+      expect(await withdrawal.isAuthorized(who, authorizeRole)).to.be.true
+      expect(await withdrawal.isAuthorized(who, unauthorizeRole)).to.be.true
+      expect(await withdrawal.isAuthorized(manager.address, authorizeRole)).to.be.false
+      expect(await withdrawal.isAuthorized(manager.address, unauthorizeRole)).to.be.false
     })
   })
 })
