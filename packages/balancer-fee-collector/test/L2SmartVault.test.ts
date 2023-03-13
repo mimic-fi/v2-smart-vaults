@@ -15,7 +15,7 @@ import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
 describe('L2SmartVault', () => {
-  let smartVault: Contract, mimic: Mimic
+  let smartVault: Contract, manager: Contract, mimic: Mimic
   let claimer: Contract, oneInchSwapper: Contract, paraswapSwapper: Contract, bridger: Contract, hopL2Amm: Contract
   let other: SignerWithAddress,
     owner: SignerWithAddress,
@@ -40,14 +40,16 @@ describe('L2SmartVault', () => {
   })
 
   beforeEach('deploy smart vault', async () => {
-    const deployer = await deploy('L2SmartVaultDeployer', [], owner, { Deployer: mimic.deployer.address })
-    claimer = await deploy('Claimer', [deployer.address, mimic.registry.address])
-    bridger = await deploy('L2HopBridger', [deployer.address, mimic.registry.address])
-    oneInchSwapper = await deploy('OneInchSwapper', [deployer.address, mimic.registry.address])
-    paraswapSwapper = await deploy('ParaswapSwapper', [deployer.address, mimic.registry.address])
+    const deployer = await deploy('L2SmartVaultDeployer', [owner.address], owner, { Deployer: mimic.deployer.address })
+    manager = await deploy('PermissionsManager', [deployer.address])
+    claimer = await deploy('Claimer', [manager.address, mimic.registry.address])
+    bridger = await deploy('L2HopBridger', [manager.address, mimic.registry.address])
+    oneInchSwapper = await deploy('OneInchSwapper', [manager.address, mimic.registry.address])
+    paraswapSwapper = await deploy('ParaswapSwapper', [manager.address, mimic.registry.address])
 
-    const tx = await deployer.deploy({
-      mimic: mimic.admin.address,
+    const tx = await deployer.connect(owner).deploy({
+      manager: manager.address,
+      owners: [owner.address, mimic.admin.address],
       registry: mimic.registry.address,
       smartVaultParams: {
         salt: ethers.utils.solidityKeccak256(['string'], ['mimic-v2.dxdao-bridger']),
@@ -149,15 +151,31 @@ describe('L2SmartVault', () => {
     smartVault = await instanceAt('SmartVault', args.instance)
   })
 
+  describe('permissions manager', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(manager, [
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
+        { name: 'owner', account: owner, roles: ['execute'] },
+        { name: 'mimic', account: mimic.admin, roles: ['execute'] },
+        { name: 'claimer', account: claimer, roles: [] },
+        { name: '1inch swapper', account: oneInchSwapper, roles: [] },
+        { name: 'psp swapper', account: paraswapSwapper, roles: [] },
+        { name: 'bridger', account: bridger, roles: [] },
+        { name: 'other', account: other, roles: [] },
+        { name: 'managers', account: managers, roles: [] },
+        { name: 'relayers', account: relayers, roles: [] },
+      ])
+    })
+  })
+
   describe('smart vault', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(smartVault, [
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
         {
           name: 'owner',
           account: owner,
           roles: [
-            'authorize',
-            'unauthorize',
             'collect',
             'withdraw',
             'wrap',
@@ -179,7 +197,7 @@ describe('L2SmartVault', () => {
             'setWithdrawFee',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['setFeeCollector', 'authorize', 'unauthorize'] },
+        { name: 'mimic', account: mimic.admin, roles: ['setFeeCollector'] },
         { name: 'claimer', account: claimer, roles: ['call', 'withdraw'] },
         { name: 'bridger', account: bridger, roles: ['bridge', 'withdraw'] },
         { name: '1inch swapper', account: oneInchSwapper, roles: ['swap', 'withdraw'] },
@@ -241,26 +259,29 @@ describe('L2SmartVault', () => {
     it('sets a bridge connector', async () => {
       expect(await smartVault.bridgeConnector()).to.be.equal(mimic.bridgeConnector.address)
     })
+
+    it('can authorize smart vault methods', async () => {
+      const who = mimic.admin.address
+      const what = smartVault.interface.getSighash('wrap')
+      expect(await smartVault.isAuthorized(who, what)).to.be.false
+
+      const requests = [{ target: smartVault.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
+
+      expect(await smartVault.isAuthorized(who, what)).to.be.true
+    })
   })
 
   describe('claimer', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(claimer, [
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
         {
           name: 'owner',
           account: owner,
-          roles: [
-            'authorize',
-            'unauthorize',
-            'setSmartVault',
-            'setLimits',
-            'setRelayer',
-            'setThreshold',
-            'setProtocolFeeWithdrawer',
-            'call',
-          ],
+          roles: ['setSmartVault', 'setLimits', 'setRelayer', 'setThreshold', 'setProtocolFeeWithdrawer', 'call'],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
+        { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'claimer', account: claimer, roles: [] },
         { name: '1inch swapper', account: oneInchSwapper, roles: [] },
         { name: 'psp swapper', account: paraswapSwapper, roles: [] },
@@ -299,17 +320,27 @@ describe('L2SmartVault', () => {
         expect(await claimer.isRelayer(manager.address)).to.be.false
       }
     })
+
+    it('can authorize claimer methods', async () => {
+      const who = mimic.admin.address
+      const what = claimer.interface.getSighash('call')
+      expect(await claimer.isAuthorized(who, what)).to.be.false
+
+      const requests = [{ target: claimer.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
+
+      expect(await claimer.isAuthorized(who, what)).to.be.true
+    })
   })
 
   describe('1inch swapper', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(oneInchSwapper, [
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
         {
           name: 'owner',
           account: owner,
           roles: [
-            'authorize',
-            'unauthorize',
             'setSmartVault',
             'setLimits',
             'setRelayer',
@@ -322,7 +353,7 @@ describe('L2SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
+        { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'claimer', account: claimer, roles: [] },
         { name: '1inch swapper', account: oneInchSwapper, roles: [] },
         { name: 'psp swapper', account: paraswapSwapper, roles: [] },
@@ -371,17 +402,27 @@ describe('L2SmartVault', () => {
         expect(await oneInchSwapper.isRelayer(manager.address)).to.be.false
       }
     })
+
+    it('can authorize 1inch swapper methods', async () => {
+      const who = mimic.admin.address
+      const what = oneInchSwapper.interface.getSighash('call')
+      expect(await oneInchSwapper.isAuthorized(who, what)).to.be.false
+
+      const requests = [{ target: oneInchSwapper.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
+
+      expect(await oneInchSwapper.isAuthorized(who, what)).to.be.true
+    })
   })
 
   describe('paraswap swapper', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(paraswapSwapper, [
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
         {
           name: 'owner',
           account: owner,
           roles: [
-            'authorize',
-            'unauthorize',
             'setSmartVault',
             'setLimits',
             'setRelayer',
@@ -394,7 +435,7 @@ describe('L2SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
+        { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'claimer', account: claimer, roles: [] },
         { name: '1inch swapper', account: oneInchSwapper, roles: [] },
         { name: 'psp swapper', account: paraswapSwapper, roles: [] },
@@ -443,6 +484,17 @@ describe('L2SmartVault', () => {
         expect(await paraswapSwapper.isRelayer(manager.address)).to.be.false
       }
     })
+
+    it('can authorize paraswap swapper methods', async () => {
+      const who = mimic.admin.address
+      const what = paraswapSwapper.interface.getSighash('call')
+      expect(await paraswapSwapper.isAuthorized(who, what)).to.be.false
+
+      const requests = [{ target: paraswapSwapper.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
+
+      expect(await paraswapSwapper.isAuthorized(who, what)).to.be.true
+    })
   })
 
   describe('bridger', () => {
@@ -452,8 +504,6 @@ describe('L2SmartVault', () => {
           name: 'owner',
           account: owner,
           roles: [
-            'authorize',
-            'unauthorize',
             'setSmartVault',
             'setLimits',
             'setRelayer',
@@ -467,7 +517,7 @@ describe('L2SmartVault', () => {
             'call',
           ],
         },
-        { name: 'mimic', account: mimic.admin, roles: ['authorize', 'unauthorize'] },
+        { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'claimer', account: claimer, roles: [] },
         { name: 'bridger', account: bridger, roles: [] },
         { name: '1inch swapper', account: oneInchSwapper, roles: [] },
@@ -516,6 +566,17 @@ describe('L2SmartVault', () => {
       for (const manager of managers) {
         expect(await bridger.isRelayer(manager.address)).to.be.false
       }
+    })
+
+    it('can authorize bridger methods', async () => {
+      const who = mimic.admin.address
+      const what = bridger.interface.getSighash('call')
+      expect(await bridger.isAuthorized(who, what)).to.be.false
+
+      const requests = [{ target: bridger.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
+
+      expect(await bridger.isAuthorized(who, what)).to.be.true
     })
   })
 })

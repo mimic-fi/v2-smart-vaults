@@ -14,11 +14,12 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
-import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/deploy/Deployer.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/permissions/Arrays.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/permissions/PermissionsHelpers.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/permissions/PermissionsManager.sol';
 
 import './BaseSmartVaultDeployer.sol';
 import './actions/swap/OneInchSwapper.sol';
@@ -28,11 +29,12 @@ import './actions/withdraw/Withdrawer.sol';
 // solhint-disable avoid-low-level-calls
 
 contract L1SmartVaultDeployer is BaseSmartVaultDeployer {
-    using UncheckedMath for uint256;
+    using PermissionsHelpers for PermissionsManager;
 
     struct Params {
-        address mimic;
+        address[] owners;
         IRegistry registry;
+        PermissionsManager manager;
         Deployer.SmartVaultParams smartVaultParams;
         ClaimerActionParams claimerActionParams;
         SwapperActionParams oneInchSwapperActionParams;
@@ -50,34 +52,32 @@ contract L1SmartVaultDeployer is BaseSmartVaultDeployer {
         Deployer.TokenThresholdActionParams tokenThresholdActionParams;
     }
 
-    function deploy(Params memory params) external {
-        address mimic = params.mimic;
-        SmartVault smartVault = Deployer.createSmartVault(params.registry, params.smartVaultParams, false);
-        _setupClaimerAction(smartVault, params.claimerActionParams, mimic);
-        _setupSwapperAction(smartVault, params.oneInchSwapperActionParams, OneInchSwapper.call.selector, mimic);
-        _setupSwapperAction(smartVault, params.paraswapSwapperActionParams, ParaswapSwapper.call.selector, mimic);
-        _setupWithdrawerAction(smartVault, params.withdrawerActionParams, mimic);
-        Deployer.grantAdminPermissions(smartVault, mimic);
-        Deployer.transferAdminPermissions(smartVault, params.smartVaultParams.admin);
+    constructor(address owner) BaseSmartVaultDeployer(owner) {
+        // solhint-disable-previous-line no-empty-blocks
     }
 
-    function _setupWithdrawerAction(SmartVault smartVault, WithdrawerActionParams memory params, address mimic)
+    function deploy(Params memory params) external onlyOwner {
+        SmartVault smartVault = Deployer.createSmartVault(params.registry, params.manager, params.smartVaultParams);
+        _setupClaimer(smartVault, params.manager, params.claimerActionParams);
+        _setupSwapper(smartVault, params.manager, params.oneInchSwapperActionParams, OneInchSwapper.call.selector);
+        _setupSwapper(smartVault, params.manager, params.paraswapSwapperActionParams, ParaswapSwapper.call.selector);
+        _setupWithdrawer(smartVault, params.manager, params.withdrawerActionParams);
+        Deployer.transferPermissionManagerControl(params.manager, params.owners);
+    }
+
+    function _setupWithdrawer(SmartVault smartVault, PermissionsManager manager, WithdrawerActionParams memory params)
         internal
     {
         // Create and setup action
         Withdrawer withdrawer = Withdrawer(params.impl);
-        Deployer.setupBaseAction(withdrawer, params.admin, address(smartVault));
+        Deployer.setupBaseAction(withdrawer, manager, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
-        Deployer.setupActionExecutors(withdrawer, executors, withdrawer.call.selector);
-        Deployer.setupRelayedAction(withdrawer, params.admin, params.relayedActionParams);
-        Deployer.setupTokenThresholdAction(withdrawer, params.admin, params.tokenThresholdActionParams);
-        Deployer.setupWithdrawalAction(withdrawer, params.admin, params.withdrawalActionParams);
-
-        // Grant admin rights to mimic and transfer admin permissions to admin
-        Deployer.grantAdminPermissions(withdrawer, mimic);
-        Deployer.transferAdminPermissions(withdrawer, params.admin);
+        Deployer.setupActionExecutors(withdrawer, manager, executors, withdrawer.call.selector);
+        Deployer.setupRelayedAction(withdrawer, manager, params.admin, params.relayedActionParams);
+        Deployer.setupTokenThresholdAction(withdrawer, manager, params.admin, params.tokenThresholdActionParams);
+        Deployer.setupWithdrawalAction(withdrawer, manager, params.admin, params.withdrawalActionParams);
 
         // Authorize action to withdraw from Smart Vault
-        smartVault.authorize(address(withdrawer), smartVault.withdraw.selector);
+        manager.authorize(smartVault, address(withdrawer), smartVault.withdraw.selector);
     }
 }
