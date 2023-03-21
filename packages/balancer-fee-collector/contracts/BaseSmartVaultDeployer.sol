@@ -14,17 +14,21 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
+import '@openzeppelin/contracts/access/Ownable.sol';
+
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/deploy/Deployer.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/permissions/Arrays.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/permissions/PermissionsHelpers.sol';
 
 import './actions/claim/Claimer.sol';
 import './actions/swap/BaseSwapper.sol';
 
 // solhint-disable avoid-low-level-calls
 
-contract BaseSmartVaultDeployer {
+contract BaseSmartVaultDeployer is Ownable {
     using UncheckedMath for uint256;
+    using PermissionsHelpers for PermissionsManager;
 
     struct ClaimerActionParams {
         address impl;
@@ -49,85 +53,77 @@ contract BaseSmartVaultDeployer {
         Deployer.TokenThresholdActionParams tokenThresholdActionParams;
     }
 
-    function _setupClaimerAction(SmartVault smartVault, ClaimerActionParams memory params, address mimic) internal {
-        // Create and setup action
-        Claimer claimer = Claimer(params.impl);
-        Deployer.setupBaseAction(claimer, params.admin, address(smartVault));
-        address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
-        Deployer.setupActionExecutors(claimer, executors, claimer.call.selector);
-        Deployer.setupTokenThresholdAction(claimer, params.admin, params.tokenThresholdActionParams);
-        Deployer.setupRelayedAction(claimer, params.admin, params.relayedActionParams);
-
-        // Set protocol fee withdrawer
-        claimer.authorize(params.admin, claimer.setProtocolFeeWithdrawer.selector);
-        claimer.authorize(address(this), claimer.setProtocolFeeWithdrawer.selector);
-        claimer.setProtocolFeeWithdrawer(params.protocolFeeWithdrawer);
-        claimer.unauthorize(address(this), claimer.setProtocolFeeWithdrawer.selector);
-
-        // Grant admin rights to mimic and transfer admin permissions to admin
-        Deployer.grantAdminPermissions(claimer, mimic);
-        Deployer.transferAdminPermissions(claimer, params.admin);
-
-        // Authorize action to call and withdraw
-        smartVault.authorize(address(claimer), smartVault.call.selector);
-        smartVault.authorize(address(claimer), smartVault.withdraw.selector);
+    constructor(address owner) {
+        _transferOwnership(owner);
     }
 
-    function _setupSwapperAction(
+    function _setupClaimer(SmartVault smartVault, PermissionsManager manager, ClaimerActionParams memory params)
+        internal
+    {
+        // Create and setup action
+        Claimer claimer = Claimer(params.impl);
+        Deployer.setupBaseAction(claimer, manager, params.admin, address(smartVault));
+        address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
+        Deployer.setupActionExecutors(claimer, manager, executors, claimer.call.selector);
+        Deployer.setupTokenThresholdAction(claimer, manager, params.admin, params.tokenThresholdActionParams);
+        Deployer.setupRelayedAction(claimer, manager, params.admin, params.relayedActionParams);
+
+        // Set protocol fee withdrawer
+        manager.authorize(claimer, Arrays.from(params.admin, address(this)), claimer.setProtocolFeeWithdrawer.selector);
+        claimer.setProtocolFeeWithdrawer(params.protocolFeeWithdrawer);
+        manager.unauthorize(claimer, address(this), claimer.setProtocolFeeWithdrawer.selector);
+
+        // Authorize action to call and withdraw
+        bytes4[] memory whats = Arrays.from(smartVault.call.selector, smartVault.withdraw.selector);
+        manager.authorize(smartVault, address(claimer), whats);
+    }
+
+    function _setupSwapper(
         SmartVault smartVault,
+        PermissionsManager manager,
         SwapperActionParams memory params,
-        bytes4 selector,
-        address mimic
+        bytes4 selector
     ) internal {
         // Create and setup action
         BaseSwapper swapper = BaseSwapper(params.impl);
-        Deployer.setupBaseAction(swapper, params.admin, address(smartVault));
+        Deployer.setupBaseAction(swapper, manager, params.admin, address(smartVault));
         address[] memory executors = Arrays.from(params.admin, params.managers, params.relayedActionParams.relayers);
-        Deployer.setupActionExecutors(swapper, executors, selector);
-        Deployer.setupTokenThresholdAction(swapper, params.admin, params.tokenThresholdActionParams);
-        Deployer.setupRelayedAction(swapper, params.admin, params.relayedActionParams);
+        Deployer.setupActionExecutors(swapper, manager, executors, selector);
+        Deployer.setupTokenThresholdAction(swapper, manager, params.admin, params.tokenThresholdActionParams);
+        Deployer.setupRelayedAction(swapper, manager, params.admin, params.relayedActionParams);
 
         // Set token out
-        swapper.authorize(params.admin, swapper.setTokenOut.selector);
-        swapper.authorize(address(this), swapper.setTokenOut.selector);
+        manager.authorize(swapper, Arrays.from(params.admin, address(this)), swapper.setTokenOut.selector);
         swapper.setTokenOut(params.tokenOut);
-        swapper.unauthorize(address(this), swapper.setTokenOut.selector);
+        manager.unauthorize(swapper, address(this), swapper.setTokenOut.selector);
 
         // Set swap signer
-        swapper.authorize(params.admin, swapper.setSwapSigner.selector);
-        swapper.authorize(address(this), swapper.setSwapSigner.selector);
+        manager.authorize(swapper, Arrays.from(params.admin, address(this)), swapper.setSwapSigner.selector);
         swapper.setSwapSigner(params.swapSigner);
-        swapper.unauthorize(address(this), swapper.setSwapSigner.selector);
+        manager.unauthorize(swapper, address(this), swapper.setSwapSigner.selector);
 
         // Set default max slippage
-        swapper.authorize(params.admin, swapper.setDefaultMaxSlippage.selector);
-        swapper.authorize(address(this), swapper.setDefaultMaxSlippage.selector);
+        manager.authorize(swapper, Arrays.from(params.admin, address(this)), swapper.setDefaultMaxSlippage.selector);
         swapper.setDefaultMaxSlippage(params.defaultMaxSlippage);
-        swapper.unauthorize(address(this), swapper.setDefaultMaxSlippage.selector);
+        manager.unauthorize(swapper, address(this), swapper.setDefaultMaxSlippage.selector);
 
         // Set custom token max slippages
         bool isCustomSlippageLengthValid = params.customSlippageTokens.length == params.customSlippageValues.length;
         require(isCustomSlippageLengthValid, 'DEPLOYER_SLIPPAGES_INVALID_LEN');
-        swapper.authorize(params.admin, swapper.setTokenMaxSlippage.selector);
-        swapper.authorize(address(this), swapper.setTokenMaxSlippage.selector);
+        manager.authorize(swapper, Arrays.from(params.admin, address(this)), swapper.setTokenMaxSlippage.selector);
         for (uint256 i = 0; i < params.customSlippageTokens.length; i++) {
             swapper.setTokenMaxSlippage(params.customSlippageTokens[i], params.customSlippageValues[i]);
         }
-        swapper.unauthorize(address(this), swapper.setTokenMaxSlippage.selector);
+        manager.unauthorize(swapper, address(this), swapper.setTokenMaxSlippage.selector);
 
         // Deny requested tokens
-        swapper.authorize(params.admin, swapper.setDeniedTokens.selector);
-        swapper.authorize(address(this), swapper.setDeniedTokens.selector);
+        manager.authorize(swapper, Arrays.from(params.admin, address(this)), swapper.setDeniedTokens.selector);
         swapper.setDeniedTokens(params.deniedTokens, _trues(params.deniedTokens.length));
-        swapper.unauthorize(address(this), swapper.setDeniedTokens.selector);
-
-        // Grant admin rights to mimic and transfer admin permissions to admin
-        Deployer.grantAdminPermissions(swapper, mimic);
-        Deployer.transferAdminPermissions(swapper, params.admin);
+        manager.unauthorize(swapper, address(this), swapper.setDeniedTokens.selector);
 
         // Authorize action to swap and withdraw
-        smartVault.authorize(address(swapper), smartVault.swap.selector);
-        smartVault.authorize(address(swapper), smartVault.withdraw.selector);
+        bytes4[] memory whats = Arrays.from(smartVault.swap.selector, smartVault.withdraw.selector);
+        manager.authorize(smartVault, address(swapper), whats);
     }
 
     function _trues(uint256 length) internal pure returns (bool[] memory arr) {

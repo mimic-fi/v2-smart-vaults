@@ -15,6 +15,7 @@
   "devDependencies": {},
   "workspaces": {
     "packages": [
+      "packages/base",
       "packages/*"
     ],
     "nohoist": [
