@@ -67,14 +67,13 @@ contract DeployerMock {
     }
 
     function deploy(Params memory params) external {
-        Deployer.startPermissionManagerSetup(params.manager);
         SmartVault smartVault = Deployer.createSmartVault(params.registry, params.manager, params.smartVaultParams);
         _setupReceiverAction(smartVault, params.manager, params.receiverActionParams);
         _setupRelayedAction(smartVault, params.manager, params.relayedActionParams);
         _setupTokenThresholdAction(smartVault, params.manager, params.tokenThresholdActionParams);
         _setupTimeLockedAction(smartVault, params.manager, params.timeLockedActionParams);
         _setupWithdrawalAction(smartVault, params.manager, params.withdrawalActionParams);
-        Deployer.endPermissionManagerSetup(params.manager, Arrays.from(params.owner));
+        Deployer.transferPermissionManagerControl(params.manager, Arrays.from(params.owner));
     }
 
     function _setupReceiverAction(SmartVault smartVault, PermissionsManager manager, ReceiverActionParams memory params)

@@ -154,45 +154,13 @@ library Deployer {
     }
 
     /**
-     * @dev Set up a Permission Manager
-     * @param manager Permissions manager that will control the entire Smart Vault and its actions
-     */
-    function startPermissionManagerSetup(PermissionsManager manager) external {
-        // Grant permissions to deployer to control manager
-        manager.authorize(address(this), manager.execute.selector);
-        manager.authorize(address(this), manager.executeMany.selector);
-        manager.authorize(address(this), manager.grantAdminPermissions.selector);
-        manager.authorize(address(this), manager.revokeAdminPermissions.selector);
-        manager.authorize(address(this), manager.transferAdminPermissions.selector);
-    }
-
-    /**
-     * @dev Finish Permission Manager set up
+     * @dev Transfer Permission Manager control to a list of owners
      * @param manager Permissions manager that will control the entire Smart Vault and its actions
      * @param owners Addresses that will be able to call the permission manager
      */
-    function endPermissionManagerSetup(PermissionsManager manager, address[] memory owners) external {
-        bytes4[] memory whats = Arrays.from(
-            manager.execute.selector,
-            manager.executeMany.selector,
-            manager.grantAdminPermissions.selector,
-            manager.revokeAdminPermissions.selector,
-            manager.transferAdminPermissions.selector
-        );
-
-        // Grant manager admin permissions to the manager itself
-        manager.authorize(address(manager), IAuthorizer.authorize.selector);
-        manager.authorize(address(manager), IAuthorizer.unauthorize.selector);
-
-        // Grant permissions to owners to control manager
-        manager.authorize(manager, owners, whats);
-
-        // Revoke permissions to control manager from the deployer
-        manager.unauthorize(manager, address(this), whats);
-
-        // Revoke manager admin permissions from the deployer
-        manager.unauthorize(address(this), IAuthorizer.authorize.selector);
-        manager.unauthorize(address(this), IAuthorizer.unauthorize.selector);
+    function transferPermissionManagerControl(PermissionsManager manager, address[] memory owners) external {
+        manager.authorize(manager, owners, manager.execute.selector);
+        manager.unauthorize(manager, address(this), manager.execute.selector);
     }
 
     /**

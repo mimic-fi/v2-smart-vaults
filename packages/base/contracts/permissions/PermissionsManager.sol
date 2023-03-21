@@ -19,48 +19,42 @@ import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
 import { Permission, PermissionChange, PermissionChangeRequest } from './PermissionsData.sol';
 
+/**
+ * @title PermissionsManager
+ * @dev This implementation is meant to be used as a proxy in order to control many `IAuthorizer` implementations.
+ * It allows to implement a layout of permissions over a group of `IAuthorizer` implementations, otherwise in order
+ * to connect a big number of `IAuthorizer` implementations between each other, admins would had to perform many
+ * transactions manually.
+ */
 contract PermissionsManager is Authorizer {
+    /**
+     * @dev Creates a new permission manager, allowing itself to authorize and unauthorize its own permissions
+     * @param admin Address that will be allowed to execute permissions changes through the permissions manager
+     */
     constructor(address admin) {
-        _authorize(admin, Authorizer.authorize.selector);
-        _authorize(admin, Authorizer.unauthorize.selector);
+        _authorize(admin, PermissionsManager.execute.selector);
+        _authorize(admin, PermissionsManager.execute.selector);
+        _authorize(address(this), Authorizer.authorize.selector);
+        _authorize(address(this), Authorizer.unauthorize.selector);
     }
 
-    function executeMany(PermissionChangeRequest[] memory requests) external auth {
-        for (uint256 i = 0; i < requests.length; i++) execute(requests[i]);
+    /**
+     * @dev Executes a list of permissions change requests. Sender must be authorized.
+     * @param requests List of requests to be executed
+     */
+    function execute(PermissionChangeRequest[] memory requests) external auth {
+        for (uint256 i = 0; i < requests.length; i++) _execute(requests[i]);
     }
 
-    function execute(PermissionChangeRequest memory request) public auth {
+    /**
+     * @dev Executes a single permissions change request
+     * @param request Request to be executed
+     */
+    function _execute(PermissionChangeRequest memory request) private {
         IAuthorizer target = request.target;
         for (uint256 i = 0; i < request.changes.length; i++) {
             PermissionChange memory change = request.changes[i];
             (change.grant ? target.authorize : target.unauthorize)(change.permission.who, change.permission.what);
         }
-    }
-
-    function grantAdminPermissions(IAuthorizer target, address account) external auth {
-        require(account != address(0), 'GRANT_ADDRESS_ZERO');
-        _grantAdminPermissions(target, account);
-    }
-
-    function revokeAdminPermissions(IAuthorizer target, address account) external auth {
-        require(account != address(0), 'REVOKE_ADDRESS_ZERO');
-        _revokeAdminPermissions(target, account);
-    }
-
-    function transferAdminPermissions(IAuthorizer target, address account) external auth {
-        require(account != address(0), 'TRANSFER_ADDRESS_ZERO');
-        require(account != address(this), 'REDUNDANT_TRANSFER_ADDRESS');
-        _grantAdminPermissions(target, account);
-        _revokeAdminPermissions(target, address(this));
-    }
-
-    function _grantAdminPermissions(IAuthorizer target, address account) private {
-        target.authorize(account, IAuthorizer.authorize.selector);
-        target.authorize(account, IAuthorizer.unauthorize.selector);
-    }
-
-    function _revokeAdminPermissions(IAuthorizer target, address account) private {
-        target.unauthorize(account, IAuthorizer.authorize.selector);
-        target.unauthorize(account, IAuthorizer.unauthorize.selector);
     }
 }

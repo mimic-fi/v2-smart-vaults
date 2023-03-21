@@ -16,16 +16,31 @@ pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
+/**
+ * @dev Permission
+ * @param what Function selector to be referred
+ * @param who Address to be referred
+ */
 struct Permission {
     bytes4 what;
     address who;
 }
 
+/**
+ * @dev Permission change
+ * @param grant Whether the permission should be granted (authorize) or revoked (unauthorize)
+ * @param permissions Permission to be changed
+ */
 struct PermissionChange {
     bool grant;
     Permission permission;
 }
 
+/**
+ * @dev Permission change request
+ * @param target Address of the contract to be affected
+ * @param changes List of permission changes to be performed
+ */
 struct PermissionChangeRequest {
     IAuthorizer target;
     PermissionChange[] changes;

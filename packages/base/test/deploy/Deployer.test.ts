@@ -128,17 +128,7 @@ describe('Deployer', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(manager, [
         { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
-        {
-          name: 'owner',
-          account: config.owner,
-          roles: [
-            'execute',
-            'executeMany',
-            'grantAdminPermissions',
-            'revokeAdminPermissions',
-            'transferAdminPermissions',
-          ],
-        },
+        { name: 'owner', account: config.owner, roles: ['execute'] },
         { name: 'fee collector admin', account: config.smartVaultParams.feeCollectorAdmin, roles: [] },
         { name: 'receiver action', account: receiver, roles: [] },
         { name: 'relayed action', account: relayed, roles: [] },
@@ -247,25 +237,10 @@ describe('Deployer', () => {
       const what = smartVault.interface.getSighash('wrap')
       expect(await smartVault.isAuthorized(who, what)).to.be.false
 
-      const request = { target: smartVault.address, changes: [{ grant: true, permission: { who, what } }] }
-      await manager.connect(owner).execute(request)
+      const requests = [{ target: smartVault.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
 
       expect(await smartVault.isAuthorized(who, what)).to.be.true
-    })
-
-    it('can transfer smart vault admin rights to another account', async () => {
-      const who = mimic.admin.address
-      const authorizeRole = smartVault.interface.getSighash('authorize')
-      const unauthorizeRole = smartVault.interface.getSighash('unauthorize')
-      expect(await smartVault.isAuthorized(who, authorizeRole)).to.be.false
-      expect(await smartVault.isAuthorized(who, unauthorizeRole)).to.be.false
-
-      await manager.connect(owner).transferAdminPermissions(smartVault.address, who)
-
-      expect(await smartVault.isAuthorized(who, authorizeRole)).to.be.true
-      expect(await smartVault.isAuthorized(who, unauthorizeRole)).to.be.true
-      expect(await smartVault.isAuthorized(manager.address, authorizeRole)).to.be.false
-      expect(await smartVault.isAuthorized(manager.address, unauthorizeRole)).to.be.false
     })
   })
 
@@ -298,25 +273,10 @@ describe('Deployer', () => {
       const what = receiver.interface.getSighash('transferToSmartVault')
       expect(await receiver.isAuthorized(who, what)).to.be.false
 
-      const request = { target: receiver.address, changes: [{ grant: true, permission: { who, what } }] }
-      await manager.connect(owner).execute(request)
+      const requests = [{ target: receiver.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
 
       expect(await receiver.isAuthorized(who, what)).to.be.true
-    })
-
-    it('can transfer admin rights to another account', async () => {
-      const who = mimic.admin.address
-      const authorizeRole = receiver.interface.getSighash('authorize')
-      const unauthorizeRole = receiver.interface.getSighash('unauthorize')
-      expect(await receiver.isAuthorized(who, authorizeRole)).to.be.false
-      expect(await receiver.isAuthorized(who, unauthorizeRole)).to.be.false
-
-      await manager.connect(owner).transferAdminPermissions(receiver.address, who)
-
-      expect(await receiver.isAuthorized(who, authorizeRole)).to.be.true
-      expect(await receiver.isAuthorized(who, unauthorizeRole)).to.be.true
-      expect(await receiver.isAuthorized(manager.address, authorizeRole)).to.be.false
-      expect(await receiver.isAuthorized(manager.address, unauthorizeRole)).to.be.false
     })
   })
 
@@ -360,25 +320,10 @@ describe('Deployer', () => {
       const what = relayed.interface.getSighash('setLimits')
       expect(await relayed.isAuthorized(who, what)).to.be.false
 
-      const request = { target: relayed.address, changes: [{ grant: true, permission: { who, what } }] }
-      await manager.connect(owner).execute(request)
+      const requests = [{ target: relayed.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
 
       expect(await relayed.isAuthorized(who, what)).to.be.true
-    })
-
-    it('can transfer admin rights to another account', async () => {
-      const who = mimic.admin.address
-      const authorizeRole = relayed.interface.getSighash('authorize')
-      const unauthorizeRole = relayed.interface.getSighash('unauthorize')
-      expect(await relayed.isAuthorized(who, authorizeRole)).to.be.false
-      expect(await relayed.isAuthorized(who, unauthorizeRole)).to.be.false
-
-      await manager.connect(owner).transferAdminPermissions(relayed.address, who)
-
-      expect(await relayed.isAuthorized(who, authorizeRole)).to.be.true
-      expect(await relayed.isAuthorized(who, unauthorizeRole)).to.be.true
-      expect(await relayed.isAuthorized(manager.address, authorizeRole)).to.be.false
-      expect(await relayed.isAuthorized(manager.address, unauthorizeRole)).to.be.false
     })
   })
 
@@ -416,25 +361,10 @@ describe('Deployer', () => {
       const what = timeLocked.interface.getSighash('setTimeLock')
       expect(await timeLocked.isAuthorized(who, what)).to.be.false
 
-      const request = { target: timeLocked.address, changes: [{ grant: true, permission: { who, what } }] }
-      await manager.connect(owner).execute(request)
+      const requests = [{ target: timeLocked.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
 
       expect(await timeLocked.isAuthorized(who, what)).to.be.true
-    })
-
-    it('can transfer admin rights to another account', async () => {
-      const who = mimic.admin.address
-      const authorizeRole = timeLocked.interface.getSighash('authorize')
-      const unauthorizeRole = timeLocked.interface.getSighash('unauthorize')
-      expect(await timeLocked.isAuthorized(who, authorizeRole)).to.be.false
-      expect(await timeLocked.isAuthorized(who, unauthorizeRole)).to.be.false
-
-      await manager.connect(owner).transferAdminPermissions(timeLocked.address, who)
-
-      expect(await timeLocked.isAuthorized(who, authorizeRole)).to.be.true
-      expect(await timeLocked.isAuthorized(who, unauthorizeRole)).to.be.true
-      expect(await timeLocked.isAuthorized(manager.address, authorizeRole)).to.be.false
-      expect(await timeLocked.isAuthorized(manager.address, unauthorizeRole)).to.be.false
     })
   })
 
@@ -476,25 +406,10 @@ describe('Deployer', () => {
       const what = tokenThreshold.interface.getSighash('setThreshold')
       expect(await tokenThreshold.isAuthorized(who, what)).to.be.false
 
-      const request = { target: tokenThreshold.address, changes: [{ grant: true, permission: { who, what } }] }
-      await manager.connect(owner).execute(request)
+      const requests = [{ target: tokenThreshold.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
 
       expect(await tokenThreshold.isAuthorized(who, what)).to.be.true
-    })
-
-    it('can transfer admin rights to another account', async () => {
-      const who = mimic.admin.address
-      const authorizeRole = tokenThreshold.interface.getSighash('authorize')
-      const unauthorizeRole = tokenThreshold.interface.getSighash('unauthorize')
-      expect(await tokenThreshold.isAuthorized(who, authorizeRole)).to.be.false
-      expect(await tokenThreshold.isAuthorized(who, unauthorizeRole)).to.be.false
-
-      await manager.connect(owner).transferAdminPermissions(tokenThreshold.address, who)
-
-      expect(await tokenThreshold.isAuthorized(who, authorizeRole)).to.be.true
-      expect(await tokenThreshold.isAuthorized(who, unauthorizeRole)).to.be.true
-      expect(await tokenThreshold.isAuthorized(manager.address, authorizeRole)).to.be.false
-      expect(await tokenThreshold.isAuthorized(manager.address, unauthorizeRole)).to.be.false
     })
   })
 
@@ -531,25 +446,10 @@ describe('Deployer', () => {
       const what = withdrawal.interface.getSighash('setRecipient')
       expect(await withdrawal.isAuthorized(who, what)).to.be.false
 
-      const request = { target: withdrawal.address, changes: [{ grant: true, permission: { who, what } }] }
-      await manager.connect(owner).execute(request)
+      const requests = [{ target: withdrawal.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
 
       expect(await withdrawal.isAuthorized(who, what)).to.be.true
-    })
-
-    it('can transfer admin rights to another account', async () => {
-      const who = mimic.admin.address
-      const authorizeRole = withdrawal.interface.getSighash('authorize')
-      const unauthorizeRole = withdrawal.interface.getSighash('unauthorize')
-      expect(await withdrawal.isAuthorized(who, authorizeRole)).to.be.false
-      expect(await withdrawal.isAuthorized(who, unauthorizeRole)).to.be.false
-
-      await manager.connect(owner).transferAdminPermissions(withdrawal.address, who)
-
-      expect(await withdrawal.isAuthorized(who, authorizeRole)).to.be.true
-      expect(await withdrawal.isAuthorized(who, unauthorizeRole)).to.be.true
-      expect(await withdrawal.isAuthorized(manager.address, authorizeRole)).to.be.false
-      expect(await withdrawal.isAuthorized(manager.address, unauthorizeRole)).to.be.false
     })
   })
 })

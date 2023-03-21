@@ -1,4 +1,4 @@
-import { deploy, getSigner, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { deploy, getSigner } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { expect } from 'chai'
 import { Contract, ContractTransaction } from 'ethers'
@@ -9,6 +9,30 @@ describe('PermissionsManager', () => {
   beforeEach('deploy manager', async () => {
     admin = await getSigner(1)
     manager = await deploy('PermissionsManager', [admin.address])
+  })
+
+  describe('initialize', () => {
+    it('allows the admin to execute the permissions manager', async () => {
+      const executeRole = manager.interface.getSighash('execute')
+      expect(await manager.isAuthorized(admin.address, executeRole)).to.be.true
+
+      const authorizeRole = manager.interface.getSighash('authorize')
+      expect(await manager.isAuthorized(admin.address, authorizeRole)).to.be.false
+
+      const unauthorizeRole = manager.interface.getSighash('unauthorize')
+      expect(await manager.isAuthorized(admin.address, unauthorizeRole)).to.be.false
+    })
+
+    it('allows the permissions manager to admin itself', async () => {
+      const executeRole = manager.interface.getSighash('execute')
+      expect(await manager.isAuthorized(manager.address, executeRole)).to.be.false
+
+      const authorizeRole = manager.interface.getSighash('authorize')
+      expect(await manager.isAuthorized(manager.address, authorizeRole)).to.be.true
+
+      const unauthorizeRole = manager.interface.getSighash('unauthorize')
+      expect(await manager.isAuthorized(manager.address, unauthorizeRole)).to.be.true
+    })
   })
 
   describe('execute', () => {
@@ -28,12 +52,6 @@ describe('PermissionsManager', () => {
       const roleA = '0xaaaaaaaa'
       const roleB = '0xbbbbbbbb'
 
-      beforeEach('authorize sender', async () => {
-        const executeRole = manager.interface.getSighash('executeMany')
-        await manager.connect(admin).authorize(admin.address, executeRole)
-        manager = manager.connect(admin)
-      })
-
       beforeEach('init changes', () => {
         changesTargetA = []
         changesTargetB = []
@@ -45,7 +63,7 @@ describe('PermissionsManager', () => {
       })
 
       const execute = (): Promise<ContractTransaction> => {
-        return manager.executeMany([
+        return manager.connect(admin).execute([
           { target: targetA.address, changes: changesTargetA },
           { target: targetB.address, changes: changesTargetB },
         ])
@@ -373,203 +391,7 @@ describe('PermissionsManager', () => {
 
     context('when the sender is not authorized', () => {
       it('reverts', async () => {
-        await expect(manager.executeMany([])).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
-        await expect(manager.execute({ target: ZERO_ADDRESS, changes: [] })).to.be.revertedWith(
-          'AUTH_SENDER_NOT_ALLOWED'
-        )
-      })
-    })
-  })
-
-  describe('transferAdminPermissions', () => {
-    let sample: Contract
-
-    beforeEach('deploy sample', async () => {
-      sample = await deploy('AuthorizerMock')
-    })
-
-    beforeEach('authorize manager', async () => {
-      const authorizeRole = manager.interface.getSighash('authorize')
-      await sample.authorize(manager.address, authorizeRole)
-      const unauthorizeRole = manager.interface.getSighash('unauthorize')
-      await sample.authorize(manager.address, unauthorizeRole)
-    })
-
-    context('when the sender is authorized', () => {
-      beforeEach('authorize sender', async () => {
-        const executeRole = manager.interface.getSighash('transferAdminPermissions')
-        await manager.connect(admin).authorize(admin.address, executeRole)
-        manager = manager.connect(admin)
-      })
-
-      context('when transferring to the manager itself', () => {
-        it('reverts', async () => {
-          await expect(manager.transferAdminPermissions(sample.address, manager.address)).to.be.revertedWith(
-            'REDUNDANT_TRANSFER_ADDRESS'
-          )
-        })
-      })
-
-      context('when transferring to another account', () => {
-        context('when transferring to zero address', () => {
-          it('reverts', async () => {
-            await expect(manager.transferAdminPermissions(sample.address, ZERO_ADDRESS)).to.be.revertedWith(
-              'TRANSFER_ADDRESS_ZERO'
-            )
-          })
-        })
-
-        context('when transferring to another account', () => {
-          it('transfers the admin rights', async () => {
-            const authorizeRole = manager.interface.getSighash('authorize')
-            const unauthorizeRole = manager.interface.getSighash('unauthorize')
-
-            expect(await sample.isAuthorized(admin.address, authorizeRole)).to.be.false
-            expect(await sample.isAuthorized(admin.address, unauthorizeRole)).to.be.false
-
-            expect(await sample.isAuthorized(manager.address, authorizeRole)).to.be.true
-            expect(await sample.isAuthorized(manager.address, unauthorizeRole)).to.be.true
-
-            await manager.transferAdminPermissions(sample.address, admin.address)
-
-            expect(await sample.isAuthorized(admin.address, authorizeRole)).to.be.true
-            expect(await sample.isAuthorized(admin.address, unauthorizeRole)).to.be.true
-
-            expect(await sample.isAuthorized(manager.address, authorizeRole)).to.be.false
-            expect(await sample.isAuthorized(manager.address, unauthorizeRole)).to.be.false
-          })
-        })
-      })
-    })
-
-    context('when the sender is not authorized', () => {
-      it('reverts', async () => {
-        await expect(manager.transferAdminPermissions(sample.address, admin.address)).to.be.revertedWith(
-          'AUTH_SENDER_NOT_ALLOWED'
-        )
-      })
-    })
-  })
-
-  describe('grantAdminPermissions', () => {
-    let sample: Contract
-
-    beforeEach('deploy sample', async () => {
-      sample = await deploy('AuthorizerMock')
-    })
-
-    beforeEach('authorize manager', async () => {
-      const authorizeRole = manager.interface.getSighash('authorize')
-      await sample.authorize(manager.address, authorizeRole)
-      const unauthorizeRole = manager.interface.getSighash('unauthorize')
-      await sample.authorize(manager.address, unauthorizeRole)
-    })
-
-    context('when the sender is authorized', () => {
-      beforeEach('authorize sender', async () => {
-        const executeRole = manager.interface.getSighash('grantAdminPermissions')
-        await manager.connect(admin).authorize(admin.address, executeRole)
-        manager = manager.connect(admin)
-      })
-
-      context('when granting to zero address', () => {
-        it('reverts', async () => {
-          await expect(manager.grantAdminPermissions(sample.address, ZERO_ADDRESS)).to.be.revertedWith(
-            'GRANT_ADDRESS_ZERO'
-          )
-        })
-      })
-
-      context('when granting to another account', () => {
-        it('grants the admin rights', async () => {
-          const authorizeRole = manager.interface.getSighash('authorize')
-          const unauthorizeRole = manager.interface.getSighash('unauthorize')
-
-          expect(await sample.isAuthorized(admin.address, authorizeRole)).to.be.false
-          expect(await sample.isAuthorized(admin.address, unauthorizeRole)).to.be.false
-
-          expect(await sample.isAuthorized(manager.address, authorizeRole)).to.be.true
-          expect(await sample.isAuthorized(manager.address, unauthorizeRole)).to.be.true
-
-          await manager.grantAdminPermissions(sample.address, admin.address)
-
-          expect(await sample.isAuthorized(admin.address, authorizeRole)).to.be.true
-          expect(await sample.isAuthorized(admin.address, unauthorizeRole)).to.be.true
-
-          expect(await sample.isAuthorized(manager.address, authorizeRole)).to.be.true
-          expect(await sample.isAuthorized(manager.address, unauthorizeRole)).to.be.true
-        })
-      })
-    })
-
-    context('when the sender is not authorized', () => {
-      it('reverts', async () => {
-        await expect(manager.grantAdminPermissions(sample.address, admin.address)).to.be.revertedWith(
-          'AUTH_SENDER_NOT_ALLOWED'
-        )
-      })
-    })
-  })
-
-  describe('revokeAdminPermissions', () => {
-    let sample: Contract
-
-    beforeEach('deploy sample', async () => {
-      sample = await deploy('AuthorizerMock')
-    })
-
-    beforeEach('authorize manager and admin', async () => {
-      const authorizeRole = manager.interface.getSighash('authorize')
-      await sample.authorize(admin.address, authorizeRole)
-      await sample.authorize(manager.address, authorizeRole)
-
-      const unauthorizeRole = manager.interface.getSighash('unauthorize')
-      await sample.authorize(admin.address, unauthorizeRole)
-      await sample.authorize(manager.address, unauthorizeRole)
-    })
-
-    context('when the sender is authorized', () => {
-      beforeEach('authorize sender', async () => {
-        const executeRole = manager.interface.getSighash('revokeAdminPermissions')
-        await manager.connect(admin).authorize(admin.address, executeRole)
-        manager = manager.connect(admin)
-      })
-
-      context('when revoking to zero address', () => {
-        it('reverts', async () => {
-          await expect(manager.revokeAdminPermissions(sample.address, ZERO_ADDRESS)).to.be.revertedWith(
-            'REVOKE_ADDRESS_ZERO'
-          )
-        })
-      })
-
-      context('when revoking to another account', () => {
-        it('revokes the admin rights', async () => {
-          const authorizeRole = manager.interface.getSighash('authorize')
-          const unauthorizeRole = manager.interface.getSighash('unauthorize')
-
-          expect(await sample.isAuthorized(admin.address, authorizeRole)).to.be.true
-          expect(await sample.isAuthorized(admin.address, unauthorizeRole)).to.be.true
-
-          expect(await sample.isAuthorized(manager.address, authorizeRole)).to.be.true
-          expect(await sample.isAuthorized(manager.address, unauthorizeRole)).to.be.true
-
-          await manager.revokeAdminPermissions(sample.address, admin.address)
-
-          expect(await sample.isAuthorized(admin.address, authorizeRole)).to.be.false
-          expect(await sample.isAuthorized(admin.address, unauthorizeRole)).to.be.false
-
-          expect(await sample.isAuthorized(manager.address, authorizeRole)).to.be.true
-          expect(await sample.isAuthorized(manager.address, unauthorizeRole)).to.be.true
-        })
-      })
-    })
-
-    context('when the sender is not authorized', () => {
-      it('reverts', async () => {
-        await expect(manager.revokeAdminPermissions(sample.address, admin.address)).to.be.revertedWith(
-          'AUTH_SENDER_NOT_ALLOWED'
-        )
+        await expect(manager.execute([])).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
