@@ -31,7 +31,7 @@ contract DEXSwapperV2 is DEXSwapper {
 
     SwapLimit public swapLimit;
 
-    event SwapLimitSet(address indexed token, uint256 azmount, uint256 period);
+    event SwapLimitSet(address indexed token, uint256 amount, uint256 period);
 
     struct DEXSwapperV2Params {
         address smartVault;
@@ -105,8 +105,12 @@ contract DEXSwapperV2 is DEXSwapper {
     function _computeSwappedAmount(uint256 amountIn) internal view returns (bool exceedsLimit, uint256 swappedAmount) {
         if (swapLimit.amount == 0 || swapLimit.token == address(0)) return (false, 0);
 
-        uint256 price = smartVault.getPrice(tokenIn, swapLimit.token);
-        swappedAmount = amountIn.mulDown(price);
+        if (tokenIn == swapLimit.token) {
+            swappedAmount = amountIn;
+        } else {
+            uint256 price = smartVault.getPrice(tokenIn, swapLimit.token);
+            swappedAmount = amountIn.mulDown(price);
+        }
 
         uint256 totalSwapped = swappedAmount + (block.timestamp < swapLimit.nextResetTime ? swapLimit.accrued : 0);
         exceedsLimit = totalSwapped > swapLimit.amount;
@@ -134,6 +138,11 @@ contract DEXSwapperV2 is DEXSwapper {
 
         // Changing the period only affects the end time of the next period, but not the end date of the current one
         swapLimit.period = period;
+
+        // Changing the amount does not affect the totalizator, it only applies when changing the accrued amount.
+        // Note that it can happen that the new amount is lower than the accrued amount if the amount is lowered.
+        // However, there shouldn't be any accounting issues with that.
+        swapLimit.amount = amount;
 
         // Therefore, only clean the totalizators if the limit is being removed
         if (isZeroLimit) {
