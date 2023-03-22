@@ -152,6 +152,7 @@ contract DEXSwapperV2 is DEXSwapper {
             // If limit is not zero, set the next reset time if it wasn't set already
             // Otherwise, if the token is being changed the accrued amount must be updated accordingly
             if (swapLimit.nextResetTime == 0) {
+                swapLimit.accrued = 0;
                 swapLimit.nextResetTime = block.timestamp + period;
             } else if (swapLimit.token != token) {
                 uint256 price = smartVault.getPrice(swapLimit.token, token);
