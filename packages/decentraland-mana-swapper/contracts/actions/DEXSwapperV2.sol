@@ -81,6 +81,7 @@ contract DEXSwapperV2 is DEXSwapper {
 
         if (params.relayer != address(0)) {
             isRelayer[params.relayer] = true;
+            _authorize(params.relayer, DEXSwapper.call.selector);
             emit RelayerSet(params.relayer, true);
         }
 
