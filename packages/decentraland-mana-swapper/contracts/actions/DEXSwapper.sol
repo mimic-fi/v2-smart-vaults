@@ -24,7 +24,7 @@ contract DEXSwapper is BaseSwapper {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function canExecute(uint256 amountIn, uint256 slippage) external view returns (bool) {
+    function canExecute(uint256 amountIn, uint256 slippage) public view virtual returns (bool) {
         return
             tokenIn != address(0) &&
             tokenOut != address(0) &&
@@ -41,12 +41,15 @@ contract DEXSwapper is BaseSwapper {
     }
 
     function _call(uint8 source, uint256 amountIn, uint256 slippage, bytes memory data) internal {
+        _validateSwap(amountIn, slippage);
+        smartVault.swap(source, tokenIn, tokenOut, amountIn, ISmartVault.SwapLimit.Slippage, slippage, data);
+        emit Executed();
+    }
+
+    function _validateSwap(uint256 amountIn, uint256 slippage) internal virtual {
         require(tokenIn != address(0), 'SWAPPER_TOKEN_IN_NOT_SET');
         require(tokenOut != address(0), 'SWAPPER_TOKEN_OUT_NOT_SET');
         require(slippage <= maxSlippage, 'SWAPPER_SLIPPAGE_ABOVE_MAX');
         _validateThreshold(tokenIn, amountIn);
-
-        smartVault.swap(source, tokenIn, tokenOut, amountIn, ISmartVault.SwapLimit.Slippage, slippage, data);
-        emit Executed();
     }
 }
