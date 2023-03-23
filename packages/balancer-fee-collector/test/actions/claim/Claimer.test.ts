@@ -4,11 +4,13 @@ import {
   deploy,
   fp,
   getSigners,
+  MAX_UINT256,
   NATIVE_TOKEN_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import {
   assertRelayedBaseCost,
+  buildExtraFeedData,
   createAction,
   createPriceFeedMock,
   createSmartVault,
@@ -18,7 +20,7 @@ import {
 } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
-import { Contract } from 'ethers'
+import { Contract, ContractTransaction } from 'ethers'
 
 describe('Claimer', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic
@@ -101,10 +103,12 @@ describe('Claimer', () => {
     })
 
     context('when the sender is authorized', () => {
+      let sender: SignerWithAddress
+
       beforeEach('authorize sender', async () => {
         const callRole = action.interface.getSighash('call')
         await action.connect(owner).authorize(owner.address, callRole)
-        action = action.connect(owner)
+        sender = owner
       })
 
       const itPerformsTheExpectedCall = (relayed: boolean) => {
@@ -117,6 +121,8 @@ describe('Claimer', () => {
             })
 
             context('when there is a threshold set', () => {
+              let extraCallData: string
+
               const tokenRate = 2 // 1 token = 2 wrapped native tokens
               const thresholdAmount = fp(0.1) // in wrapped native tokens
               const thresholdAmountInToken = thresholdAmount.div(tokenRate) // threshold expressed in token
@@ -125,107 +131,148 @@ describe('Claimer', () => {
                 const setThresholdRole = action.interface.getSighash('setThreshold')
                 await action.connect(owner).authorize(owner.address, setThresholdRole)
                 await action.connect(owner).setThreshold(mimic.wrappedNativeToken.address, thresholdAmount)
-
-                const feed = await createPriceFeedMock(fp(tokenRate))
-                const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
-                await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
-                await smartVault
-                  .connect(owner)
-                  .setPriceFeed(token.address, mimic.wrappedNativeToken.address, feed.address)
               })
 
-              context('when the claimable balance passes the threshold', () => {
-                const protocolFeeWithdrawerBalance = thresholdAmountInToken
-
-                beforeEach('fund protocol fee withdrawer', async () => {
-                  await token.mint(protocolFeeWithdrawer.address, protocolFeeWithdrawerBalance)
-                })
-
-                it('calls the call primitive', async () => {
-                  const tx = await action.call(token.address)
-
-                  const callData = protocolFeeWithdrawer.interface.encodeFunctionData('withdrawCollectedFees', [
-                    [token.address],
-                    [protocolFeeWithdrawerBalance],
-                    smartVault.address,
-                  ])
-
-                  await assertIndirectEvent(tx, smartVault.interface, 'Call', {
-                    target: protocolFeeWithdrawer,
-                    callData,
-                    value: 0,
-                    data: '0x',
-                  })
-                })
-
-                it('transfers the token in from the protocol fee withdrawer to the smart vault', async () => {
-                  const previousSmartVaultBalance = await token.balanceOf(smartVault.address)
-                  const previousProtocolFeeWithdrawerBalance = await token.balanceOf(protocolFeeWithdrawer.address)
-                  const previousFeeCollectorBalance = await token.balanceOf(feeCollector.address)
-
-                  await action.call(token.address)
-
-                  const currentFeeCollectorBalance = await token.balanceOf(feeCollector.address)
-                  const refund = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
-
-                  const currentSmartVaultBalance = await token.balanceOf(smartVault.address)
-                  const expectedSmartVaultBalance = previousSmartVaultBalance
-                    .add(protocolFeeWithdrawerBalance)
-                    .sub(refund)
-                  expect(currentSmartVaultBalance).to.be.eq(expectedSmartVaultBalance)
-
-                  const currentProtocolFeeWithdrawerBalance = await token.balanceOf(protocolFeeWithdrawer.address)
-                  expect(currentProtocolFeeWithdrawerBalance).to.be.eq(
-                    previousProtocolFeeWithdrawerBalance.sub(protocolFeeWithdrawerBalance)
-                  )
-                })
-
-                it('emits an Executed event', async () => {
-                  const tx = await action.call(token.address)
-
-                  await assertEvent(tx, 'Executed')
-                })
-
-                if (relayed) {
-                  it('refunds gas', async () => {
-                    const previousBalance = await token.balanceOf(feeCollector.address)
-
-                    const tx = await action.call(token.address)
-
-                    const currentBalance = await token.balanceOf(feeCollector.address)
-                    expect(currentBalance).to.be.gt(previousBalance)
-
-                    const redeemedCost = currentBalance.sub(previousBalance).mul(tokenRate)
-                    await assertRelayedBaseCost(tx, redeemedCost, 0.05)
-                  })
-                } else {
-                  it('does not refund gas', async () => {
-                    const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-
-                    await action.call(token.address)
-
-                    const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-                    expect(currentBalance).to.be.equal(previousBalance)
-                  })
+              const itClaimsCorrectly = () => {
+                const claim = async (): Promise<ContractTransaction> => {
+                  const claimTx = await action.populateTransaction.call(token.address)
+                  const callData = `${claimTx.data}${(extraCallData || '').replace('0x', '')}`
+                  return sender.sendTransaction({ to: action.address, data: callData })
                 }
+
+                context('when the claimable balance passes the threshold', () => {
+                  const protocolFeeWithdrawerBalance = thresholdAmountInToken
+
+                  beforeEach('fund protocol fee withdrawer', async () => {
+                    await token.mint(protocolFeeWithdrawer.address, protocolFeeWithdrawerBalance)
+                  })
+
+                  it('calls the call primitive', async () => {
+                    const tx = await claim()
+
+                    const callData = protocolFeeWithdrawer.interface.encodeFunctionData('withdrawCollectedFees', [
+                      [token.address],
+                      [protocolFeeWithdrawerBalance],
+                      smartVault.address,
+                    ])
+
+                    await assertIndirectEvent(tx, smartVault.interface, 'Call', {
+                      target: protocolFeeWithdrawer,
+                      callData,
+                      value: 0,
+                      data: '0x',
+                    })
+                  })
+
+                  it('transfers the token in from the protocol fee withdrawer to the smart vault', async () => {
+                    const previousSmartVaultBalance = await token.balanceOf(smartVault.address)
+                    const previousProtocolFeeWithdrawerBalance = await token.balanceOf(protocolFeeWithdrawer.address)
+                    const previousFeeCollectorBalance = await token.balanceOf(feeCollector.address)
+
+                    await claim()
+
+                    const currentFeeCollectorBalance = await token.balanceOf(feeCollector.address)
+                    const refund = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
+
+                    const currentSmartVaultBalance = await token.balanceOf(smartVault.address)
+                    const expectedSmartVaultBalance = previousSmartVaultBalance
+                      .add(protocolFeeWithdrawerBalance)
+                      .sub(refund)
+                    expect(currentSmartVaultBalance).to.be.eq(expectedSmartVaultBalance)
+
+                    const currentProtocolFeeWithdrawerBalance = await token.balanceOf(protocolFeeWithdrawer.address)
+                    expect(currentProtocolFeeWithdrawerBalance).to.be.eq(
+                      previousProtocolFeeWithdrawerBalance.sub(protocolFeeWithdrawerBalance)
+                    )
+                  })
+
+                  it('emits an Executed event', async () => {
+                    const tx = await claim()
+
+                    await assertIndirectEvent(tx, action.interface, 'Executed')
+                  })
+
+                  if (relayed) {
+                    it('refunds gas', async () => {
+                      const previousBalance = await token.balanceOf(feeCollector.address)
+
+                      const tx = await claim()
+
+                      const currentBalance = await token.balanceOf(feeCollector.address)
+                      expect(currentBalance).to.be.gt(previousBalance)
+
+                      const redeemedCost = currentBalance.sub(previousBalance).mul(tokenRate)
+                      await assertRelayedBaseCost(tx, redeemedCost, 0.05)
+                    })
+                  } else {
+                    it('does not refund gas', async () => {
+                      const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
+                      await claim()
+
+                      const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                      expect(currentBalance).to.be.equal(previousBalance)
+                    })
+                  }
+                })
+
+                context('when the claimable balance does not pass the threshold', () => {
+                  const protocolFeeWithdrawerBalance = thresholdAmountInToken.div(2)
+
+                  beforeEach('fund protocol fee withdrawer', async () => {
+                    await token.mint(protocolFeeWithdrawer.address, protocolFeeWithdrawerBalance)
+                  })
+
+                  it('reverts', async () => {
+                    await expect(claim()).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+                  })
+                })
+              }
+
+              context('using an on-chain oracle', () => {
+                beforeEach('set on-chain oracle', async () => {
+                  const feed = await createPriceFeedMock(fp(tokenRate))
+                  const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+                  await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+                  await smartVault
+                    .connect(owner)
+                    .setPriceFeed(token.address, mimic.wrappedNativeToken.address, feed.address)
+                })
+
+                itClaimsCorrectly()
               })
 
-              context('when the claimable balance does not pass the threshold', () => {
-                const protocolFeeWithdrawerBalance = thresholdAmountInToken.div(2)
+              context('using an off-chain oracle', () => {
+                beforeEach('sign off-chain oracle', async () => {
+                  const setOracleSignerRole = action.interface.getSighash('setOracleSigner')
+                  await action.connect(owner).authorize(owner.address, setOracleSignerRole)
+                  await action.connect(owner).setOracleSigner(owner.address, true)
 
-                beforeEach('fund protocol fee withdrawer', async () => {
-                  await token.mint(protocolFeeWithdrawer.address, protocolFeeWithdrawerBalance)
+                  const feeds = [
+                    {
+                      base: token.address,
+                      quote: mimic.wrappedNativeToken.address,
+                      rate: fp(tokenRate),
+                      deadline: MAX_UINT256,
+                    },
+                    {
+                      base: mimic.wrappedNativeToken.address,
+                      quote: token.address,
+                      rate: fp(1).mul(fp(1)).div(fp(tokenRate)),
+                      deadline: MAX_UINT256,
+                    },
+                  ]
+
+                  extraCallData = await buildExtraFeedData(action, feeds, owner)
                 })
 
-                it('reverts', async () => {
-                  await expect(action.call(token.address)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
-                })
+                itClaimsCorrectly()
               })
             })
 
             context('when there is no threshold set', () => {
               it('reverts', async () => {
-                await expect(action.call(token.address)).to.be.reverted
+                await expect(action.connect(sender).call(token.address)).to.be.reverted
               })
             })
           })
@@ -234,7 +281,7 @@ describe('Claimer', () => {
             const token = NATIVE_TOKEN_ADDRESS
 
             it('reverts', async () => {
-              await expect(action.call(token)).to.be.revertedWith('CLAIMER_NATIVE_TOKEN')
+              await expect(action.connect(sender).call(token)).to.be.revertedWith('CLAIMER_NATIVE_TOKEN')
             })
           })
         })
@@ -243,7 +290,7 @@ describe('Claimer', () => {
           const token = ZERO_ADDRESS
 
           it('reverts', async () => {
-            await expect(action.call(token)).to.be.revertedWith('CLAIMER_TOKEN_ADDRESS_ZERO')
+            await expect(action.connect(sender).call(token)).to.be.revertedWith('CLAIMER_TOKEN_ADDRESS_ZERO')
           })
         })
       }
@@ -251,8 +298,8 @@ describe('Claimer', () => {
       context('when the sender is a relayer', () => {
         beforeEach('mark sender as relayer', async () => {
           const setRelayerRole = action.interface.getSighash('setRelayer')
-          await action.connect(owner).authorize(owner.address, setRelayerRole)
-          await action.connect(owner).setRelayer(owner.address, true)
+          await action.connect(owner).authorize(sender.address, setRelayerRole)
+          await action.connect(owner).setRelayer(sender.address, true)
         })
 
         itPerformsTheExpectedCall(true)

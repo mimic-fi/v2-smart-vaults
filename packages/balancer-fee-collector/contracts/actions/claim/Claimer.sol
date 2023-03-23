@@ -17,14 +17,15 @@ pragma solidity ^0.8.0;
 import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/actions/OracledAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
 
 import './IProtocolFeeWithdrawer.sol';
 
-contract Claimer is BaseAction, TokenThresholdAction, RelayedAction {
+contract Claimer is BaseAction, OracledAction, RelayedAction, TokenThresholdAction {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 50e3;
+    uint256 public constant override BASE_GAS = 56e3;
 
     address public protocolFeeWithdrawer;
 
@@ -44,12 +45,18 @@ contract Claimer is BaseAction, TokenThresholdAction, RelayedAction {
         emit ProtocolFeeWithdrawerSet(newProtocolFeeWithdrawer);
     }
 
-    function call(address token) external auth nonReentrant redeemGas(token) {
+    function call(address token) external auth nonReentrant {
+        _initRelayedTx();
+        _call(token);
+        _payRelayedTx(token, _getPrice(smartVault.wrappedNativeToken(), token));
+    }
+
+    function _call(address token) internal {
         require(token != address(0), 'CLAIMER_TOKEN_ADDRESS_ZERO');
         require(!Denominations.isNativeToken(token), 'CLAIMER_NATIVE_TOKEN');
 
         uint256 amount = getClaimableBalance(token);
-        _validateThreshold(token, amount);
+        _validateThreshold(amount, _getPrice(token, thresholdToken));
 
         // solhint-disable-next-line avoid-low-level-calls
         smartVault.call(protocolFeeWithdrawer, _buildData(token, amount), 0, new bytes(0));
