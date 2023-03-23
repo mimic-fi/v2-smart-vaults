@@ -25,7 +25,7 @@ import './IProtocolFeeWithdrawer.sol';
 
 contract Claimer is BaseAction, OracledAction, RelayedAction, TokenThresholdAction {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 50e3;
+    uint256 public constant override BASE_GAS = 56e3;
 
     address public protocolFeeWithdrawer;
 

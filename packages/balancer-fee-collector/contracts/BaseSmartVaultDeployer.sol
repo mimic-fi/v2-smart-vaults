@@ -34,6 +34,7 @@ contract BaseSmartVaultDeployer is Ownable {
         address impl;
         address admin;
         address[] managers;
+        address oracleSigner;
         address protocolFeeWithdrawer;
         Deployer.RelayedActionParams relayedActionParams;
         Deployer.TokenThresholdActionParams tokenThresholdActionParams;
@@ -67,6 +68,11 @@ contract BaseSmartVaultDeployer is Ownable {
         Deployer.setupActionExecutors(claimer, manager, executors, claimer.call.selector);
         Deployer.setupTokenThresholdAction(claimer, manager, params.admin, params.tokenThresholdActionParams);
         Deployer.setupRelayedAction(claimer, manager, params.admin, params.relayedActionParams);
+
+        // Set oracle signers
+        manager.authorize(claimer, Arrays.from(params.admin, address(this)), claimer.setOracleSigner.selector);
+        claimer.setOracleSigner(params.oracleSigner, true);
+        manager.unauthorize(claimer, address(this), claimer.setOracleSigner.selector);
 
         // Set protocol fee withdrawer
         manager.authorize(claimer, Arrays.from(params.admin, address(this)), claimer.setProtocolFeeWithdrawer.selector);

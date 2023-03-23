@@ -72,6 +72,7 @@ describe('L2SmartVault', () => {
         impl: claimer.address,
         admin: owner.address,
         managers: managers.map((m) => m.address),
+        oracleSigner: mimic.admin.address,
         protocolFeeWithdrawer: protocolFeeWithdrawer.address,
         tokenThresholdActionParams: {
           token: mimic.wrappedNativeToken.address,
@@ -279,7 +280,15 @@ describe('L2SmartVault', () => {
         {
           name: 'owner',
           account: owner,
-          roles: ['setSmartVault', 'setLimits', 'setRelayer', 'setThreshold', 'setProtocolFeeWithdrawer', 'call'],
+          roles: [
+            'setSmartVault',
+            'setLimits',
+            'setRelayer',
+            'setThreshold',
+            'setOracleSigner',
+            'setProtocolFeeWithdrawer',
+            'call',
+          ],
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'claimer', account: claimer, roles: [] },
@@ -294,6 +303,11 @@ describe('L2SmartVault', () => {
 
     it('has the proper smart vault set', async () => {
       expect(await claimer.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('sets the proper oracle signer', async () => {
+      expect(await claimer.isOracleSigner(owner.address)).to.be.false
+      expect(await claimer.isOracleSigner(mimic.admin.address)).to.be.true
     })
 
     it('sets the proper protocol fee withdrawer', async () => {
