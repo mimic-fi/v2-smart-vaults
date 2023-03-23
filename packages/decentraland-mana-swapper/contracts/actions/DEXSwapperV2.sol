@@ -18,6 +18,8 @@ import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 
 import './DEXSwapper.sol';
 
+// solhint-disable avoid-low-level-calls
+
 contract DEXSwapperV2 is DEXSwapper {
     using FixedPoint for uint256;
 
