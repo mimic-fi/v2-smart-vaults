@@ -1025,6 +1025,20 @@
     "@mimic-fi/v2-swap-connector" "0.1.0"
     "@openzeppelin/contracts" "4.7.0"
 
+"@mimic-fi/v2-smart-vaults-base@0.0.7":
+  version "0.0.7"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-smart-vaults-base/-/v2-smart-vaults-base-0.0.7.tgz#341fe6cacaab9c9a89a936e83d9c7059a2cbbd74"
+  integrity sha512-6uZeEfbsQXOKO1B6p5dXRB2TolmU37ZoCT6pYNys8wGwTkIfe4UPBW3JGm6w0wSM9VhXSYFm5hg4BgdgNcAJSQ==
+  dependencies:
+    "@mimic-fi/v2-bridge-connector" "0.1.0"
+    "@mimic-fi/v2-helpers" "0.1.1"
+    "@mimic-fi/v2-price-oracle" "0.1.0"
+    "@mimic-fi/v2-registry" "0.1.0"
+    "@mimic-fi/v2-smart-vault" "0.1.0"
+    "@mimic-fi/v2-strategies" "0.1.0"
+    "@mimic-fi/v2-swap-connector" "0.1.0"
+    "@openzeppelin/contracts" "4.7.0"
+
 "@mimic-fi/v2-strategies@0.0.7":
   version "0.0.7"
   resolved "https://registry.yarnpkg.com/@mimic-fi/v2-strategies/-/v2-strategies-0.0.7.tgz#948f045a755fe308a528d944e49b224686063356"
