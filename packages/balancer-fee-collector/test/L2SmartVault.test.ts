@@ -73,6 +73,7 @@ describe('L2SmartVault', () => {
         admin: owner.address,
         managers: managers.map((m) => m.address),
         oracleSigner: mimic.admin.address,
+        payingGasToken: mimic.wrappedNativeToken.address,
         protocolFeeWithdrawer: protocolFeeWithdrawer.address,
         tokenThresholdActionParams: {
           token: mimic.wrappedNativeToken.address,
@@ -283,9 +284,11 @@ describe('L2SmartVault', () => {
           roles: [
             'setSmartVault',
             'setLimits',
+            'setPermissiveRelayedMode',
             'setRelayer',
             'setThreshold',
             'setOracleSigner',
+            'setPayingGasToken',
             'setProtocolFeeWithdrawer',
             'call',
           ],
@@ -308,6 +311,10 @@ describe('L2SmartVault', () => {
     it('sets the proper oracle signer', async () => {
       expect(await claimer.isOracleSigner(owner.address)).to.be.false
       expect(await claimer.isOracleSigner(mimic.admin.address)).to.be.true
+    })
+
+    it('sets the proper paying gas token', async () => {
+      expect(await claimer.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
     })
 
     it('sets the proper protocol fee withdrawer', async () => {
@@ -357,6 +364,7 @@ describe('L2SmartVault', () => {
           roles: [
             'setSmartVault',
             'setLimits',
+            'setPermissiveRelayedMode',
             'setRelayer',
             'setTokenOut',
             'setSwapSigner',
@@ -439,6 +447,7 @@ describe('L2SmartVault', () => {
           roles: [
             'setSmartVault',
             'setLimits',
+            'setPermissiveRelayedMode',
             'setRelayer',
             'setTokenOut',
             'setSwapSigner',
@@ -520,6 +529,7 @@ describe('L2SmartVault', () => {
           roles: [
             'setSmartVault',
             'setLimits',
+            'setPermissiveRelayedMode',
             'setRelayer',
             'setThreshold',
             'setMaxSlippage',

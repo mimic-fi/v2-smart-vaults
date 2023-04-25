@@ -17,6 +17,7 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/access/Ownable.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/UncheckedMath.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/deploy/BaseDeployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/deploy/Deployer.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/permissions/Arrays.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/permissions/PermissionsHelpers.sol';
@@ -26,7 +27,7 @@ import './actions/swap/BaseSwapper.sol';
 
 // solhint-disable avoid-low-level-calls
 
-contract BaseSmartVaultDeployer is Ownable {
+contract BaseSmartVaultDeployer is BaseDeployer {
     using UncheckedMath for uint256;
     using PermissionsHelpers for PermissionsManager;
 
@@ -35,6 +36,7 @@ contract BaseSmartVaultDeployer is Ownable {
         address admin;
         address[] managers;
         address oracleSigner;
+        address payingGasToken;
         address protocolFeeWithdrawer;
         Deployer.RelayedActionParams relayedActionParams;
         Deployer.TokenThresholdActionParams tokenThresholdActionParams;
@@ -54,8 +56,8 @@ contract BaseSmartVaultDeployer is Ownable {
         Deployer.TokenThresholdActionParams tokenThresholdActionParams;
     }
 
-    constructor(address owner) {
-        _transferOwnership(owner);
+    constructor(address owner) BaseDeployer(owner) {
+        // solhint-disable-previous-line no-empty-blocks
     }
 
     function _setupClaimer(SmartVault smartVault, PermissionsManager manager, ClaimerActionParams memory params)
@@ -73,6 +75,11 @@ contract BaseSmartVaultDeployer is Ownable {
         manager.authorize(claimer, Arrays.from(params.admin, address(this)), claimer.setOracleSigner.selector);
         claimer.setOracleSigner(params.oracleSigner, true);
         manager.unauthorize(claimer, address(this), claimer.setOracleSigner.selector);
+
+        // Set paying gas token
+        manager.authorize(claimer, Arrays.from(params.admin, address(this)), claimer.setPayingGasToken.selector);
+        claimer.setPayingGasToken(params.payingGasToken);
+        manager.unauthorize(claimer, address(this), claimer.setPayingGasToken.selector);
 
         // Set protocol fee withdrawer
         manager.authorize(claimer, Arrays.from(params.admin, address(this)), claimer.setProtocolFeeWithdrawer.selector);
