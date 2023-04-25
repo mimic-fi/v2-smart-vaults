@@ -87,7 +87,7 @@ abstract contract OracledAction is BaseAction {
      * it fallbacks to the smart vault's price oracle. Off-chain oracle data is only used when it can be trusted, this
      * is: well-formed, signed by an allowed oracle, and up-to-date.
      */
-    function _getPrice(address base, address quote) internal view returns (uint256) {
+    function _getPrice(address base, address quote) internal view virtual override returns (uint256) {
         (FeedData[] memory feeds, address signer) = _getEncodedOracleData();
 
         if (signer != address(0) && isOracleSigner(signer)) {

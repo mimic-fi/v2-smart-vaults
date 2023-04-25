@@ -41,6 +41,62 @@ describe('RelayedAction', () => {
     await smartVault.connect(owner).setFeeCollector(feeCollector.address)
   })
 
+  describe('setPermissiveRelayedMode', () => {
+    context('when the sender is authorized', async () => {
+      beforeEach('set sender', async () => {
+        const setPermissiveRelayedModeRole = action.interface.getSighash('setPermissiveRelayedMode')
+        await action.connect(owner).authorize(owner.address, setPermissiveRelayedModeRole)
+        action = action.connect(owner)
+      })
+
+      context('when the permissive relayed mode was inactive', async () => {
+        it('can be activated', async () => {
+          const tx = await action.setPermissiveRelayedMode(true)
+
+          expect(await action.isPermissiveRelayedModeActive()).to.be.true
+          await assertEvent(tx, 'PermissiveRelayedModeSet', { active: true })
+        })
+
+        it('can be deactivated', async () => {
+          const tx = await action.setPermissiveRelayedMode(false)
+
+          expect(await action.isPermissiveRelayedModeActive()).to.be.false
+          await assertEvent(tx, 'PermissiveRelayedModeSet', { active: false })
+        })
+      })
+
+      context('when the permissive relayed mode was active', async () => {
+        beforeEach('activate permissive relayed mode', async () => {
+          await action.setPermissiveRelayedMode(true)
+        })
+
+        it('can be activated', async () => {
+          const tx = await action.setPermissiveRelayedMode(true)
+
+          expect(await action.isPermissiveRelayedModeActive()).to.be.true
+          await assertEvent(tx, 'PermissiveRelayedModeSet', { active: true })
+        })
+
+        it('can be deactivated', async () => {
+          const tx = await action.setPermissiveRelayedMode(false)
+
+          expect(await action.isPermissiveRelayedModeActive()).to.be.false
+          await assertEvent(tx, 'PermissiveRelayedModeSet', { active: false })
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        action = action.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(action.setPermissiveRelayedMode(true)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
+  })
+
   describe('setRelayer', () => {
     let newRelayer: SignerWithAddress
 
@@ -225,18 +281,54 @@ describe('RelayedAction', () => {
               }
             })
 
-            itRedeemsTheGasCost()
+            context('when the permissive relayed mode is on', () => {
+              beforeEach('activate permission relayed mode', async () => {
+                const setPermissiveRelayedModeRole = action.interface.getSighash('setPermissiveRelayedMode')
+                await action.connect(owner).authorize(owner.address, setPermissiveRelayedModeRole)
+                await action.connect(owner).setPermissiveRelayedMode(true)
+              })
+
+              itRedeemsTheGasCost()
+            })
+
+            context('when the permissive relayed mode is off', () => {
+              beforeEach('deactivate permission relayed mode', async () => {
+                const setPermissiveRelayedModeRole = action.interface.getSighash('setPermissiveRelayedMode')
+                await action.connect(owner).authorize(owner.address, setPermissiveRelayedModeRole)
+                await action.connect(owner).setPermissiveRelayedMode(false)
+              })
+
+              itRedeemsTheGasCost()
+            })
           })
 
           context('when the smart vault does not have enough funds', () => {
-            it('reverts', async () => {
-              await expect(action.call()).to.be.revertedWith(
-                native
-                  ? 'Address: insufficient balance'
-                  : token == mimic.wrappedNativeToken
-                  ? 'NOT_ENOUGH_BALANCE'
-                  : 'ERC20: transfer amount exceeds balance'
-              )
+            context('when the permissive relayed mode is on', () => {
+              beforeEach('activate permission relayed mode', async () => {
+                const setPermissiveRelayedModeRole = action.interface.getSighash('setPermissiveRelayedMode')
+                await action.connect(owner).authorize(owner.address, setPermissiveRelayedModeRole)
+                await action.connect(owner).setPermissiveRelayedMode(true)
+              })
+
+              itDoesNotRedeemAnyCost()
+            })
+
+            context('when the permissive relayed mode is off', () => {
+              beforeEach('deactivate permission relayed mode', async () => {
+                const setPermissiveRelayedModeRole = action.interface.getSighash('setPermissiveRelayedMode')
+                await action.connect(owner).authorize(owner.address, setPermissiveRelayedModeRole)
+                await action.connect(owner).setPermissiveRelayedMode(false)
+              })
+
+              it('reverts', async () => {
+                await expect(action.call()).to.be.revertedWith(
+                  native
+                    ? 'Address: insufficient balance'
+                    : token == mimic.wrappedNativeToken
+                    ? 'NOT_ENOUGH_BALANCE'
+                    : 'ERC20: transfer amount exceeds balance'
+                )
+              })
             })
           })
         })
@@ -266,18 +358,54 @@ describe('RelayedAction', () => {
                   }
                 })
 
-                itRedeemsTheGasCost()
+                context('when the permissive relayed mode is on', () => {
+                  beforeEach('activate permission relayed mode', async () => {
+                    const setPermissiveRelayedModeRole = action.interface.getSighash('setPermissiveRelayedMode')
+                    await action.connect(owner).authorize(owner.address, setPermissiveRelayedModeRole)
+                    await action.connect(owner).setPermissiveRelayedMode(true)
+                  })
+
+                  itRedeemsTheGasCost()
+                })
+
+                context('when the permissive relayed mode is off', () => {
+                  beforeEach('deactivate permission relayed mode', async () => {
+                    const setPermissiveRelayedModeRole = action.interface.getSighash('setPermissiveRelayedMode')
+                    await action.connect(owner).authorize(owner.address, setPermissiveRelayedModeRole)
+                    await action.connect(owner).setPermissiveRelayedMode(false)
+                  })
+
+                  itRedeemsTheGasCost()
+                })
               })
 
               context('when the smart vault does not have enough funds', () => {
-                it('reverts', async () => {
-                  await expect(action.call()).to.be.revertedWith(
-                    native
-                      ? 'Address: insufficient balance'
-                      : token == mimic.wrappedNativeToken
-                      ? 'NOT_ENOUGH_BALANCE'
-                      : 'ERC20: transfer amount exceeds balance'
-                  )
+                context('when the permissive relayed mode is on', () => {
+                  beforeEach('activate permission relayed mode', async () => {
+                    const setPermissiveRelayedModeRole = action.interface.getSighash('setPermissiveRelayedMode')
+                    await action.connect(owner).authorize(owner.address, setPermissiveRelayedModeRole)
+                    await action.connect(owner).setPermissiveRelayedMode(true)
+                  })
+
+                  itDoesNotRedeemAnyCost()
+                })
+
+                context('when the permissive relayed mode is off', () => {
+                  beforeEach('deactivate permission relayed mode', async () => {
+                    const setPermissiveRelayedModeRole = action.interface.getSighash('setPermissiveRelayedMode')
+                    await action.connect(owner).authorize(owner.address, setPermissiveRelayedModeRole)
+                    await action.connect(owner).setPermissiveRelayedMode(false)
+                  })
+
+                  it('reverts', async () => {
+                    await expect(action.call()).to.be.revertedWith(
+                      native
+                        ? 'Address: insufficient balance'
+                        : token == mimic.wrappedNativeToken
+                        ? 'NOT_ENOUGH_BALANCE'
+                        : 'ERC20: transfer amount exceeds balance'
+                    )
+                  })
                 })
               })
             })
@@ -365,7 +493,13 @@ describe('RelayedAction', () => {
         })
 
         context('when there is no price feed set', () => {
-          itDoesNotRedeemAnyCost()
+          beforeEach('set token', async () => {
+            await action.setToken(token.address)
+          })
+
+          it('reverts', async () => {
+            await expect(action.call()).to.be.revertedWith('MISSING_PRICE_FEED')
+          })
         })
       })
     })

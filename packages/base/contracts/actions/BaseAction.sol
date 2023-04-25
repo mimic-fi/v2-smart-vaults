@@ -24,6 +24,7 @@ import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 import '@mimic-fi/v2-registry/contracts/implementations/BaseAuthorizedImplementation.sol';
 
 import './IAction.sol';
+import 'hardhat/console.sol';
 
 /**
  * @title BaseAction
@@ -82,5 +83,13 @@ contract BaseAction is IAction, BaseAuthorizedImplementation, ReentrancyGuard {
      */
     function _isWrappedOrNativeToken(address token) internal view returns (bool) {
         return Denominations.isNativeToken(token) || token == smartVault.wrappedNativeToken();
+    }
+
+    /**
+     * @dev Internal function to fetch prices for a base-quote pair. The default implementation tries to fetch it from
+     * the Smart Vault's price oracle but it can be overridden to specify a different use case.
+     */
+    function _getPrice(address base, address quote) internal view virtual returns (uint256) {
+        return smartVault.getPrice(base, quote);
     }
 }

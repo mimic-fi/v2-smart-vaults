@@ -120,11 +120,13 @@ library Deployer {
      * @param relayers List of addresses to be marked as allowed executors and in particular as authorized relayers
      * @param gasPriceLimit Gas price limit to be used for the relayed action
      * @param txCostLimit Total transaction cost limit to be used for the relayed action
+     * @param permissiveRelayedMode Whether the permissive relayed mode is active
      */
     struct RelayedActionParams {
         address[] relayers;
         uint256 gasPriceLimit;
         uint256 txCostLimit;
+        bool permissiveRelayedMode;
     }
 
     /**
@@ -161,6 +163,13 @@ library Deployer {
     function transferPermissionManagerControl(PermissionsManager manager, address[] memory owners) external {
         manager.authorize(manager, owners, manager.execute.selector);
         manager.unauthorize(manager, address(this), manager.execute.selector);
+    }
+
+    /**
+     * @dev Creates a new Permissions Manager instance
+     */
+    function createPermissionsManager(address admin) external returns (PermissionsManager) {
+        return new PermissionsManager(admin);
     }
 
     /**
@@ -350,11 +359,16 @@ library Deployer {
         require(admin != address(0), 'RELAYED_ACTION_ADMIN_ZERO');
 
         address[] memory whos = Arrays.from(admin, address(this));
-        bytes4[] memory whats = Arrays.from(action.setLimits.selector, action.setRelayer.selector);
+        bytes4[] memory whats = Arrays.from(
+            action.setLimits.selector,
+            action.setRelayer.selector,
+            action.setPermissiveRelayedMode.selector
+        );
 
         manager.authorize(action, whos, whats);
 
         action.setLimits(params.gasPriceLimit, params.txCostLimit);
+        action.setPermissiveRelayedMode(params.permissiveRelayedMode);
         for (uint256 i = 0; i < params.relayers.length; i = i.uncheckedAdd(1)) {
             action.setRelayer(params.relayers[i], true);
         }
