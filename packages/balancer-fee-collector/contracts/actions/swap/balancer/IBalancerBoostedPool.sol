@@ -14,8 +14,10 @@
 
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import './IBalancerPool.sol';
 
-interface IBalancerPool is IERC20 {
-    function getPoolId() external view returns (bytes32);
+interface IBalancerBoostedPool is IBalancerPool {
+    function getRate() external view returns (uint256);
+
+    function getBptIndex() external view returns (uint256);
 }
