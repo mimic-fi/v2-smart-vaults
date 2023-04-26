@@ -14,6 +14,8 @@
 
 pragma solidity ^0.8.0;
 
+import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
+
 import '@mimic-fi/v2-helpers/contracts/auth/Authorizer.sol';
 import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
 
@@ -26,7 +28,7 @@ import { Permission, PermissionChange, PermissionChangeRequest } from './Permiss
  * to connect a big number of `IAuthorizer` implementations between each other, admins would had to perform many
  * transactions manually.
  */
-contract PermissionsManager is Authorizer {
+contract PermissionsManager is Authorizer, ReentrancyGuard {
     /**
      * @dev Creates a new permission manager, allowing itself to authorize and unauthorize its own permissions
      * @param admin Address that will be allowed to execute permissions changes through the permissions manager
@@ -42,7 +44,7 @@ contract PermissionsManager is Authorizer {
      * @dev Executes a list of permissions change requests. Sender must be authorized.
      * @param requests List of requests to be executed
      */
-    function execute(PermissionChangeRequest[] memory requests) external auth {
+    function execute(PermissionChangeRequest[] memory requests) external auth nonReentrant {
         for (uint256 i = 0; i < requests.length; i++) _execute(requests[i]);
     }
 
