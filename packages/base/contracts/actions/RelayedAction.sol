@@ -45,6 +45,9 @@ abstract contract RelayedAction is BaseAction {
     // Total transaction cost limit expressed in the native token, if surpassed it wont relay the transaction
     uint256 public txCostLimit;
 
+    // Allows relaying transactions even if there is not enough balance in the Smart Vault to pay for the tx gas cost
+    bool public isPermissiveRelayedModeActive;
+
     // List of allowed relayers indexed by address
     mapping (address => bool) public isRelayer;
 
@@ -57,6 +60,11 @@ abstract contract RelayedAction is BaseAction {
      * @dev Emitted every time the relayer limits are set
      */
     event LimitsSet(uint256 gasPriceLimit, uint256 txCostLimit);
+
+    /**
+     * @dev Emitted every time the permissive relayed mode is changed
+     */
+    event PermissiveRelayedModeSet(bool active);
 
     /**
      * @dev Modifier that can be used to reimburse the gas cost of the tagged function paying in a specific token
@@ -75,6 +83,16 @@ abstract contract RelayedAction is BaseAction {
     function setRelayer(address relayer, bool allowed) external auth {
         isRelayer[relayer] = allowed;
         emit RelayerSet(relayer, allowed);
+    }
+
+    /**
+     * @dev Sets the relayed action permissive relayed mode. If active, it won't fail when trying to redeem gas costs to the
+     * relayer if the smart vault does not have enough balance. Sender must be authorized.
+     * @param active Whether the permissive relayed mode should be active or not
+     */
+    function setPermissiveRelayedMode(bool active) external auth {
+        isPermissiveRelayedModeActive = active;
+        emit PermissiveRelayedModeSet(active);
     }
 
     /**
@@ -104,19 +122,6 @@ abstract contract RelayedAction is BaseAction {
      * @return Amount of tokens paid to reimburse the tx cost
      */
     function _payRelayedTx(address token) internal returns (uint256) {
-        (bool success, uint256 price) = _tryGetNativeTokenPriceIn(token);
-        if (success) return _payRelayedTx(token, price);
-        delete _initialGas;
-        return 0;
-    }
-
-    /**
-     * @dev Internal after call hook where tx cost is reimbursed. Only when the sender is marked as a relayer.
-     * @param token Address of the token to use in order to pay the tx cost
-     * @param price Price of the native token expressed in the given token quote
-     * @return Amount of tokens paid to reimburse the tx cost
-     */
-    function _payRelayedTx(address token, uint256 price) internal returns (uint256) {
         if (!isRelayer[msg.sender]) return 0;
         require(_initialGas > 0, 'RELAYED_TX_NOT_INITIALIZED');
 
@@ -126,25 +131,22 @@ abstract contract RelayedAction is BaseAction {
         require(limit == 0 || totalCostNative <= limit, 'TX_COST_ABOVE_LIMIT');
 
         // Total cost is rounded down to make sure we always match at least the threshold
+        uint256 price = _getNativeTokenPriceIn(token);
         uint256 totalCostToken = totalCostNative.mulDown(price);
-        smartVault.withdraw(token, totalCostToken, smartVault.feeCollector(), REDEEM_GAS_NOTE);
+        if (_balanceOf(token) >= totalCostToken || !isPermissiveRelayedModeActive) {
+            smartVault.withdraw(token, totalCostToken, smartVault.feeCollector(), REDEEM_GAS_NOTE);
+        }
 
         delete _initialGas;
         return totalCostToken;
     }
 
     /**
-     * @dev Tries getting the price of the native token quoted in a another token
+     * @dev Tells the price of the native token quoted in a another token
      * @param token Address of the token to quote the native token in
-     * @return success Whether the price query to the smart vault succeeded or not
-     * @return price The price fetched or zero if the query didn't succeed
      */
-    function _tryGetNativeTokenPriceIn(address token) internal view virtual returns (bool success, uint256 price) {
-        if (_isWrappedOrNativeToken(token)) return (true, FixedPoint.ONE);
-        try smartVault.getPrice(smartVault.wrappedNativeToken(), token) returns (uint256 result) {
-            return (true, result);
-        } catch {
-            return (false, 0);
-        }
+    function _getNativeTokenPriceIn(address token) private view returns (uint256) {
+        if (_isWrappedOrNativeToken(token)) return FixedPoint.ONE;
+        return _getPrice(smartVault.wrappedNativeToken(), token);
     }
 }

@@ -55,6 +55,7 @@ describe('Deployer', () => {
         relayers: [randomAddress(), randomAddress()],
         gasPriceLimit: 100e9,
         txCostLimit: fp(100),
+        permissiveRelayedMode: true,
       },
     },
     timeLockedActionParams: {
@@ -288,7 +289,7 @@ describe('Deployer', () => {
         {
           name: 'relayed admin',
           account: config.relayedActionParams.admin,
-          roles: ['setSmartVault', 'setLimits', 'setRelayer', 'call'],
+          roles: ['setSmartVault', 'setLimits', 'setPermissiveRelayedMode', 'setRelayer', 'call'],
         },
         { name: 'fee collector admin', account: config.smartVaultParams.feeCollectorAdmin, roles: [] },
         { name: 'receiver action', account: receiver, roles: [] },
@@ -302,6 +303,10 @@ describe('Deployer', () => {
 
     it('has the proper smart vault set', async () => {
       expect(await relayed.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('has the proper permissive relayed mode set', async () => {
+      expect(await relayed.isPermissiveRelayedModeActive()).to.be.true
     })
 
     it('sets the expected gas limits', async () => {
