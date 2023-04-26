@@ -25,10 +25,12 @@ import './IProtocolFeeWithdrawer.sol';
 
 contract Claimer is BaseAction, OracledAction, RelayedAction, TokenThresholdAction {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 56e3;
+    uint256 public constant override BASE_GAS = 72e3;
 
+    address public payingGasToken;
     address public protocolFeeWithdrawer;
 
+    event PayingGasTokenSet(address indexed payingGasToken);
     event ProtocolFeeWithdrawerSet(address indexed protocolFeeWithdrawer);
 
     constructor(address admin, address registry) BaseAction(admin, registry) {
@@ -39,24 +41,25 @@ contract Claimer is BaseAction, OracledAction, RelayedAction, TokenThresholdActi
         return ERC20Helpers.balanceOf(token, protocolFeeWithdrawer);
     }
 
+    function setPayingGasToken(address newPayingGasToken) external auth {
+        require(newPayingGasToken != address(0), 'CLAIMER_PAYING_GAS_TOKEN_ZERO');
+        payingGasToken = newPayingGasToken;
+        emit PayingGasTokenSet(newPayingGasToken);
+    }
+
     function setProtocolFeeWithdrawer(address newProtocolFeeWithdrawer) external auth {
         require(newProtocolFeeWithdrawer != address(0), 'CLAIMER_WITHDRAWER_ADDRESS_ZERO');
         protocolFeeWithdrawer = newProtocolFeeWithdrawer;
         emit ProtocolFeeWithdrawerSet(newProtocolFeeWithdrawer);
     }
 
-    function call(address token) external auth nonReentrant {
-        _initRelayedTx();
-        _call(token);
-        _payRelayedTx(token, _getPrice(smartVault.wrappedNativeToken(), token));
-    }
-
-    function _call(address token) internal {
+    function call(address token) external auth nonReentrant redeemGas(payingGasToken) {
+        require(payingGasToken != address(0), 'CLAIMER_PAYING_GAS_TOKEN_ZERO');
         require(token != address(0), 'CLAIMER_TOKEN_ADDRESS_ZERO');
         require(!Denominations.isNativeToken(token), 'CLAIMER_NATIVE_TOKEN');
 
         uint256 amount = getClaimableBalance(token);
-        _validateThreshold(amount, _getPrice(token, thresholdToken));
+        _validateThreshold(token, amount);
 
         // solhint-disable-next-line avoid-low-level-calls
         smartVault.call(protocolFeeWithdrawer, _buildData(token, amount), 0, new bytes(0));
@@ -77,5 +80,14 @@ contract Claimer is BaseAction, OracledAction, RelayedAction, TokenThresholdActi
                 amounts,
                 address(smartVault)
             );
+    }
+
+    function _getPrice(address base, address quote)
+        internal
+        view
+        override(BaseAction, OracledAction)
+        returns (uint256)
+    {
+        return OracledAction._getPrice(base, quote);
     }
 }

@@ -25,7 +25,7 @@ contract L1HopBridger is BaseHopBridger {
     using EnumerableMap for EnumerableMap.AddressToAddressMap;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 120e3;
+    uint256 public constant override BASE_GAS = 140e3;
 
     mapping (address => uint256) public getMaxRelayerFeePct;
     EnumerableMap.AddressToAddressMap private tokenBridges;

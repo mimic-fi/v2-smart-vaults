@@ -21,7 +21,7 @@ import './ParaswapSwapper.sol';
 
 contract OneInchSwapper is BaseSwapper {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 45e3;
+    uint256 public constant override BASE_GAS = 58e3;
 
     struct ParaswapData {
         uint256 minAmountOut;

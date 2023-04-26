@@ -20,7 +20,7 @@ import './BaseSwapper.sol';
 
 contract ParaswapSwapper is BaseSwapper {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 46e3;
+    uint256 public constant override BASE_GAS = 55e3;
 
     constructor(address admin, address registry) BaseSwapper(admin, registry) {
         // solhint-disable-previous-line no-empty-blocks
