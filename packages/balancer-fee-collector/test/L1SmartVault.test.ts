@@ -16,7 +16,7 @@ import { ethers } from 'hardhat'
 
 describe('L1SmartVault', () => {
   let smartVault: Contract, manager: Contract, mimic: Mimic
-  let claimer: Contract, oneInchSwapper: Contract, paraswapSwapper: Contract, withdrawer: Contract
+  let claimer: Contract, bptSwapper: Contract, oneInchSwapper: Contract, paraswapSwapper: Contract, withdrawer: Contract
   let other: SignerWithAddress,
     owner: SignerWithAddress,
     managers: SignerWithAddress[],
@@ -39,6 +39,7 @@ describe('L1SmartVault', () => {
     const deployer = await deploy('L1SmartVaultDeployer', [owner.address], owner, { Deployer: mimic.deployer.address })
     manager = await deploy('PermissionsManager', [deployer.address])
     claimer = await deploy('Claimer', [manager.address, mimic.registry.address])
+    bptSwapper = await deploy('BPTSwapper', [ZERO_ADDRESS, manager.address, mimic.registry.address])
     oneInchSwapper = await deploy('OneInchSwapper', [manager.address, mimic.registry.address])
     paraswapSwapper = await deploy('ParaswapSwapper', [manager.address, mimic.registry.address])
     withdrawer = await deploy('Withdrawer', [manager.address, mimic.registry.address])
@@ -71,6 +72,22 @@ describe('L1SmartVault', () => {
         oracleSigner: mimic.admin.address,
         payingGasToken: mimic.wrappedNativeToken.address,
         protocolFeeWithdrawer: protocolFeeWithdrawer.address,
+        tokenThresholdActionParams: {
+          token: mimic.wrappedNativeToken.address,
+          amount: fp(1),
+        },
+        relayedActionParams: {
+          relayers: relayers.map((m) => m.address),
+          gasPriceLimit: 100e9,
+          txCostLimit: 0,
+        },
+      },
+      bptSwapperActionParams: {
+        impl: bptSwapper.address,
+        admin: owner.address,
+        managers: managers.map((m) => m.address),
+        oracleSigner: mimic.admin.address,
+        payingGasToken: mimic.wrappedNativeToken.address,
         tokenThresholdActionParams: {
           token: mimic.wrappedNativeToken.address,
           amount: fp(1),
@@ -198,6 +215,7 @@ describe('L1SmartVault', () => {
         },
         { name: 'mimic', account: mimic.admin, roles: ['setFeeCollector'] },
         { name: 'claimer', account: claimer, roles: ['call', 'withdraw'] },
+        { name: 'bpt swapper', account: bptSwapper, roles: ['call', 'withdraw'] },
         { name: '1inch swapper', account: oneInchSwapper, roles: ['swap', 'withdraw'] },
         { name: 'psp swapper', account: paraswapSwapper, roles: ['swap', 'withdraw'] },
         { name: 'withdrawer', account: withdrawer, roles: ['withdraw'] },
@@ -292,6 +310,7 @@ describe('L1SmartVault', () => {
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'claimer', account: claimer, roles: [] },
+        { name: 'bpt swapper', account: bptSwapper, roles: [] },
         { name: '1inch swapper', account: oneInchSwapper, roles: [] },
         { name: 'psp swapper', account: paraswapSwapper, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
@@ -351,6 +370,82 @@ describe('L1SmartVault', () => {
     })
   })
 
+  describe('bpt swapper', () => {
+    it('has set its permissions correctly', async () => {
+      await assertPermissions(bptSwapper, [
+        { name: 'manager', account: manager, roles: ['authorize', 'unauthorize'] },
+        {
+          name: 'owner',
+          account: owner,
+          roles: [
+            'setSmartVault',
+            'setLimits',
+            'setPermissiveRelayedMode',
+            'setRelayer',
+            'setThreshold',
+            'setOracleSigner',
+            'setPayingGasToken',
+            'call',
+          ],
+        },
+        { name: 'mimic', account: mimic.admin, roles: [] },
+        { name: 'claimer', account: claimer, roles: [] },
+        { name: 'bpt swapper', account: bptSwapper, roles: [] },
+        { name: '1inch swapper', account: oneInchSwapper, roles: [] },
+        { name: 'psp swapper', account: paraswapSwapper, roles: [] },
+        { name: 'withdrawer', account: withdrawer, roles: [] },
+        { name: 'other', account: other, roles: [] },
+        { name: 'managers', account: managers, roles: ['call'] },
+        { name: 'relayers', account: relayers, roles: ['call'] },
+      ])
+    })
+
+    it('has the proper smart vault set', async () => {
+      expect(await bptSwapper.smartVault()).to.be.equal(smartVault.address)
+    })
+
+    it('sets the proper oracle signer', async () => {
+      expect(await bptSwapper.isOracleSigner(owner.address)).to.be.false
+      expect(await bptSwapper.isOracleSigner(mimic.admin.address)).to.be.true
+    })
+
+    it('sets the proper paying gas token', async () => {
+      expect(await bptSwapper.payingGasToken()).to.be.equal(mimic.wrappedNativeToken.address)
+    })
+
+    it('sets the expected token threshold params', async () => {
+      expect(await bptSwapper.thresholdToken()).to.be.equal(mimic.wrappedNativeToken.address)
+      expect(await bptSwapper.thresholdAmount()).to.be.equal(fp(1))
+    })
+
+    it('sets the expected limits', async () => {
+      expect(await bptSwapper.gasPriceLimit()).to.be.equal(100e9)
+    })
+
+    it('whitelists the requested relayers', async () => {
+      for (const relayer of relayers) {
+        expect(await bptSwapper.isRelayer(relayer.address)).to.be.true
+      }
+    })
+
+    it('does not whitelist managers as relayers', async () => {
+      for (const manager of managers) {
+        expect(await bptSwapper.isRelayer(manager.address)).to.be.false
+      }
+    })
+
+    it('can authorize bpt swapper methods', async () => {
+      const who = mimic.admin.address
+      const what = bptSwapper.interface.getSighash('call')
+      expect(await bptSwapper.isAuthorized(who, what)).to.be.false
+
+      const requests = [{ target: bptSwapper.address, changes: [{ grant: true, permission: { who, what } }] }]
+      await manager.connect(owner).execute(requests)
+
+      expect(await bptSwapper.isAuthorized(who, what)).to.be.true
+    })
+  })
+
   describe('1inch swapper', () => {
     it('has set its permissions correctly', async () => {
       await assertPermissions(oneInchSwapper, [
@@ -374,6 +469,7 @@ describe('L1SmartVault', () => {
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'claimer', account: claimer, roles: [] },
+        { name: 'bpt swapper', account: bptSwapper, roles: [] },
         { name: '1inch swapper', account: oneInchSwapper, roles: [] },
         { name: 'psp swapper', account: paraswapSwapper, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
@@ -457,6 +553,7 @@ describe('L1SmartVault', () => {
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'claimer', account: claimer, roles: [] },
+        { name: 'bpt swapper', account: bptSwapper, roles: [] },
         { name: '1inch swapper', account: oneInchSwapper, roles: [] },
         { name: 'psp swapper', account: paraswapSwapper, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
@@ -536,6 +633,7 @@ describe('L1SmartVault', () => {
         },
         { name: 'mimic', account: mimic.admin, roles: [] },
         { name: 'claimer', account: claimer, roles: [] },
+        { name: 'bpt swapper', account: bptSwapper, roles: [] },
         { name: '1inch swapper', account: oneInchSwapper, roles: [] },
         { name: 'psp swapper', account: paraswapSwapper, roles: [] },
         { name: 'withdrawer', account: withdrawer, roles: [] },
