@@ -211,5 +211,35 @@ describe('BPTSwapper - mainnet', function () {
         expect(currentMainTokenBalance).to.be.gt(previousMainTokenBalance)
       })
     })
+
+    context('composable pool', () => {
+      const POOL = '0xa13a9247ea42d743238089903570127dda72fe44' // bb-a-USD
+      const WHALE = '0x43b650399f2e4d6f03503f44042faba8f7d73470'
+
+      setUpPool('IBalancerBoostedPool', POOL, WHALE)
+      itRedeemsGasProperly()
+
+      it('swaps to the first main token', async () => {
+        const { tokens } = await balancer.getPoolTokens(await pool.getPoolId())
+        const bptIndex = await pool.getBptIndex()
+        const linearPool = await instanceAt('IBalancerLinearPool', tokens[bptIndex.eq(0) ? 1 : 0])
+        const mainToken = await instanceAt('IERC20', await linearPool.getMainToken())
+
+        const previousBptBalance = await pool.balanceOf(smartVault.address)
+        const previousLinearBalance = await linearPool.balanceOf(smartVault.address)
+        const previousMainTokenBalance = await mainToken.balanceOf(smartVault.address)
+
+        await action.connect(relayer).call(pool.address, amount)
+
+        const currentBptBalance = await pool.balanceOf(smartVault.address)
+        expect(currentBptBalance).to.be.equal(previousBptBalance.sub(amount))
+
+        const currentLinearBalance = await linearPool.balanceOf(smartVault.address)
+        expect(currentLinearBalance).to.be.equal(previousLinearBalance)
+
+        const currentMainTokenBalance = await mainToken.balanceOf(smartVault.address)
+        expect(currentMainTokenBalance).to.be.gt(previousMainTokenBalance)
+      })
+    })
   })
 })
