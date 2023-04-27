@@ -23,7 +23,6 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/OracledAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
-import './balancer/IBalancerLinearPool.sol';
 import './balancer/IBalancerBoostedPool.sol';
 import './balancer/IBalancerPool.sol';
 import './balancer/IBalancerVault.sol';
@@ -88,19 +87,15 @@ contract BPTSwapper is BaseAction, OracledAction, RelayedAction, TokenThresholdA
      * @param amount Amount of BPTs to swap
      */
     function _buildSwapCall(address pool, uint256 amount) private view returns (bytes memory) {
-        try IBalancerLinearPool(pool).getMainToken() returns (address main) {
-            return _buildLinearPoolSwap(pool, amount, main);
+        try IBalancerBoostedPool(pool).getBptIndex() returns (uint256 bptIndex) {
+            return _buildBoostedPoolSwap(pool, amount, bptIndex);
         } catch {
-            try IBalancerBoostedPool(pool).getBptIndex() returns (uint256 bptIndex) {
-                return _buildBoostedPoolSwap(pool, amount, bptIndex);
-            } catch {
-                return _buildNormalPoolExit(pool, amount);
-            }
+            return _buildNormalPoolExit(pool, amount);
         }
     }
 
     /**
-     * @dev Exit normal (non-linear) pools using a exact BPT for tokens out. Note that there is no need to compute
+     * @dev Exit normal pools using a exact BPT for tokens out. Note that there is no need to compute
      * minimum amounts since this is considered a proportional exit.
      * @param pool Address of the Balancer pool (token) to exit
      * @param amount Amount of BPTs to exit
@@ -129,94 +124,29 @@ contract BPTSwapper is BaseAction, OracledAction, RelayedAction, TokenThresholdA
     }
 
     /**
-     * @dev Exit boosted pools using a batch swap request in exchange for one of the main tokens of the underlying
-     * linear pools. The min amount out is computed based on the current rate of the boosted pool.
+     * @dev Exit boosted pools using a swap request in exchange for the first underlying token of the pool. The min
+     * amount out is computed based on the current rate of the boosted pool.
      * @param pool Address of the Balancer pool (token) to swap
      * @param amount Amount of BPTs to swap
      * @param bptIndex Index of the BPT in the list of tokens tracked by the Balancer Vault
      */
     function _buildBoostedPoolSwap(address pool, uint256 amount, uint256 bptIndex) private view returns (bytes memory) {
-        // Pick the first linear pool of the boosted
+        // Pick the first underlying token of the boosted pool
         bytes32 poolId = IBalancerPool(pool).getPoolId();
         (IERC20[] memory tokens, , ) = IBalancerVault(balancerVault).getPoolTokens(poolId);
-        address linearPool = address(bptIndex == 0 ? tokens[1] : tokens[0]);
-        address mainToken = IBalancerLinearPool(linearPool).getMainToken();
+        address underlying = address(bptIndex == 0 ? tokens[1] : tokens[0]);
 
-        // Compute minimum amount out in the main token
-        address[] memory assets = new address[](3);
-        assets[0] = mainToken;
-        assets[1] = linearPool;
-        assets[2] = pool;
-
-        // Compute minimum amount out in the main token
+        // Compute minimum amount out in the underlying token
         uint256 rate = IBalancerBoostedPool(pool).getRate();
-        uint256 decimals = IERC20Metadata(mainToken).decimals();
+        uint256 decimals = IERC20Metadata(underlying).decimals();
         uint256 minAmountOut = decimals <= 18 ? (rate / (10**(18 - decimals))) : (rate * (10**(decimals - 18)));
 
-        // Set swap limits
-        int256[] memory limits = new int256[](3);
-        limits[0] = -SafeCast.toInt256(minAmountOut); // main token limit
-        limits[1] = 0; // linear limit
-        limits[2] = SafeCast.toInt256(amount); // bpt limit
-
-        // First swap from bpt to linear
-        IBalancerVault.BatchSwapStep[] memory swaps = new IBalancerVault.BatchSwapStep[](2);
-        swaps[0] = IBalancerVault.BatchSwapStep({
-            poolId: IBalancerPool(pool).getPoolId(),
-            assetInIndex: 2, // bpt
-            assetOutIndex: 1, // linear pool
-            amount: amount,
-            userData: new bytes(0)
-        });
-
-        // Second swap from linear to main token
-        swaps[1] = IBalancerVault.BatchSwapStep({
-            poolId: IBalancerLinearPool(linearPool).getPoolId(),
-            assetInIndex: 1, // linear pool
-            assetOutIndex: 0, // main token
-            amount: 0,
-            userData: new bytes(0)
-        });
-
-        // Build fund management object: smart vault is the sender and recipient
-        IBalancerVault.FundManagement memory funds = IBalancerVault.FundManagement({
-            sender: address(smartVault),
-            fromInternalBalance: false,
-            recipient: payable(address(smartVault)),
-            toInternalBalance: false
-        });
-
-        return
-            abi.encodeWithSelector(
-                IBalancerVault.batchSwap.selector,
-                IBalancerVault.SwapKind.GIVEN_IN,
-                swaps,
-                assets,
-                funds,
-                limits,
-                block.timestamp
-            );
-    }
-
-    /**
-     * @dev Exit linear pools using a swap request in exchange for the main token of the pool. The min amount out is
-     * computed based on the current rate of the linear pool.
-     * @param pool Address of the Balancer pool (token) to swap
-     * @param amount Amount of BPTs to swap
-     * @param main Address of the main token
-     */
-    function _buildLinearPoolSwap(address pool, uint256 amount, address main) private view returns (bytes memory) {
-        // Compute minimum amount out in the main token
-        uint256 rate = IBalancerLinearPool(pool).getRate();
-        uint256 decimals = IERC20Metadata(main).decimals();
-        uint256 minAmountOut = decimals <= 18 ? (rate / (10**(18 - decimals))) : (rate * (10**(decimals - 18)));
-
-        // Swap from linear to main token
+        // Swap from BPT to underlying token
         IBalancerVault.SingleSwap memory request = IBalancerVault.SingleSwap({
             poolId: IBalancerPool(pool).getPoolId(),
             kind: IBalancerVault.SwapKind.GIVEN_IN,
             assetIn: pool,
-            assetOut: main,
+            assetOut: underlying,
             amount: amount,
             userData: new bytes(0)
         });
