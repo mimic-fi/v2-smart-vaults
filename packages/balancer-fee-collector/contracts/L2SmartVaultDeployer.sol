@@ -41,6 +41,7 @@ contract L2SmartVaultDeployer is BaseSmartVaultDeployer {
         ClaimerActionParams claimerActionParams;
         SwapperActionParams oneInchSwapperActionParams;
         SwapperActionParams paraswapSwapperActionParams;
+        BptSwapperActionParams bptSwapperActionParams;
         L2HopBridgerActionParams l2HopBridgerActionParams;
     }
 
@@ -71,6 +72,7 @@ contract L2SmartVaultDeployer is BaseSmartVaultDeployer {
         _setupClaimer(smartVault, params.manager, params.claimerActionParams);
         _setupSwapper(smartVault, params.manager, params.oneInchSwapperActionParams, OneInchSwapper.call.selector);
         _setupSwapper(smartVault, params.manager, params.paraswapSwapperActionParams, ParaswapSwapper.call.selector);
+        _setupBptSwapper(smartVault, params.manager, params.bptSwapperActionParams);
         _setupL2HopBridger(smartVault, params.manager, params.l2HopBridgerActionParams);
         Deployer.transferPermissionManagerControl(params.manager, params.owners);
     }
