@@ -1,4 +1,6 @@
 cache
 artifacts
 node_modules
+.certora_internal
+.certora_recent_jobs.json
 *.log
