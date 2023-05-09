@@ -1,12 +1,7 @@
 using Helpers as generalHelpers;
-using WrappedNativeToken as wrappedNativeToken;
 
 methods {
     function generalHelpers.castUint32ToBytes4(uint32) external returns (bytes4) envfree;
-}
-
-function requireValidSender(env e) {
-    require e.msg.sender != wrappedNativeToken;
 }
 
 // SANITY
