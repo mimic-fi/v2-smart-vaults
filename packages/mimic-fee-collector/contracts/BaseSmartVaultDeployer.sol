@@ -18,8 +18,8 @@ import '@mimic-fi/v2-helpers/contracts/utils/Arrays.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/deploy/Deployer.sol';
 
-import './actions/Funder.sol';
-import './actions/Holder.sol';
+import './swap/Funder.sol';
+import './swap/Holder.sol';
 
 // solhint-disable avoid-low-level-calls
 
