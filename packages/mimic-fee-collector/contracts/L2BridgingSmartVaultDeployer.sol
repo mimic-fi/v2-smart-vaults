@@ -20,8 +20,8 @@ import '@mimic-fi/v2-registry/contracts/registry/IRegistry.sol';
 import '@mimic-fi/v2-smart-vault/contracts/SmartVault.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/deploy/Deployer.sol';
 
-import './actions/L2HopBridger.sol';
-import './actions/L2HopSwapper.sol';
+import './bridge/L2HopBridger.sol';
+import './swap/L2HopSwapper.sol';
 import './BaseSmartVaultDeployer.sol';
 
 // solhint-disable avoid-low-level-calls
