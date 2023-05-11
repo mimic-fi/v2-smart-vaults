@@ -7,8 +7,8 @@ import '../../actions/OracledAction.sol';
 contract OracledActionMock is OracledAction {
     event LogPrice(uint256 price);
 
-    constructor(address admin, address registry) BaseAction(admin, registry) {
-        // solhint-disable-previous-line no-empty-blocks
+    constructor(address smartVault, address admin, address registry) BaseAction(admin, registry) {
+        _setSmartVault(smartVault);
     }
 
     function getPrice(address base, address quote) external {

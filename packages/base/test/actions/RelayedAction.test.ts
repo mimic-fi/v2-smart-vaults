@@ -2,6 +2,7 @@ import {
   assertEvent,
   assertIndirectEvent,
   assertNoIndirectEvent,
+  deploy,
   fp,
   getSigners,
   MAX_UINT256,
@@ -12,7 +13,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
+import { createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
 import { createPriceFeedMock } from '../../src/samples'
 
 describe('RelayedAction', () => {
@@ -27,7 +28,7 @@ describe('RelayedAction', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     smartVault = await createSmartVault(mimic, owner)
-    action = await createAction('RelayedActionMock', mimic, owner, smartVault)
+    action = await deploy('RelayedActionMock', [smartVault.address, owner.address, mimic.registry.address])
   })
 
   beforeEach('authorize action', async () => {

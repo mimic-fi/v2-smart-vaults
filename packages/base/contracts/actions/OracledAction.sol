@@ -48,15 +48,13 @@ abstract contract OracledAction is BaseAction {
     event OracleSignerSet(address indexed signer, bool allowed);
 
     /**
-     * @dev Change an oracle signer condition
+     * @dev Change an oracle signer condition. Sender must be authorized.
      * @param signer Address of the signer being queried
      * @param allowed Whether the signer should be allowed or not
      * @return success True if the signer was actually added or removed from the list of oracle signers
      */
     function setOracleSigner(address signer, bool allowed) external auth returns (bool success) {
-        require(signer != address(0), 'ORACLED_SIGNER_ZERO');
-        success = allowed ? signers.add(signer) : signers.remove(signer);
-        if (success) emit OracleSignerSet(signer, allowed);
+        return _setOracleSigner(signer, allowed);
     }
 
     /**
@@ -80,6 +78,18 @@ abstract contract OracledAction is BaseAction {
      */
     function getFeedsDigest(FeedData[] memory feeds) public pure returns (bytes32) {
         return keccak256(abi.encode(feeds));
+    }
+
+    /**
+     * @dev Internal function to set an oracle signer condition
+     * @param signer Address of the signer being queried
+     * @param allowed Whether the signer should be allowed or not
+     * @return success True if the signer was actually added or removed from the list of oracle signers
+     */
+    function _setOracleSigner(address signer, bool allowed) internal returns (bool success) {
+        require(signer != address(0), 'ORACLED_SIGNER_ZERO');
+        success = allowed ? signers.add(signer) : signers.remove(signer);
+        if (success) emit OracleSignerSet(signer, allowed);
     }
 
     /**

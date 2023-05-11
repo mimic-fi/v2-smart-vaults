@@ -37,6 +37,14 @@ abstract contract WithdrawalAction is BaseAction {
      * @param newRecipient Address of the new recipient to be set
      */
     function setRecipient(address newRecipient) external auth {
+        _setRecipient(newRecipient);
+    }
+
+    /**
+     * @dev Internal function to sets the recipient address
+     * @param newRecipient Address of the new recipient to be set
+     */
+    function _setRecipient(address newRecipient) internal {
         require(newRecipient != address(0), 'RECIPIENT_ZERO');
         recipient = newRecipient;
         emit RecipientSet(newRecipient);

@@ -1,9 +1,9 @@
-import { assertEvent, fp, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
+import { assertEvent, deploy, fp, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 
-import { createAction, createSmartVault, Mimic, setupMimic } from '../../dist'
+import { createSmartVault, Mimic, setupMimic } from '../../dist'
 import { createPriceFeedMock, createTokenMock } from '../../src/samples'
 
 describe('TokenThresholdAction', () => {
@@ -18,7 +18,7 @@ describe('TokenThresholdAction', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     smartVault = await createSmartVault(mimic, owner)
-    action = await createAction('TokenThresholdActionMock', mimic, owner, smartVault)
+    action = await deploy('TokenThresholdActionMock', [smartVault.address, owner.address, mimic.registry.address])
   })
 
   describe('setThreshold', () => {

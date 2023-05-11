@@ -55,9 +55,7 @@ contract BaseAction is IAction, BaseAuthorizedImplementation, ReentrancyGuard {
      * @param newSmartVault Address of the smart vault to be set
      */
     function setSmartVault(address newSmartVault) external auth {
-        require(address(smartVault) == address(0), 'SMART_VAULT_ALREADY_SET');
-        smartVault = ISmartVault(newSmartVault);
-        emit SmartVaultSet(newSmartVault);
+        _setSmartVault(newSmartVault);
     }
 
     /**
@@ -91,5 +89,15 @@ contract BaseAction is IAction, BaseAuthorizedImplementation, ReentrancyGuard {
      */
     function _getPrice(address base, address quote) internal view virtual returns (uint256) {
         return smartVault.getPrice(base, quote);
+    }
+
+    /**
+     * @dev Internal function to set a Smart Vault. It can be set only once.
+     * @param newSmartVault Address of the smart vault to be set
+     */
+    function _setSmartVault(address newSmartVault) internal {
+        require(address(smartVault) == address(0), 'SMART_VAULT_ALREADY_SET');
+        smartVault = ISmartVault(newSmartVault);
+        emit SmartVaultSet(newSmartVault);
     }
 }
