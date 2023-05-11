@@ -32,16 +32,3 @@ export async function createSmartVault(mimic: Mimic, admin: SignerWithAddress): 
 
   return smartVault
 }
-
-export async function createAction(
-  contractName: string,
-  mimic: Mimic,
-  admin: SignerWithAddress,
-  smartVault: Contract
-): Promise<Contract> {
-  const action = await deploy(contractName, [admin.address, mimic.registry.address])
-  const setSmartVaultRole = action.interface.getSighash('setSmartVault')
-  await action.connect(admin).authorize(admin.address, setSmartVaultRole)
-  await action.connect(admin).setSmartVault(smartVault.address)
-  return action
-}

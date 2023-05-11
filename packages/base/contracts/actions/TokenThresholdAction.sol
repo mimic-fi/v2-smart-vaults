@@ -37,6 +37,15 @@ abstract contract TokenThresholdAction is BaseAction {
      * @param amount New amount threshold to be set
      */
     function setThreshold(address token, uint256 amount) external auth {
+        _setThreshold(token, amount);
+    }
+
+    /**
+     * @dev Internal function to set a new threshold configuration
+     * @param token New token threshold to be set
+     * @param amount New amount threshold to be set
+     */
+    function _setThreshold(address token, uint256 amount) internal {
         thresholdToken = token;
         thresholdAmount = amount;
         emit ThresholdSet(token, amount);

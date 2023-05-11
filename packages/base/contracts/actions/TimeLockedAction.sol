@@ -42,10 +42,18 @@ abstract contract TimeLockedAction is BaseAction {
     }
 
     /**
-     * @dev Sets a new period for the time-locked action
+     * @dev Sets a new period for the time-locked action. Sender must be authorized.
      * @param newPeriod New period to be set
      */
     function setTimeLock(uint256 newPeriod) external auth {
+        _setTimeLock(newPeriod);
+    }
+
+    /**
+     * @dev Internal function to set a new period for the time-locked action
+     * @param newPeriod New period to be set
+     */
+    function _setTimeLock(uint256 newPeriod) internal {
         period = newPeriod;
         emit TimeLockSet(newPeriod);
     }

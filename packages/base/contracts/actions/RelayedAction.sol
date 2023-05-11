@@ -81,8 +81,7 @@ abstract contract RelayedAction is BaseAction {
      * @param allowed Whether it should be allowed or not
      */
     function setRelayer(address relayer, bool allowed) external auth {
-        isRelayer[relayer] = allowed;
-        emit RelayerSet(relayer, allowed);
+        _setRelayer(relayer, allowed);
     }
 
     /**
@@ -91,8 +90,7 @@ abstract contract RelayedAction is BaseAction {
      * @param active Whether the permissive relayed mode should be active or not
      */
     function setPermissiveRelayedMode(bool active) external auth {
-        isPermissiveRelayedModeActive = active;
-        emit PermissiveRelayedModeSet(active);
+        _setPermissiveRelayedMode(active);
     }
 
     /**
@@ -101,6 +99,34 @@ abstract contract RelayedAction is BaseAction {
      * @param _txCostLimit New total cost limit to be set
      */
     function setLimits(uint256 _gasPriceLimit, uint256 _txCostLimit) external auth {
+        _setLimits(_gasPriceLimit, _txCostLimit);
+    }
+
+    /**
+     * @dev Internal function to set a relayer address
+     * @param relayer Address of the relayer to be set
+     * @param allowed Whether it should be allowed or not
+     */
+    function _setRelayer(address relayer, bool allowed) internal {
+        isRelayer[relayer] = allowed;
+        emit RelayerSet(relayer, allowed);
+    }
+
+    /**
+     * @dev Internal function to set the relayed action permissive relayed mode
+     * @param active Whether the permissive relayed mode should be active or not
+     */
+    function _setPermissiveRelayedMode(bool active) internal {
+        isPermissiveRelayedModeActive = active;
+        emit PermissiveRelayedModeSet(active);
+    }
+
+    /**
+     * @dev Internal function to set the relayer limits
+     * @param _gasPriceLimit New gas price limit to be set
+     * @param _txCostLimit New total cost limit to be set
+     */
+    function _setLimits(uint256 _gasPriceLimit, uint256 _txCostLimit) internal {
         gasPriceLimit = _gasPriceLimit;
         txCostLimit = _txCostLimit;
         emit LimitsSet(_gasPriceLimit, _txCostLimit);
