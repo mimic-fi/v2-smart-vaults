@@ -185,9 +185,23 @@ describe('BPTSwapper - mainnet', function () {
         const POOL = '0x2BBf681cC4eb09218BEe85EA2a5d3D13Fa40fC0C' // bb-a-USDT
         const WHALE = '0xc578d755cd56255d3ff6e92e1b6371ba945e3984'
 
-        setUpPool('IBalancerBoostedPool', POOL, WHALE)
+        setUpPool('IBalancerLinearPool', POOL, WHALE)
         itRedeemsGasProperly()
-        itSwapsForTheFirstUnderlyingToken()
+
+        it('swaps for the first main token', async () => {
+          const mainToken = await instanceAt('IERC20', pool.getMainToken())
+
+          const previousBptBalance = await pool.balanceOf(smartVault.address)
+          const previousMainTokenBalance = await mainToken.balanceOf(smartVault.address)
+
+          await action.connect(relayer).call(pool.address, amount)
+
+          const currentBptBalance = await pool.balanceOf(smartVault.address)
+          expect(currentBptBalance).to.be.equal(previousBptBalance.sub(amount))
+
+          const currentMainTokenBalance = await mainToken.balanceOf(smartVault.address)
+          expect(currentMainTokenBalance).to.be.gt(previousMainTokenBalance)
+        })
       })
 
       context('phantom pool', () => {

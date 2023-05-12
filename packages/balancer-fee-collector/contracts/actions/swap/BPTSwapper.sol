@@ -23,6 +23,7 @@ import '@mimic-fi/v2-smart-vaults-base/contracts/actions/OracledAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
+import './balancer/IBalancerLinearPool.sol';
 import './balancer/IBalancerBoostedPool.sol';
 import './balancer/IBalancerPool.sol';
 import './balancer/IBalancerVault.sol';
@@ -87,10 +88,14 @@ contract BPTSwapper is BaseAction, OracledAction, RelayedAction, TokenThresholdA
      * @param amount Amount of BPTs to swap
      */
     function _buildSwapCall(address pool, uint256 amount) private view returns (bytes memory) {
-        try IBalancerBoostedPool(pool).getBptIndex() returns (uint256 bptIndex) {
-            return _buildBoostedPoolSwap(pool, amount, bptIndex);
+        try IBalancerLinearPool(pool).getMainToken() returns (address main) {
+            return _buildLinearPoolSwap(pool, amount, main);
         } catch {
-            return _buildNormalPoolExit(pool, amount);
+            try IBalancerBoostedPool(pool).getBptIndex() returns (uint256 bptIndex) {
+                return _buildBoostedPoolSwap(pool, amount, bptIndex);
+            } catch {
+                return _buildNormalPoolExit(pool, amount);
+            }
         }
     }
 
@@ -121,6 +126,40 @@ contract BPTSwapper is BaseAction, OracledAction, RelayedAction, TokenThresholdA
                 payable(address(smartVault)),
                 request
             );
+    }
+
+    /**
+     * @dev Exit linear pools using a swap request in exchange for the main token of the pool. The min amount out is
+     * computed based on the current rate of the linear pool.
+     * @param pool Address of the Balancer pool (token) to swap
+     * @param amount Amount of BPTs to swap
+     * @param main Address of the main token
+     */
+    function _buildLinearPoolSwap(address pool, uint256 amount, address main) private view returns (bytes memory) {
+        // Compute minimum amount out in the main token
+        uint256 rate = IBalancerLinearPool(pool).getRate();
+        uint256 decimals = IERC20Metadata(main).decimals();
+        uint256 minAmountOut = decimals <= 18 ? (rate / (10**(18 - decimals))) : (rate * (10**(decimals - 18)));
+
+        // Swap from linear to main token
+        IBalancerVault.SingleSwap memory request = IBalancerVault.SingleSwap({
+            poolId: IBalancerPool(pool).getPoolId(),
+            kind: IBalancerVault.SwapKind.GIVEN_IN,
+            assetIn: pool,
+            assetOut: main,
+            amount: amount,
+            userData: new bytes(0)
+        });
+
+        // Build fund management object: smart vault is the sender and recipient
+        IBalancerVault.FundManagement memory funds = IBalancerVault.FundManagement({
+            sender: address(smartVault),
+            fromInternalBalance: false,
+            recipient: payable(address(smartVault)),
+            toInternalBalance: false
+        });
+
+        return abi.encodeWithSelector(IBalancerVault.swap.selector, request, funds, minAmountOut, block.timestamp);
     }
 
     /**
