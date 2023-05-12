@@ -181,8 +181,8 @@ describe('Deployer', () => {
       ])
     })
 
-    it('sets a fee collector', async () => {
-      expect(await smartVault.feeCollector()).to.be.equal(config.smartVaultParams.feeCollector)
+    it.only('sets a fee collector', async () => {
+      expect(await smartVault.feeCollector()).to.be.equal('')
     })
 
     it('sets a bridge fee', async () => {

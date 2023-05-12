@@ -19,10 +19,14 @@ jobs:
         uses: ./.github/actions/setup
       - name: Lint
         run: yarn lint
-      - name: Notify discord
-        uses: ./.github/actions/notify-discord
-        with:
-          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Job failed
+        uses: rjstone/discord-webhook-notify@v1
+        if: failure()
+        with: { severity: error, details: Job failed!, webhookUrl: ${ { inputs.discord-webhook } } }
+      - name: Job cancelled
+        uses: rjstone/discord-webhook-notify@v1
+        if: cancelled()
+        with: { severity: warn, details: Job cancelled!, webhookUrl: ${ { inputs.discord-webhook } } }
 
   build:
     runs-on: ubuntu-latest
@@ -33,10 +37,14 @@ jobs:
         uses: ./.github/actions/setup
       - name: Build
         run: yarn build
-      - name: Notify discord
-        uses: ./.github/actions/notify-discord
-        with:
-          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Job failed
+        uses: rjstone/discord-webhook-notify@v1
+        if: failure()
+        with: { severity: error, details: Job failed!, webhookUrl: ${{ inputs.discord-webhook }} }
+      - name: Job cancelled
+        uses: rjstone/discord-webhook-notify@v1
+        if: cancelled()
+        with: { severity: warn, details: Job cancelled!, webhookUrl: ${{ inputs.discord-webhook }} }
 
   test:
     runs-on: ubuntu-latest
@@ -49,7 +57,11 @@ jobs:
         run: yarn build
       - name: Test
         run: yarn test
-      - name: Notify discord
-        uses: ./.github/actions/notify-discord
-        with:
-          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+      - name: Job failed
+        uses: rjstone/discord-webhook-notify@v1
+        if: failure()
+        with: { severity: error, details: Job failed!, webhookUrl: ${ { inputs.discord-webhook } } }
+      - name: Job cancelled
+        uses: rjstone/discord-webhook-notify@v1
+        if: cancelled()
+        with: { severity: warn, details: Job cancelled!, webhookUrl: ${ { inputs.discord-webhook } } }

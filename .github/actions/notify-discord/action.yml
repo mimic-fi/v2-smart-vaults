@@ -4,7 +4,9 @@ inputs:
   discord-webhook:
     description: Discord webhook
     required: true
-    default: ''
+  workflow-status:
+    description: Workflow Status
+    required: true
 
 runs:
   using: composite
