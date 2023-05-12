@@ -3,7 +3,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { Contract } from 'ethers'
 
 export type Mimic = {
-  deployerLib: Contract
+  deployer: Contract
   registry: Contract
   smartVaultsFactory: Contract
   smartVault: Contract
@@ -33,7 +33,7 @@ export const ARTIFACTS = {
   PRICE_ORACLE: '@mimic-fi/v2-price-oracle/artifacts/contracts/oracle/PriceOracle.sol/PriceOracle',
   SWAP_CONNECTOR: '@mimic-fi/v2-swap-connector/artifacts/contracts/SwapConnector.sol/SwapConnector',
   BRIDGE_CONNECTOR: '@mimic-fi/v2-bridge-connector/artifacts/contracts/BridgeConnector.sol/BridgeConnector',
-  DEPLOYER_LIB: '@mimic-fi/v2-smart-vaults-base/artifacts/contracts/deploy/DeployerLib.sol/DeployerLib',
+  DEPLOYER: '@mimic-fi/v2-smart-vaults-base/artifacts/contracts/deploy/Deployer.sol/Deployer',
   CREATE3_FACTORY: '@mimic-fi/v2-smart-vaults-base/artifacts/contracts/deploy/Create3Factory.sol/Create3Factory',
 }
 
@@ -42,7 +42,7 @@ export const ARTIFACTS = {
 export async function setupMimic(mocked: boolean): Promise<Mimic> {
   const admin = await getSigner()
 
-  const deployerLib = await deploy('DeployerLib')
+  const deployer = await deploy('Deployer', [admin.address])
 
   const registry = await deploy(ARTIFACTS.REGISTRY, [admin.address])
 
@@ -75,7 +75,7 @@ export async function setupMimic(mocked: boolean): Promise<Mimic> {
   await registry.connect(admin).register(await bridgeConnector.NAMESPACE(), bridgeConnector.address, true)
 
   return {
-    deployerLib,
+    deployer,
     registry,
     smartVaultsFactory,
     smartVault,

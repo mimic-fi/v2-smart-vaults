@@ -1,4 +1,4 @@
-import { assertEvent, deploy, fp, getSigner, getSigners, instanceAt, ONES_BYTES32 } from '@mimic-fi/v2-helpers'
+import { assertEvent, fp, getSigner, getSigners, instanceAt, ONES_BYTES32 } from '@mimic-fi/v2-helpers'
 import { assertPermissions, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
@@ -42,8 +42,7 @@ describe('Deployer', () => {
     smartVaultParams.swapConnector = mimic.swapConnector.address
     smartVaultParams.bridgeConnector = mimic.bridgeConnector.address
 
-    const deployer = await deploy('Deployer', [owners[0]], undefined, { DeployerLib: mimic.deployerLib.address })
-    const tx = await deployer.deploy({ registry: mimic.registry.address, owners, smartVaultParams })
+    const tx = await mimic.deployer.deploy({ registry: mimic.registry.address, owners, smartVaultParams })
 
     const smartVaultEvent = await assertEvent(tx, 'SmartVaultDeployed')
     smartVault = await instanceAt('SmartVault', smartVaultEvent.args.smartVault)
