@@ -50,7 +50,7 @@ contract ConnextBridger is BaseAction, TokenThresholdAction {
         smartVault = ISmartVault(config.smartVault);
         emit SmartVaultSet(config.smartVault);
 
-        _setMaxRelayerFeePct(maxRelayerFeePct);
+        _setMaxRelayerFeePct(config.maxRelayerFeePct);
         for (uint256 i = 0; i < config.allowedTokens.length; i++) _setAllowedToken(config.allowedTokens[i], true);
         for (uint256 j = 0; j < config.allowedChainIds.length; j++) _setAllowedChain(config.allowedChainIds[j], true);
 
