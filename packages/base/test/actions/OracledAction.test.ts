@@ -14,9 +14,8 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
 
-import { createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
+import { createPriceFeedMock, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
 import { buildExtraFeedData, FeedData } from '../../src/oracle'
-import { createPriceFeedMock } from '../../src/samples'
 
 describe('OracledAction', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic, owner: SignerWithAddress
