@@ -869,6 +869,16 @@
     "@mimic-fi/v2-registry" "0.1.0"
     "@openzeppelin/contracts" "4.7.0"
 
+"@mimic-fi/v2-deployer@0.0.1":
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-deployer/-/v2-deployer-0.0.1.tgz#3f1f3dfb5008932afc55ef801d921bc89b4edb34"
+  integrity sha512-Lw7H2D8WvXUSXPf9NHIs40Dgk3l4ej2P1Ws9wwSzlGRNNf6Hy3c6zB1q/ujiUAQ59f433VBfH3KgVTcRaHtlTg==
+  dependencies:
+    "@mimic-fi/v2-helpers" "0.1.2"
+    "@mimic-fi/v2-registry" "0.1.1"
+    "@openzeppelin/contracts" "4.7.0"
+    "@openzeppelin/contracts-upgradeable" "4.7.0"
+
 "@mimic-fi/v2-helpers@0.0.10":
   version "0.0.10"
   resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.0.10.tgz#bf1aefe40abbc9ee240fb452e3fa6310a67200c8"
@@ -925,6 +935,30 @@
     ethers "~5.6.0"
     hardhat "^2.12.4"
 
+"@mimic-fi/v2-helpers@0.1.2":
+  version "0.1.2"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-helpers/-/v2-helpers-0.1.2.tgz#f7d567639273554a2439ff428a4ffcb7cd8f0340"
+  integrity sha512-GZXdWHIE6VY94Up2Xbwjxc6ja12nSFRjMwBanwzh92IxoHKIbFtWE+kfAbea3aXJdy3KRkcpMYHJBveo0N3zQg==
+  dependencies:
+    "@nomiclabs/hardhat-ethers" "^2.2.1"
+    "@nomiclabs/hardhat-waffle" "^2.0.3"
+    "@types/chai" "^4.2.18"
+    "@types/mocha" "^8.2.2"
+    chai "^4.2.0"
+    decimal.js "^10.3.1"
+    ethers "~5.6.0"
+    hardhat "^2.12.4"
+
+"@mimic-fi/v2-permissions-manager@0.0.1":
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-permissions-manager/-/v2-permissions-manager-0.0.1.tgz#b9db7c275c9073c96cdfa92a837091e26baa94e0"
+  integrity sha512-+jN9xzIo+Bv6ZN5tXWfXntPWLaXkp5qZLZhljlAwBZtH3fBZOI/N+sZTAFqvXkq3VygtbdsrBIBtO0spF5GxOQ==
+  dependencies:
+    "@mimic-fi/v2-helpers" "0.1.2"
+    "@mimic-fi/v2-registry" "0.1.1"
+    "@openzeppelin/contracts" "4.7.0"
+    "@openzeppelin/contracts-upgradeable" "4.7.0"
+
 "@mimic-fi/v2-price-oracle@0.0.7":
   version "0.0.7"
   resolved "https://registry.yarnpkg.com/@mimic-fi/v2-price-oracle/-/v2-price-oracle-0.0.7.tgz#1f79a75e83caba115750793f8a212c3798c17265"
@@ -958,6 +992,15 @@
   integrity sha512-bForQU5b50Zzkj17ZL4hzcQmLdXa1CHqYWoNXrcdXeVMDdbY25+xPNFUT6k39ZDJmCj9xE65lAaWQpbYzqfbyw==
   dependencies:
     "@mimic-fi/v2-helpers" "0.1.0"
+
+"@mimic-fi/v2-registry@0.1.1":
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-registry/-/v2-registry-0.1.1.tgz#e29437f48dcfeb35b9b78be51f45adf3b2b3701c"
+  integrity sha512-2g5eUEJdS/G/rV9hPMxiP4uxEkVscI6Cbzq+SUN5rELbTJhFta9wbyuiViJLE4tqHWV1umGlmQed8lh9XcWnHw==
+  dependencies:
+    "@mimic-fi/v2-helpers" "0.1.0"
+    "@openzeppelin/contracts" "4.7.0"
+    "@openzeppelin/contracts-upgradeable" "4.7.0"
 
 "@mimic-fi/v2-smart-vault@0.0.11":
   version "0.0.11"
@@ -1015,6 +1058,20 @@
   version "0.0.6"
   resolved "https://registry.yarnpkg.com/@mimic-fi/v2-smart-vaults-base/-/v2-smart-vaults-base-0.0.6.tgz#c71048465243b0cd078aecd7d3b1b568dd555acf"
   integrity sha512-SYbwB3L2jL0d1iY/Yi0Ok4V1gXWcwdiBu/AU09ob9ptXoVJedRb38x1lph9iZJ97oByW+/rDJU5V6SbaN8GwUg==
+  dependencies:
+    "@mimic-fi/v2-bridge-connector" "0.1.0"
+    "@mimic-fi/v2-helpers" "0.1.1"
+    "@mimic-fi/v2-price-oracle" "0.1.0"
+    "@mimic-fi/v2-registry" "0.1.0"
+    "@mimic-fi/v2-smart-vault" "0.1.0"
+    "@mimic-fi/v2-strategies" "0.1.0"
+    "@mimic-fi/v2-swap-connector" "0.1.0"
+    "@openzeppelin/contracts" "4.7.0"
+
+"@mimic-fi/v2-smart-vaults-base@0.0.8":
+  version "0.0.8"
+  resolved "https://registry.yarnpkg.com/@mimic-fi/v2-smart-vaults-base/-/v2-smart-vaults-base-0.0.8.tgz#8bd45709d3b62bf6b1e3f4370ee6ef680648a8e9"
+  integrity sha512-FH1fuBYt0YnTZbVgJ9YwQRX1e/w/bbLBNlpK/JxXQ/+2SKiGX3Pa8Oz1kzMgjW3lIC4oRKFBQRFEKgWo0lC0nA==
   dependencies:
     "@mimic-fi/v2-bridge-connector" "0.1.0"
     "@mimic-fi/v2-helpers" "0.1.1"
@@ -1381,6 +1438,11 @@
   dependencies:
     "@types/sinon-chai" "^3.2.3"
     "@types/web3" "1.0.19"
+
+"@openzeppelin/contracts-upgradeable@4.7.0":
+  version "4.7.0"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts-upgradeable/-/contracts-upgradeable-4.7.0.tgz#6437261286879d353f6de7bf3ac8216bef8a486d"
+  integrity sha512-wO3PyoAaAV/rA77cK8H4c3SbO98QylTjfiFxyvURUZKTFLV180rnAvna1x7/Nxvt0Gqv+jt1sXKC7ygxsq8iCw==
 
 "@openzeppelin/contracts@3.4.2-solc-0.7":
   version "3.4.2-solc-0.7"

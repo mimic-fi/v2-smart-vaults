@@ -5,6 +5,7 @@ import {
   assertNoEvent,
   currentTimestamp,
   DAY,
+  deploy,
   fp,
   getSigner,
   getSigners,
@@ -13,9 +14,8 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
 
-import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
+import { createPriceFeedMock, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
 import { buildExtraFeedData, FeedData } from '../../src/oracle'
-import { createPriceFeedMock } from '../../src/samples'
 
 describe('OracledAction', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic, owner: SignerWithAddress
@@ -28,7 +28,7 @@ describe('OracledAction', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     smartVault = await createSmartVault(mimic, owner)
-    action = await createAction('OracledActionMock', mimic, owner, smartVault)
+    action = await deploy('OracledActionMock', [smartVault.address, owner.address, mimic.registry.address])
   })
 
   describe('setOracleSigner', () => {

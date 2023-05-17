@@ -12,8 +12,8 @@ contract RelayedActionMock is RelayedAction {
 
     address public token;
 
-    constructor(address admin, address registry) BaseAction(admin, registry) {
-        // solhint-disable-previous-line no-empty-blocks
+    constructor(address smartVault, address admin, address registry) BaseAction(admin, registry) {
+        _setSmartVault(smartVault);
     }
 
     function setToken(address _token) external {

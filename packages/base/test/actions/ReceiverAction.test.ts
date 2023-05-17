@@ -1,10 +1,10 @@
-import { fp, getSigners, NATIVE_TOKEN_ADDRESS } from '@mimic-fi/v2-helpers'
+import { deploy, fp, getSigners, NATIVE_TOKEN_ADDRESS } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
-import { createAction, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
+import { createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
 
 describe('ReceiverAction', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic
@@ -18,7 +18,7 @@ describe('ReceiverAction', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     smartVault = await createSmartVault(mimic, owner)
-    action = await createAction('ReceiverActionMock', mimic, owner, smartVault)
+    action = await deploy('ReceiverActionMock', [smartVault.address, owner.address, mimic.registry.address])
   })
 
   describe('transferToSmartVault', () => {
