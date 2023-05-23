@@ -2,14 +2,19 @@
 
 pragma solidity ^0.8.0;
 
-import '../../actions/TimeLockedAction.sol';
+import '../../actions/base/TimeLockedAction.sol';
 
 contract TimeLockedActionMock is TimeLockedAction {
-    constructor(address smartVault, address admin, address registry) BaseAction(admin, registry) {
-        _setSmartVault(smartVault);
+    struct Config {
+        BaseConfig baseConfig;
+        TimeLockConfig timeLockConfig;
     }
 
-    function call() external {
-        _validateTimeLock();
+    constructor(Config memory config) BaseAction(config.baseConfig) TimeLockedAction(config.timeLockConfig) {
+        // solhint-disable-previous-line no-empty-blocks
+    }
+
+    function call() external actionCall(address(0), 0) {
+        // solhint-disable-previous-line no-empty-blocks
     }
 }

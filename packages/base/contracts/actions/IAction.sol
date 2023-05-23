@@ -14,21 +14,25 @@
 
 pragma solidity >=0.8.0;
 
-import '@mimic-fi/v2-smart-vault/contracts/ISmartVault.sol';
-import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
+import './base/interfaces/IBaseAction.sol';
+import './base/interfaces/IOracledAction.sol';
+import './base/interfaces/IRelayedAction.sol';
+import './base/interfaces/ITimeLockedAction.sol';
+import './base/interfaces/ITokenIndexedAction.sol';
+import './base/interfaces/ITokenThresholdAction.sol';
+
+// solhint-disable no-empty-blocks
 
 /**
- * @title IAction
- * @dev Action interface it must follow the IAuthorizer interface
+ * @dev Action interface
  */
-interface IAction is IAuthorizer {
-    /**
-     * @dev Emitted every time an action is executed
-     */
-    event Executed();
+interface IAction is
+    IBaseAction,
+    IOracledAction,
+    IRelayedAction,
+    ITimeLockedAction,
+    ITokenIndexedAction,
+    ITokenThresholdAction
+{
 
-    /**
-     * @dev Tells the address of the Smart Vault tied to it, it cannot be changed
-     */
-    function smartVault() external view returns (ISmartVault);
 }

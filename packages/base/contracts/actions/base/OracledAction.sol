@@ -6,6 +6,7 @@ import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
 import './BaseAction.sol';
+import './interfaces/IOracledAction.sol';
 
 /**
  * @dev Action that can work with off-chain passed feed data from trusted oracles.
@@ -19,49 +20,32 @@ import './BaseAction.sol';
  *
  * [ base | quote | rate | deadline ]
  */
-abstract contract OracledAction is BaseAction {
+abstract contract OracledAction is IOracledAction, BaseAction {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    // Enumerable set of trusted signers
+    EnumerableSet.AddressSet private _signers;
+
     /**
-     * @dev Feed data
-     * @param base Token to rate
-     * @param quote Token used for the price rate
-     * @param rate Price of a token (base) expressed in `quote`. It must use the corresponding number of decimals so
-     *             that when performing a fixed point product of it by a `base` amount, the result is expressed in
-     *             `quote` decimals. For example, if `base` is ETH and `quote` is USDC, the number of decimals of `rate`
-     *             must be 6: FixedPoint.mul(X[ETH], rate[USDC/ETH]) = FixedPoint.mul(X[18], price[6]) = X * price [6].
-     * @param deadline Expiration timestamp until when the given quote is considered valid
+     * @dev Oracled action config. Only used in the constructor.
+     * @param signers List of oracle signers to be allowed
      */
-    struct FeedData {
-        address base;
-        address quote;
-        uint256 rate;
-        uint256 deadline;
+    struct OracleConfig {
+        address[] signers;
     }
 
-    // Enumerable set of trusted signers
-    EnumerableSet.AddressSet private signers;
-
     /**
-     * @dev Emitted every time a signer condition is changed
+     * @dev Creates a new oracled action
      */
-    event OracleSignerSet(address indexed signer, bool allowed);
-
-    /**
-     * @dev Change an oracle signer condition. Sender must be authorized.
-     * @param signer Address of the signer being queried
-     * @param allowed Whether the signer should be allowed or not
-     * @return success True if the signer was actually added or removed from the list of oracle signers
-     */
-    function setOracleSigner(address signer, bool allowed) external auth returns (bool success) {
-        return _setOracleSigner(signer, allowed);
+    constructor(OracleConfig memory config) {
+        _addOracleSigners(config.signers);
     }
 
     /**
      * @dev Tells the list of oracle signers
      */
     function getOracleSigners() external view returns (address[] memory) {
-        return signers.values();
+        return _signers.values();
     }
 
     /**
@@ -69,7 +53,7 @@ abstract contract OracledAction is BaseAction {
      * @param signer Address of the signer being queried
      */
     function isOracleSigner(address signer) public view returns (bool) {
-        return signers.contains(signer);
+        return _signers.contains(signer);
     }
 
     /**
@@ -81,15 +65,37 @@ abstract contract OracledAction is BaseAction {
     }
 
     /**
-     * @dev Internal function to set an oracle signer condition
-     * @param signer Address of the signer being queried
-     * @param allowed Whether the signer should be allowed or not
-     * @return success True if the signer was actually added or removed from the list of oracle signers
+     * @dev Updates the list of allowed oracle signers
+     * @param toAdd List of signers to be added to the oracle signers list
+     * @param toRemove List of signers to be removed from the oracle signers list
+     * @notice The list of signers to be added will be processed first to make sure no undesired signers are allowed
      */
-    function _setOracleSigner(address signer, bool allowed) internal returns (bool success) {
-        require(signer != address(0), 'ORACLED_SIGNER_ZERO');
-        success = allowed ? signers.add(signer) : signers.remove(signer);
-        if (success) emit OracleSignerSet(signer, allowed);
+    function setOracleSigners(address[] memory toAdd, address[] memory toRemove) external auth {
+        _addOracleSigners(toAdd);
+        _removeOracleSigners(toRemove);
+    }
+
+    /**
+     * @dev Adds a list of addresses to the signers allow-list
+     * @param signers List of addresses to be added to the signers allow-list
+     */
+    function _addOracleSigners(address[] memory signers) internal {
+        for (uint256 i = 0; i < signers.length; i++) {
+            address signer = signers[i];
+            require(signer != address(0), 'SIGNER_ADDRESS_ZERO');
+            if (_signers.add(signer)) emit OracleSignerAllowed(signer);
+        }
+    }
+
+    /**
+     * @dev Removes a list of addresses from the signers allow-list
+     * @param signers List of addresses to be removed from the signers allow-list
+     */
+    function _removeOracleSigners(address[] memory signers) internal {
+        for (uint256 i = 0; i < signers.length; i++) {
+            address signer = signers[i];
+            if (_signers.remove(signer)) emit OracleSignerDisallowed(signer);
+        }
     }
 
     /**

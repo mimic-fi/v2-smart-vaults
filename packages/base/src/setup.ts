@@ -116,3 +116,41 @@ export async function setupMimic(mocked: boolean): Promise<Mimic> {
     admin,
   }
 }
+
+export function buildEmptyActionConfig(owner: SignerWithAddress, smartVault: Contract): any {
+  return {
+    baseConfig: {
+      owner: owner.address,
+      smartVault: smartVault.address,
+    },
+    oracleConfig: {
+      signers: [],
+    },
+    relayConfig: {
+      gasPriceLimit: 0,
+      priorityFeeLimit: 0,
+      txCostLimit: 0,
+      gasToken: ZERO_ADDRESS,
+      permissiveMode: false,
+      relayers: [],
+    },
+    timeLockConfig: {
+      delay: 0,
+      nextExecutionTimestamp: 0,
+    },
+    tokenIndexConfig: {
+      tokens: [],
+      sources: [],
+      acceptanceType: 0,
+    },
+    tokenThresholdConfig: {
+      tokens: [],
+      thresholds: [],
+      defaultThreshold: {
+        token: ZERO_ADDRESS,
+        min: 0,
+        max: 0,
+      },
+    },
+  }
+}

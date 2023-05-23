@@ -2,25 +2,22 @@
 
 pragma solidity ^0.8.0;
 
-import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
-
-import '../../actions/RelayedAction.sol';
+import '../../actions/base/RelayedAction.sol';
 
 contract RelayedActionMock is RelayedAction {
     // Cost in gas of a call op + gas cost computation + withdraw form SV
     uint256 public constant override BASE_GAS = 21e3 + 20e3;
 
-    address public token;
-
-    constructor(address smartVault, address admin, address registry) BaseAction(admin, registry) {
-        _setSmartVault(smartVault);
+    struct Config {
+        BaseConfig baseConfig;
+        RelayConfig relayConfig;
     }
 
-    function setToken(address _token) external {
-        token = _token;
+    constructor(Config memory config) BaseAction(config.baseConfig) RelayedAction(config.relayConfig) {
+        // solhint-disable-previous-line no-empty-blocks
     }
 
-    function call() external redeemGas(token) {
+    function call() external actionCall(address(0), 0) {
         // solhint-disable-previous-line no-empty-blocks
     }
 }
