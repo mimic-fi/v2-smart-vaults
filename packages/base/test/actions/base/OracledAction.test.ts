@@ -8,97 +8,103 @@ import {
   deploy,
   fp,
   getSigner,
-  getSigners,
 } from '@mimic-fi/v2-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
 
-import { createPriceFeedMock, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../dist'
-import { buildExtraFeedData, FeedData } from '../../src/oracle'
+import { createPriceFeedMock, createSmartVault, createTokenMock, Mimic, setupMimic } from '../../../dist'
+import { buildExtraFeedData, FeedData } from '../../../src/oracle'
 
 describe('OracledAction', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic, owner: SignerWithAddress
 
-  before('set up signers', async () => {
-    // eslint-disable-next-line prettier/prettier
-    [, owner] = await getSigners()
+  before('setup dependencies', async () => {
+    owner = await getSigner(2)
+    mimic = await setupMimic(true)
   })
 
   beforeEach('deploy action', async () => {
-    mimic = await setupMimic(true)
     smartVault = await createSmartVault(mimic, owner)
-    action = await deploy('OracledActionMock', [smartVault.address, owner.address, mimic.registry.address])
+    action = await deploy('OracledActionMock', [
+      {
+        baseConfig: {
+          owner: owner.address,
+          smartVault: smartVault.address,
+        },
+        oracleConfig: {
+          signers: [],
+        },
+      },
+    ])
   })
 
-  describe('setOracleSigner', () => {
+  describe('setOracleSigners', () => {
     context('when the sender is authorized', () => {
       beforeEach('authorize sender', async () => {
-        const setOracleSignerRole = action.interface.getSighash('setOracleSigner')
+        const setOracleSignerRole = action.interface.getSighash('setOracleSigners')
         await action.connect(owner).authorize(owner.address, setOracleSignerRole)
         action = action.connect(owner)
       })
 
       context('when allowing the signer', () => {
-        const allowed = true
-
         context('when the signer was not allowed', () => {
           it('allows the signer', async () => {
-            await action.setOracleSigner(owner.address, allowed)
+            await action.setOracleSigners([owner.address], [])
             expect(await action.isOracleSigner(owner.address)).to.be.true
           })
 
           it('emits an event', async () => {
-            const tx = await action.setOracleSigner(owner.address, allowed)
-            await assertEvent(tx, 'OracleSignerSet', { signer: owner, allowed })
+            const tx = await action.setOracleSigners([owner.address], [])
+            await assertEvent(tx, 'OracleSignerAllowed', { signer: owner })
           })
         })
 
         context('when the signer was not allowed', () => {
           beforeEach('allow signer', async () => {
-            await action.setOracleSigner(owner.address, true)
+            await action.setOracleSigners([owner.address], [])
           })
 
           it('does not affect the signer condition', async () => {
-            await action.setOracleSigner(owner.address, allowed)
+            await action.setOracleSigners([owner.address], [])
             expect(await action.isOracleSigner(owner.address)).to.be.true
           })
 
           it('does not emit an event', async () => {
-            const tx = await action.setOracleSigner(owner.address, allowed)
-            await assertNoEvent(tx, 'OracleSignerSet')
+            const tx = await action.setOracleSigners([owner.address], [])
+            await assertNoEvent(tx, 'OracleSignerAllowed')
+            await assertNoEvent(tx, 'OracleSignerDisallowed')
           })
         })
       })
 
       context('when removing the signer', () => {
-        const allowed = false
-
         context('when the signer was not allowed', () => {
           it('does not affect the signer condition', async () => {
-            await action.setOracleSigner(owner.address, allowed)
+            await action.setOracleSigners([], [owner.address])
             expect(await action.isOracleSigner(owner.address)).to.be.false
           })
 
           it('does not emit an event', async () => {
-            const tx = await action.setOracleSigner(owner.address, allowed)
-            await assertNoEvent(tx, 'OracleSignerSet')
+            const tx = await action.setOracleSigners([], [owner.address])
+            await assertNoEvent(tx, 'OracleSignerAllowed')
+            await assertNoEvent(tx, 'OracleSignerDisallowed')
           })
         })
 
         context('when the signer was allowed', () => {
           beforeEach('allow signer', async () => {
-            await action.setOracleSigner(owner.address, true)
+            await action.setOracleSigners([owner.address], [])
           })
 
           it('removes the oracle signer', async () => {
-            await action.setOracleSigner(owner.address, allowed)
+            await action.setOracleSigners([], [owner.address])
             expect(await action.isOracleSigner(owner.address)).to.be.false
           })
 
           it('emits an event', async () => {
-            const tx = await action.setOracleSigner(owner.address, allowed)
-            await assertEvent(tx, 'OracleSignerSet', { signer: owner, allowed })
+            const tx = await action.setOracleSigners([], [owner.address])
+            await assertEvent(tx, 'OracleSignerDisallowed', { signer: owner })
           })
         })
       })
@@ -106,7 +112,7 @@ describe('OracledAction', () => {
 
     context('when the sender is not authorized', () => {
       it('reverts', async () => {
-        await expect(action.setOracleSigner(owner.address, true)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.setOracleSigners([owner.address], [])).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -178,9 +184,9 @@ describe('OracledAction', () => {
             const signer = await getSigner(2)
             extraCallData = await buildExtraFeedData(action, feedsData, signer)
 
-            const setOracleSignerRole = action.interface.getSighash('setOracleSigner')
+            const setOracleSignerRole = action.interface.getSighash('setOracleSigners')
             await action.connect(owner).authorize(owner.address, setOracleSignerRole)
-            await action.connect(owner).setOracleSigner(signer.address, true)
+            await action.connect(owner).setOracleSigners([signer.address], [])
           })
 
           context('when the feed data is up-to-date', () => {

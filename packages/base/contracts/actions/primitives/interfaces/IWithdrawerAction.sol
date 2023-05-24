@@ -14,24 +14,30 @@
 
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@openzeppelin/contracts/utils/Address.sol';
+import '../../IAction.sol';
 
-import './BaseAction.sol';
+/**
+ * @dev Withdrawer action interface
+ */
+interface IWithdrawerAction is IAction {
+    /**
+     * @dev Emitted every time the recipient is set
+     */
+    event RecipientSet(address indexed recipient);
 
-abstract contract ReceiverAction is BaseAction {
-    using SafeERC20 for IERC20;
+    /**
+     * @dev Tells the address of the allowed recipient
+     */
+    function getRecipient() external view returns (address);
 
-    receive() external payable {
-        // solhint-disable-previous-line no-empty-blocks
-    }
+    /**
+     * @dev Sets the recipient address
+     * @param recipient Address of the new recipient to be set
+     */
+    function setRecipient(address recipient) external;
 
-    function transferToSmartVault(address token, uint256 amount) external auth {
-        _transferToSmartVault(token, amount);
-    }
-
-    function _transferToSmartVault(address token, uint256 amount) internal {
-        ERC20Helpers.transfer(token, address(smartVault), amount);
-    }
+    /**
+     * @dev Execution function
+     */
+    function call(address token, uint256 amount) external;
 }
