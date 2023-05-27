@@ -42,17 +42,12 @@ interface ITokenThresholdAction is IBaseAction {
     /**
      * @dev Emitted every time a token threshold is set
      */
-    event TokenThresholdSet(address indexed token, Threshold threshold);
+    event CustomTokenThresholdSet(address indexed token, Threshold threshold);
 
     /**
      * @dev Emitted every time a token threshold is unset
      */
-    event TokenThresholdUnset(address indexed token);
-
-    /**
-     * @dev Tells if there is a default token threshold set
-     */
-    function hasDefaultTokenThreshold() external view returns (bool);
+    event CustomTokenThresholdUnset(address indexed token);
 
     /**
      * @dev Tells the default token threshold
@@ -63,12 +58,12 @@ interface ITokenThresholdAction is IBaseAction {
      * @dev Tells the token threshold defined for a specific token
      * @param token Address of the token being queried
      */
-    function getTokenThreshold(address token) external view returns (bool exists, Threshold memory threshold);
+    function getCustomTokenThreshold(address token) external view returns (bool exists, Threshold memory threshold);
 
     /**
      * @dev Tells the list of custom token thresholds set
      */
-    function getTokenThresholds() external view returns (address[] memory tokens, Threshold[] memory thresholds);
+    function getCustomTokenThresholds() external view returns (address[] memory tokens, Threshold[] memory thresholds);
 
     /**
      * @dev Sets a new default threshold config
@@ -86,11 +81,11 @@ interface ITokenThresholdAction is IBaseAction {
      * @param tokens List of token addresses to set its custom thresholds
      * @param thresholds Lists of thresholds be set for each token
      */
-    function setTokenThresholds(address[] memory tokens, Threshold[] memory thresholds) external;
+    function setCustomTokenThresholds(address[] memory tokens, Threshold[] memory thresholds) external;
 
     /**
      * @dev Unsets a list of custom threshold tokens, it ignores nonexistent custom thresholds
      * @param tokens List of token addresses to unset its custom thresholds
      */
-    function unsetTokenThresholds(address[] memory tokens) external;
+    function unsetCustomTokenThresholds(address[] memory tokens) external;
 }

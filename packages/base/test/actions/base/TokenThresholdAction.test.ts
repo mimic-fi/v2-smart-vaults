@@ -29,8 +29,7 @@ describe('TokenThresholdAction', () => {
           smartVault: smartVault.address,
         },
         tokenThresholdConfig: {
-          tokens: [],
-          thresholds: [],
+          customThresholds: [],
           defaultThreshold: {
             token: ZERO_ADDRESS,
             min: 0,
@@ -184,26 +183,26 @@ describe('TokenThresholdAction', () => {
     })
   })
 
-  describe('setTokenThresholds', () => {
+  describe('setCustomTokenThresholds', () => {
     context('when the sender is authorized', () => {
       beforeEach('authorize sender', async () => {
-        const setTokenThresholdsRole = action.interface.getSighash('setTokenThresholds')
-        await action.connect(owner).authorize(owner.address, setTokenThresholdsRole)
+        const setCustomTokenThresholdsRole = action.interface.getSighash('setCustomTokenThresholds')
+        await action.connect(owner).authorize(owner.address, setCustomTokenThresholdsRole)
         action = action.connect(owner)
       })
 
       context('when the input length is valid', () => {
         const itCanBeSet = (token: string, thresholdToken: string, min: BigNumberish, max: BigNumberish) => {
           it('sets the custom token threshold correctly', async () => {
-            await action.setTokenThresholds([token], [{ token: thresholdToken, min, max }])
+            await action.setCustomTokenThresholds([token], [{ token: thresholdToken, min, max }])
 
-            const { exists, threshold } = await action.getTokenThreshold(token)
+            const { exists, threshold } = await action.getCustomTokenThreshold(token)
             expect(exists).to.be.true
             expect(threshold.token).to.be.equal(thresholdToken)
             expect(threshold.min).to.be.equal(min)
             expect(threshold.max).to.be.equal(max)
 
-            const { tokens, thresholds } = await action.getTokenThresholds()
+            const { tokens, thresholds } = await action.getCustomTokenThresholds()
 
             expect(tokens).to.have.lengthOf(1)
             expect(tokens[0]).to.be.equal(token)
@@ -215,7 +214,7 @@ describe('TokenThresholdAction', () => {
           })
 
           it('emits an event', async () => {
-            const tx = await action.setTokenThresholds([token], [{ token: thresholdToken, min, max }])
+            const tx = await action.setCustomTokenThresholds([token], [{ token: thresholdToken, min, max }])
 
             assertEvent(tx, 'TokenThresholdSet', { token, threshold: { token: thresholdToken, min, max } })
           })
@@ -270,7 +269,7 @@ describe('TokenThresholdAction', () => {
 
                   it('reverts', async () => {
                     await expect(
-                      action.setTokenThresholds([token], [{ token: thresholdToken, min, max }])
+                      action.setCustomTokenThresholds([token], [{ token: thresholdToken, min, max }])
                     ).to.be.revertedWith('INVALID_THRESHOLD_MAX_LT_MIN')
                   })
                 })
@@ -283,7 +282,7 @@ describe('TokenThresholdAction', () => {
 
             it('reverts', async () => {
               await expect(
-                action.setTokenThresholds([token], [{ token: thresholdToken, min: 0, max: 0 }])
+                action.setCustomTokenThresholds([token], [{ token: thresholdToken, min: 0, max: 0 }])
               ).to.be.revertedWith('INVALID_THRESHOLD_TOKEN_ZERO')
             })
           })
@@ -294,7 +293,7 @@ describe('TokenThresholdAction', () => {
 
           it('reverts', async () => {
             await expect(
-              action.setTokenThresholds([token], [{ token: ZERO_ADDRESS, min: 0, max: 0 }])
+              action.setCustomTokenThresholds([token], [{ token: ZERO_ADDRESS, min: 0, max: 0 }])
             ).to.be.revertedWith('THRESHOLD_TOKEN_ADDRESS_ZERO')
           })
         })
@@ -302,8 +301,10 @@ describe('TokenThresholdAction', () => {
 
       context('when the input length is not valid', () => {
         it('reverts', async () => {
-          await expect(action.setTokenThresholds([tokenA], [])).to.be.revertedWith('TOKEN_THRESHOLDS_INPUT_INV_LEN')
-          await expect(action.setTokenThresholds([], [{ token: tokenA, min: 0, max: 0 }])).to.be.revertedWith(
+          await expect(action.setCustomTokenThresholds([tokenA], [])).to.be.revertedWith(
+            'TOKEN_THRESHOLDS_INPUT_INV_LEN'
+          )
+          await expect(action.setCustomTokenThresholds([], [{ token: tokenA, min: 0, max: 0 }])).to.be.revertedWith(
             'TOKEN_THRESHOLDS_INPUT_INV_LEN'
           )
         })
@@ -312,12 +313,12 @@ describe('TokenThresholdAction', () => {
 
     context('when the sender is not authorized', () => {
       it('reverts', async () => {
-        await expect(action.setTokenThresholds([], [])).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.setCustomTokenThresholds([], [])).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
 
-  describe('unsetTokenThresholds', () => {
+  describe('unsetCustomTokenThresholds', () => {
     const tokens = [tokenA, tokenB]
     const thresholds = [
       { token: tokenC, min: 1, max: 2 },
@@ -326,24 +327,24 @@ describe('TokenThresholdAction', () => {
 
     context('when the sender is authorized', () => {
       beforeEach('authorize sender', async () => {
-        const unsetTokenThresholdsRole = action.interface.getSighash('unsetTokenThresholds')
-        await action.connect(owner).authorize(owner.address, unsetTokenThresholdsRole)
+        const unsetCustomTokenThresholdsRole = action.interface.getSighash('unsetCustomTokenThresholds')
+        await action.connect(owner).authorize(owner.address, unsetCustomTokenThresholdsRole)
       })
 
       context('when there were some thresholds set', () => {
         beforeEach('set some thresholds', async () => {
-          const setTokenThresholdsRole = action.interface.getSighash('setTokenThresholds')
-          await action.connect(owner).authorize(owner.address, setTokenThresholdsRole)
-          await action.connect(owner).setTokenThresholds(tokens, thresholds)
+          const setCustomTokenThresholdsRole = action.interface.getSighash('setCustomTokenThresholds')
+          await action.connect(owner).authorize(owner.address, setCustomTokenThresholdsRole)
+          await action.connect(owner).setCustomTokenThresholds(tokens, thresholds)
         })
 
         context('when there was a custom threshold set', () => {
           const token = tokenA
 
           it('removes it from the list', async () => {
-            await action.connect(owner).unsetTokenThresholds([token])
+            await action.connect(owner).unsetCustomTokenThresholds([token])
 
-            const { tokens, thresholds } = await action.getTokenThresholds()
+            const { tokens, thresholds } = await action.getCustomTokenThresholds()
 
             expect(tokens).to.have.lengthOf(1)
             expect(tokens[0]).to.be.equal(tokenB)
@@ -355,7 +356,7 @@ describe('TokenThresholdAction', () => {
           })
 
           it('emits an event', async () => {
-            const tx = await action.connect(owner).unsetTokenThresholds([token])
+            const tx = await action.connect(owner).unsetCustomTokenThresholds([token])
 
             assertEvent(tx, 'TokenThresholdUnset', { token })
           })
@@ -365,16 +366,16 @@ describe('TokenThresholdAction', () => {
           const token = tokenC
 
           it('does not affect the list', async () => {
-            await action.connect(owner).unsetTokenThresholds([token])
+            await action.connect(owner).unsetCustomTokenThresholds([token])
 
-            const { tokens, thresholds } = await action.getTokenThresholds()
+            const { tokens, thresholds } = await action.getCustomTokenThresholds()
             expect(tokens).to.have.lengthOf(tokens.length)
             expect(tokens).to.have.members(tokens)
             expect(thresholds).to.have.members(thresholds)
           })
 
           it('does not emit an event', async () => {
-            const tx = await action.connect(owner).unsetTokenThresholds([token])
+            const tx = await action.connect(owner).unsetCustomTokenThresholds([token])
 
             assertNoEvent(tx, 'TokenThresholdUnset')
           })
@@ -383,7 +384,7 @@ describe('TokenThresholdAction', () => {
 
       context('when there were no token thresholds set', () => {
         it('ignores the request', async () => {
-          const tx = await action.connect(owner).unsetTokenThresholds([tokenA])
+          const tx = await action.connect(owner).unsetCustomTokenThresholds([tokenA])
 
           assertNoEvent(tx, 'TokenThresholdUnset')
         })
@@ -392,7 +393,7 @@ describe('TokenThresholdAction', () => {
 
     context('when the sender is not authorized', () => {
       it('reverts', async () => {
-        await expect(action.unsetTokenThresholds([])).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.unsetCustomTokenThresholds([])).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
@@ -437,9 +438,9 @@ describe('TokenThresholdAction', () => {
         })
 
         beforeEach('set threshold', async () => {
-          const setTokenThresholdsRole = action.interface.getSighash('setTokenThresholds')
-          await action.connect(owner).authorize(owner.address, setTokenThresholdsRole)
-          await action.connect(owner).setTokenThresholds([WETH], [{ token: USDT, min: fp(3200), max: fp(6400) }])
+          const setCustomTokenThresholdsRole = action.interface.getSighash('setCustomTokenThresholds')
+          await action.connect(owner).authorize(owner.address, setCustomTokenThresholdsRole)
+          await action.connect(owner).setCustomTokenThresholds([WETH], [{ token: USDT, min: fp(3200), max: fp(6400) }])
         })
 
         it('applies only for when the requested token matches', async () => {
@@ -508,9 +509,9 @@ describe('TokenThresholdAction', () => {
         })
 
         beforeEach('set threshold', async () => {
-          const setTokenThresholdsRole = action.interface.getSighash('setTokenThresholds')
-          await action.connect(owner).authorize(owner.address, setTokenThresholdsRole)
-          await action.connect(owner).setTokenThresholds([WETH], [{ token: USDT, min: fp(3300), max: fp(6600) }])
+          const setCustomTokenThresholdsRole = action.interface.getSighash('setCustomTokenThresholds')
+          await action.connect(owner).authorize(owner.address, setCustomTokenThresholdsRole)
+          await action.connect(owner).setCustomTokenThresholds([WETH], [{ token: USDT, min: fp(3300), max: fp(6600) }])
         })
 
         it('applies the custom threshold only when the requested token matches', async () => {
