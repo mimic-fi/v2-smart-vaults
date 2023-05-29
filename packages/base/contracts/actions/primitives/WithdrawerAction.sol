@@ -25,8 +25,8 @@ import './interfaces/IWithdrawerAction.sol';
  * having withdraw permissions from the Smart Vault tied to it.
  */
 contract WithdrawerAction is IWithdrawerAction, Action {
-    // Cost in gas of a call op + gas cost computation + withdraw form SV
-    uint256 public constant override BASE_GAS = 21e3 + 20e3;
+    // Base gas amount charged to cover gas payment
+    uint256 public constant override BASE_GAS = 45e3;
 
     // Address where tokens will be transferred to
     address private _recipient;
@@ -34,7 +34,7 @@ contract WithdrawerAction is IWithdrawerAction, Action {
     /**
      * @dev Withdrawer action config
      * @param recipient Address of the allowed recipient
-     * @param recipient Address of the allowed recipient
+     * @param actionConfig Action config params
      */
     struct WithdrawerConfig {
         address recipient;
@@ -68,6 +68,15 @@ contract WithdrawerAction is IWithdrawerAction, Action {
      */
     function call(address token, uint256 amount) external virtual override actionCall(token, amount) {
         smartVault.withdraw(token, amount, _recipient, new bytes(0));
+    }
+
+    /**
+     * @dev Reverts if the token or the amount are zero
+     */
+    function _beforeAction(address token, uint256 amount) internal virtual override {
+        super._beforeAction(token, amount);
+        require(token != address(0), 'ACTION_TOKEN_ZERO');
+        require(amount > 0, 'ACTION_AMOUNT_ZERO');
     }
 
     /**
