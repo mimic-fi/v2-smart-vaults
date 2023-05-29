@@ -144,8 +144,7 @@ export function buildEmptyActionConfig(owner: SignerWithAddress, smartVault: Con
       acceptanceType: 0,
     },
     tokenThresholdConfig: {
-      tokens: [],
-      thresholds: [],
+      customThresholds: [],
       defaultThreshold: {
         token: ZERO_ADDRESS,
         min: 0,
