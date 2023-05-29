@@ -5,6 +5,7 @@ pragma solidity ^0.8.3;
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
+import 'hardhat/console.sol';
 import './BaseAction.sol';
 import './interfaces/IOracledAction.sol';
 
@@ -22,6 +23,9 @@ import './interfaces/IOracledAction.sol';
  */
 abstract contract OracledAction is IOracledAction, BaseAction {
     using EnumerableSet for EnumerableSet.AddressSet;
+
+    // Each feed has 4 words length
+    uint256 private constant EXPECTED_FEED_DATA_LENGTH = 32 * 4;
 
     // Enumerable set of trusted signers
     EnumerableSet.AddressSet private _signers;
@@ -126,6 +130,8 @@ abstract contract OracledAction is IOracledAction, BaseAction {
      */
     function _getEncodedOracleData() private pure returns (FeedData[] memory feeds, address signer) {
         feeds = _getOracleFeeds();
+        if (feeds.length == 0) return (feeds, address(0));
+
         bytes32 message = ECDSA.toEthSignedMessageHash(getFeedsDigest(feeds));
         uint8 v = _getOracleSignatureV();
         bytes32 r = _getOracleSignatureR();
@@ -138,9 +144,14 @@ abstract contract OracledAction is IOracledAction, BaseAction {
      * extra calldata in place. The last feed is stored using the first four words right before the feeds length.
      */
     function _getOracleFeeds() private pure returns (FeedData[] memory feeds) {
-        feeds = new FeedData[](_getFeedsLength());
-        for (uint256 i = 0; i < feeds.length; i++) {
-            uint256 pos = 4 * (feeds.length - i);
+        // Since the decoding functions could return garbage, if the calldata length is smaller than the potential
+        // decoded feeds length, we can assume it's garbage and that there is no encoded feeds actually
+        uint256 length = _getFeedsLength();
+        if (msg.data.length < length) return new FeedData[](0);
+
+        feeds = new FeedData[](length);
+        for (uint256 i = 0; i < length; i++) {
+            uint256 pos = 4 * (length - i);
             FeedData memory feed = feeds[i];
             feed.base = address(uint160(uint256(_decodeCalldataWord(pos + 3))));
             feed.quote = address(uint160(uint256(_decodeCalldataWord(pos + 2))));
