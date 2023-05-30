@@ -35,6 +35,9 @@ contract BaseAction is IBaseAction, Authorizer, ReentrancyGuard {
     // Whether the action is paused or not
     bool private _paused;
 
+    // Group ID of the action
+    uint8 private _groupId;
+
     // Smart Vault reference
     ISmartVault public immutable override smartVault;
 
@@ -51,10 +54,12 @@ contract BaseAction is IBaseAction, Authorizer, ReentrancyGuard {
      * @dev Base action config. Only used in the constructor.
      * @param owner Address that will be granted with permissions to authorize and authorize
      * @param smartVault Address of the smart vault this action will reference, it cannot be changed once set
+     * @param groupId Id of the group to which this action must refer to, use zero to avoid grouping
      */
     struct BaseConfig {
         address owner;
         address smartVault;
+        uint8 groupId;
     }
 
     /**
@@ -64,6 +69,7 @@ contract BaseAction is IBaseAction, Authorizer, ReentrancyGuard {
         smartVault = ISmartVault(config.smartVault);
         _authorize(config.owner, Authorizer.authorize.selector);
         _authorize(config.owner, Authorizer.unauthorize.selector);
+        _setGroupId(config.groupId);
     }
 
     /**
@@ -78,6 +84,13 @@ contract BaseAction is IBaseAction, Authorizer, ReentrancyGuard {
      */
     function isPaused() public view override returns (bool) {
         return _paused;
+    }
+
+    /**
+     * @dev Tells the group ID of the action
+     */
+    function getGroupId() public view override returns (uint8) {
+        return _groupId;
     }
 
     /**
@@ -108,16 +121,6 @@ contract BaseAction is IBaseAction, Authorizer, ReentrancyGuard {
     }
 
     /**
-     * @dev Transfers action's assets to the Smart Vault
-     * @param token Address of the token to be transferred
-     * @param amount Amount of tokens to be transferred
-     * @notice Denominations.NATIVE_TOKEN_ADDRESS can be used to transfer the native token balance
-     */
-    function transferToSmartVault(address token, uint256 amount) external override auth {
-        _transferToSmartVault(token, amount);
-    }
-
-    /**
      * @dev Pauses an action
      */
     function pause() external override auth {
@@ -136,13 +139,21 @@ contract BaseAction is IBaseAction, Authorizer, ReentrancyGuard {
     }
 
     /**
-     * @dev Internal function to transfer action's assets to the Smart Vault
+     * @dev Sets a group ID for the action. Sender must be authorized
+     * @param groupId ID of the group to be set for the action
+     */
+    function setGroupId(uint8 groupId) external override auth {
+        _setGroupId(groupId);
+    }
+
+    /**
+     * @dev Transfers action's assets to the Smart Vault
      * @param token Address of the token to be transferred
      * @param amount Amount of tokens to be transferred
      * @notice Denominations.NATIVE_TOKEN_ADDRESS can be used to transfer the native token balance
      */
-    function _transferToSmartVault(address token, uint256 amount) internal {
-        ERC20Helpers.transfer(token, address(smartVault), amount);
+    function transferToSmartVault(address token, uint256 amount) external override auth {
+        _transferToSmartVault(token, amount);
     }
 
     /**
@@ -159,6 +170,25 @@ contract BaseAction is IBaseAction, Authorizer, ReentrancyGuard {
      */
     function _afterAction(address, uint256) internal virtual {
         emit Executed();
+    }
+
+    /**
+     * @dev Sets a group ID for the action
+     * @param groupId ID of the group to be set for the action
+     */
+    function _setGroupId(uint8 groupId) internal {
+        _groupId = groupId;
+        emit GroupIdSet(groupId);
+    }
+
+    /**
+     * @dev Internal function to transfer action's assets to the Smart Vault
+     * @param token Address of the token to be transferred
+     * @param amount Amount of tokens to be transferred
+     * @notice Denominations.NATIVE_TOKEN_ADDRESS can be used to transfer the native token balance
+     */
+    function _transferToSmartVault(address token, uint256 amount) internal {
+        ERC20Helpers.transfer(token, address(smartVault), amount);
     }
 
     /**

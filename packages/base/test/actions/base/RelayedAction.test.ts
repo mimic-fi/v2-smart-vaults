@@ -33,6 +33,7 @@ describe('RelayedAction', () => {
         baseConfig: {
           owner: owner.address,
           smartVault: smartVault.address,
+          groupId: 0,
         },
         relayConfig: {
           gasPriceLimit: 0,

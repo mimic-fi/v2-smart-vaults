@@ -31,6 +31,7 @@ describe('TokenIndexedAction', () => {
         baseConfig: {
           owner: owner.address,
           smartVault: smartVault.address,
+          groupId: 0,
         },
         tokenIndexConfig: {
           tokens: [],

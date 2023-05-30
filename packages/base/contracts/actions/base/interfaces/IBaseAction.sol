@@ -21,6 +21,11 @@ import '@mimic-fi/v2-helpers/contracts/auth/IAuthorizer.sol';
  * @dev Base action interface
  */
 interface IBaseAction is IAuthorizer {
+    enum ActionGroup {
+        Swap,
+        Bridge
+    }
+
     /**
      * @dev Emitted every time an action is executed
      */
@@ -37,6 +42,11 @@ interface IBaseAction is IAuthorizer {
     event Unpaused();
 
     /**
+     * @dev Emitted every time the group ID is set
+     */
+    event GroupIdSet(uint8 indexed groupId);
+
+    /**
      * @dev Tells the address of the Smart Vault tied to it, it cannot be changed
      */
     function smartVault() external view returns (ISmartVault);
@@ -45,6 +55,11 @@ interface IBaseAction is IAuthorizer {
      * @dev Tells the action is paused or not
      */
     function isPaused() external view returns (bool);
+
+    /**
+     * @dev Tells the group ID of the action
+     */
+    function getGroupId() external view returns (uint8);
 
     /**
      * @dev Tells the balance of the action for a given token
@@ -65,13 +80,6 @@ interface IBaseAction is IAuthorizer {
     function getTotalBalance(address token) external view returns (uint256);
 
     /**
-     * @dev Transfers action's assets to the Smart Vault
-     * @param token Address of the token to be transferred
-     * @param amount Amount of tokens to be transferred
-     */
-    function transferToSmartVault(address token, uint256 amount) external;
-
-    /**
      * @dev Pauses an action
      */
     function pause() external;
@@ -80,4 +88,17 @@ interface IBaseAction is IAuthorizer {
      * @dev Unpauses an action
      */
     function unpause() external;
+
+    /**
+     * @dev Sets a group ID for the action. Sender must be authorized
+     * @param groupId ID of the group to be set for the action
+     */
+    function setGroupId(uint8 groupId) external;
+
+    /**
+     * @dev Transfers action's assets to the Smart Vault
+     * @param token Address of the token to be transferred
+     * @param amount Amount of tokens to be transferred
+     */
+    function transferToSmartVault(address token, uint256 amount) external;
 }
