@@ -240,9 +240,8 @@ abstract contract SwapperAction is ISwapperAction, Action {
      * @param tokenOut Address of the token out to be set
      */
     function _setCustomTokenOut(address token, address tokenOut) internal {
-        if (tokenOut == address(0) ? _customTokensOut.remove(token) : _customTokensOut.set(token, tokenOut)) {
-            emit CustomTokenOutSet(token, tokenOut);
-        }
+        tokenOut == address(0) ? _customTokensOut.remove(token) : _customTokensOut.set(token, tokenOut);
+        emit CustomTokenOutSet(token, tokenOut);
     }
 
     /**
@@ -264,8 +263,7 @@ abstract contract SwapperAction is ISwapperAction, Action {
      */
     function _setCustomMaxSlippage(address token, uint256 maxSlippage) internal {
         require(maxSlippage <= FixedPoint.ONE, 'ACTION_SLIPPAGE_ABOVE_ONE');
-        if (maxSlippage == 0 ? _customMaxSlippages.remove(token) : _customMaxSlippages.set(token, maxSlippage)) {
-            emit CustomMaxSlippageSet(token, maxSlippage);
-        }
+        maxSlippage == 0 ? _customMaxSlippages.remove(token) : _customMaxSlippages.set(token, maxSlippage);
+        emit CustomMaxSlippageSet(token, maxSlippage);
     }
 }
