@@ -1,6 +1,7 @@
 import { assertEvent, deploy, fp, getSigners, impersonate, instanceAt, toUSDC } from '@mimic-fi/v2-helpers'
 import {
   assertRelayedBaseCost,
+  buildEmptyActionConfig,
   createPriceFeedMock,
   createSmartVault,
   Mimic,
@@ -12,6 +13,7 @@ import { BigNumber, Contract } from 'ethers'
 
 /* eslint-disable no-secrets/no-secrets */
 
+const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 const BALANCER_VAULT = '0xBA12222222228d8Ba445958a75a0704d566BF2C8'
 
 describe('BPTSwapper - mainnet', function () {
@@ -23,14 +25,18 @@ describe('BPTSwapper - mainnet', function () {
     [, owner, relayer, feeCollector] = await getSigners()
   })
 
-  beforeEach('deploy action', async () => {
+  before('set up mimic', async () => {
     mimic = await setupMimic(true)
     smartVault = await createSmartVault(mimic, owner)
-    action = await deploy('BPTSwapper', [BALANCER_VAULT, owner.address, mimic.registry.address])
+  })
 
-    const setSmartVaultRole = action.interface.getSighash('setSmartVault')
-    await action.connect(owner).authorize(owner.address, setSmartVaultRole)
-    await action.connect(owner).setSmartVault(smartVault.address)
+  beforeEach('deploy action', async () => {
+    action = await deploy('BPTSwapper', [
+      {
+        balancerVault: BALANCER_VAULT,
+        actionConfig: buildEmptyActionConfig(owner, smartVault),
+      },
+    ])
   })
 
   beforeEach('set fee collector', async () => {
@@ -43,35 +49,31 @@ describe('BPTSwapper - mainnet', function () {
     const amount = fp(5)
     let pool: Contract, usdc: Contract, balancer: Contract
 
-    beforeEach('load balancer', async () => {
+    beforeEach('load contracts', async () => {
+      usdc = await instanceAt('IERC20', USDC)
       balancer = await instanceAt('IBalancerVault', BALANCER_VAULT)
     })
 
-    beforeEach('fund SV with USDC', async () => {
-      usdc = await instanceAt('IERC20', '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48')
-      const whale = await impersonate('0xDa9CE944a37d218c3302F6B82a094844C6ECEb17', fp(10))
-      await usdc.connect(whale).transfer(smartVault.address, toUSDC(100))
-    })
-
-    beforeEach('set paying gas token', async () => {
-      const setPayingGasTokenRole = action.interface.getSighash('setPayingGasToken')
-      await action.connect(owner).authorize(owner.address, setPayingGasTokenRole)
-      await action.connect(owner).setPayingGasToken(usdc.address)
-    })
-
-    beforeEach('set threshold', async () => {
-      const setThresholdRole = action.interface.getSighash('setThreshold')
-      await action.connect(owner).authorize(owner.address, setThresholdRole)
-      await action.connect(owner).setThreshold(usdc.address, toUSDC(5))
-    })
-
     beforeEach('allow relayer', async () => {
-      const setRelayerRole = action.interface.getSighash('setRelayer')
-      await action.connect(owner).authorize(owner.address, setRelayerRole)
-      await action.connect(owner).setRelayer(relayer.address, true)
-
       const callRole = action.interface.getSighash('call')
       await action.connect(owner).authorize(relayer.address, callRole)
+    })
+
+    beforeEach('mark sender as relayer', async () => {
+      const setRelayersRole = action.interface.getSighash('setRelayers')
+      await action.connect(owner).authorize(owner.address, setRelayersRole)
+      await action.connect(owner).setRelayers([relayer.address], [])
+    })
+
+    beforeEach('set USDC as relay gas token', async () => {
+      const setRelayGasTokenRole = action.interface.getSighash('setRelayGasToken')
+      await action.connect(owner).authorize(owner.address, setRelayGasTokenRole)
+      await action.connect(owner).setRelayGasToken(USDC)
+    })
+
+    beforeEach('fund SV with USDC', async () => {
+      const whale = await impersonate('0xDa9CE944a37d218c3302F6B82a094844C6ECEb17', fp(10))
+      await usdc.connect(whale).transfer(smartVault.address, toUSDC(1000))
     })
 
     beforeEach('allow action', async () => {

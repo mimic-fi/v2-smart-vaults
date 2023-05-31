@@ -16,70 +16,53 @@ pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
-import '@openzeppelin/contracts/utils/math/SafeCast.sol';
 
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/OracledAction.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
+import '@mimic-fi/v2-smart-vaults-base/contracts/actions/Action.sol';
 
-import './balancer/IBalancerLinearPool.sol';
-import './balancer/IBalancerBoostedPool.sol';
-import './balancer/IBalancerPool.sol';
-import './balancer/IBalancerVault.sol';
+import './interfaces/IBalancerLinearPool.sol';
+import './interfaces/IBalancerBoostedPool.sol';
+import './interfaces/IBalancerPool.sol';
+import './interfaces/IBalancerVault.sol';
 
 // solhint-disable avoid-low-level-calls
 
-contract BPTSwapper is BaseAction, OracledAction, RelayedAction, TokenThresholdAction {
+contract BPTSwapper is Action {
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 95e3;
+    uint256 public constant override BASE_GAS = 110e3;
 
     // Internal constant used to exit balancer pools
     uint256 private constant EXACT_BPT_IN_FOR_TOKENS_OUT = 1;
-
-    // Address of the token used in order to pay gas
-    address public payingGasToken;
 
     // Balancer Vault reference - it cannot be changed
     address public immutable balancerVault;
 
     /**
-     * @dev Emitted every time a paying gas token is set
+     * @dev BPT swapper action config
+     * @param balancerVault Address of the Balancer Vault
+     * @param actionConfig Action config parameters
      */
-    event PayingGasTokenSet(address indexed payingGasToken);
+    struct BPTSwapperConfig {
+        address balancerVault;
+        ActionConfig actionConfig;
+    }
 
     /**
      * @dev Creates a new BPT swapper action
-     * @param _balancerVault Address of the Balancer Vault
+     * @param config BPT swapper config
      */
-    constructor(address _balancerVault, address admin, address registry) BaseAction(admin, registry) {
-        balancerVault = _balancerVault;
+    constructor(BPTSwapperConfig memory config) Action(config.actionConfig) {
+        balancerVault = config.balancerVault;
     }
 
     /**
-     * @dev Sets a paying gas token
-     * @param newPayingGasToken Address of the new token to be used to pay gas costs
+     * @dev Execution function
      */
-    function setPayingGasToken(address newPayingGasToken) external auth {
-        require(newPayingGasToken != address(0), 'CLAIMER_PAYING_GAS_TOKEN_ZERO');
-        payingGasToken = newPayingGasToken;
-        emit PayingGasTokenSet(newPayingGasToken);
-    }
-
-    /**
-     * @dev Executes the BPT swapper action for a token and amount pair
-     * @param pool Address of the Balancer pool (token) to swap
-     * @param amount Amount of BPTs to swap
-     */
-    function call(address pool, uint256 amount) external auth nonReentrant redeemGas(payingGasToken) {
-        require(payingGasToken != address(0), 'CLAIMER_PAYING_GAS_TOKEN_ZERO');
-        require(pool != address(0), 'BPT_SWAPPER_ADDRESS_ZERO');
+    function call(address token, uint256 amount) external actionCall(token, amount) {
+        require(token != address(0), 'BPT_SWAPPER_ADDRESS_ZERO');
         require(amount > 0, 'BPT_SWAPPER_AMOUNT_ZERO');
-        _validateThreshold(pool, amount);
 
-        smartVault.call(pool, abi.encodeWithSelector(IERC20.approve.selector, balancerVault, amount), 0, new bytes(0));
-        smartVault.call(balancerVault, _buildSwapCall(pool, amount), 0, new bytes(0));
-        emit Executed();
+        smartVault.call(token, abi.encodeWithSelector(IERC20.approve.selector, balancerVault, amount), 0, new bytes(0));
+        smartVault.call(balancerVault, _buildSwapCall(token, amount), 0, new bytes(0));
     }
 
     /**
@@ -199,14 +182,5 @@ contract BPTSwapper is BaseAction, OracledAction, RelayedAction, TokenThresholdA
         });
 
         return abi.encodeWithSelector(IBalancerVault.swap.selector, request, funds, minAmountOut, block.timestamp);
-    }
-
-    function _getPrice(address base, address quote)
-        internal
-        view
-        override(BaseAction, OracledAction)
-        returns (uint256)
-    {
-        return OracledAction._getPrice(base, quote);
     }
 }
