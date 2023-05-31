@@ -51,7 +51,7 @@ contract Withdrawer is IWithdrawer, Action {
     /**
      * @dev Tells the address of the allowed recipient
      */
-    function getRecipient() external view virtual override returns (address) {
+    function getRecipient() external view override returns (address) {
         return _recipient;
     }
 
@@ -66,7 +66,7 @@ contract Withdrawer is IWithdrawer, Action {
     /**
      * @dev Execution function
      */
-    function call(address token, uint256 amount) external virtual override actionCall(token, amount) {
+    function call(address token, uint256 amount) external override actionCall(token, amount) {
         smartVault.withdraw(token, amount, _recipient, new bytes(0));
     }
 

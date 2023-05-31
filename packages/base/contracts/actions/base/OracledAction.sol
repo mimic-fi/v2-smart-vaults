@@ -48,7 +48,7 @@ abstract contract OracledAction is IOracledAction, BaseAction {
     /**
      * @dev Tells the list of oracle signers
      */
-    function getOracleSigners() external view returns (address[] memory) {
+    function getOracleSigners() external view override returns (address[] memory) {
         return _signers.values();
     }
 
@@ -56,7 +56,7 @@ abstract contract OracledAction is IOracledAction, BaseAction {
      * @dev Tells whether an address is as an oracle signer or not
      * @param signer Address of the signer being queried
      */
-    function isOracleSigner(address signer) public view returns (bool) {
+    function isOracleSigner(address signer) public view override returns (bool) {
         return _signers.contains(signer);
     }
 
@@ -64,7 +64,7 @@ abstract contract OracledAction is IOracledAction, BaseAction {
      * @dev Hashes the list of feeds
      * @param feeds List of feeds to be hashed
      */
-    function getFeedsDigest(FeedData[] memory feeds) public pure returns (bytes32) {
+    function getFeedsDigest(FeedData[] memory feeds) public pure override returns (bytes32) {
         return keccak256(abi.encode(feeds));
     }
 
@@ -74,7 +74,7 @@ abstract contract OracledAction is IOracledAction, BaseAction {
      * @param toRemove List of signers to be removed from the oracle signers list
      * @notice The list of signers to be added will be processed first to make sure no undesired signers are allowed
      */
-    function setOracleSigners(address[] memory toAdd, address[] memory toRemove) external auth {
+    function setOracleSigners(address[] memory toAdd, address[] memory toRemove) external override auth {
         _addOracleSigners(toAdd);
         _removeOracleSigners(toRemove);
     }

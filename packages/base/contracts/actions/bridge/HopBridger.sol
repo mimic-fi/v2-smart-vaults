@@ -143,7 +143,7 @@ contract HopBridger is IHopBridger, BaseBridger {
     /**
      * @dev Tells the max fee percentage defined for a specific token
      */
-    function getCustomMaxFeePct(address token) public view virtual override returns (bool, uint256) {
+    function getCustomMaxFeePct(address token) public view override returns (bool, uint256) {
         return _customMaxFeePcts.tryGet(token);
     }
 
@@ -163,7 +163,7 @@ contract HopBridger is IHopBridger, BaseBridger {
     /**
      * @dev Tells the max slippage defined for a specific token
      */
-    function getCustomMaxSlippage(address token) public view virtual override returns (bool, uint256) {
+    function getCustomMaxSlippage(address token) public view override returns (bool, uint256) {
         return _customMaxSlippages.tryGet(token);
     }
 
@@ -298,7 +298,7 @@ contract HopBridger is IHopBridger, BaseBridger {
     /**
      * @dev Tells the max slippage that should be used for a token
      */
-    function _getApplicableMaxSlippage(address token) internal view virtual returns (uint256) {
+    function _getApplicableMaxSlippage(address token) internal view returns (uint256) {
         (bool exists, uint256 maxSlippage) = getCustomMaxSlippage(token);
         return exists ? maxSlippage : getDefaultMaxSlippage();
     }
@@ -306,7 +306,7 @@ contract HopBridger is IHopBridger, BaseBridger {
     /**
      * @dev Tells the max fee percentage that should be used for a token
      */
-    function _getApplicableMaxFeePct(address token) internal view virtual returns (uint256) {
+    function _getApplicableMaxFeePct(address token) internal view returns (uint256) {
         (bool exists, uint256 maxFeePct) = getCustomMaxFeePct(token);
         return exists ? maxFeePct : getDefaultMaxFeePct();
     }
@@ -314,49 +314,49 @@ contract HopBridger is IHopBridger, BaseBridger {
     /**
      * @dev Tells if a token has a Hop entrypoint set
      */
-    function _isHopEntrypointValid(address token) internal view virtual returns (bool) {
+    function _isHopEntrypointValid(address token) internal view returns (bool) {
         return _tokenHopEntrypoints.contains(token);
     }
 
     /**
      * @dev Reverts if there is no Hop entrypoint set for a given token
      */
-    function _validateHopEntrypoint(address token) internal view virtual {
+    function _validateHopEntrypoint(address token) internal view {
         require(_isHopEntrypointValid(token), 'ACTION_MISSING_HOP_ENTRYPOINT');
     }
 
     /**
      * @dev Tells if a slippage is valid based on the max slippage configured for a token
      */
-    function _isSlippageValid(address token, uint256 slippage) internal view virtual returns (bool) {
+    function _isSlippageValid(address token, uint256 slippage) internal view returns (bool) {
         return slippage <= _getApplicableMaxSlippage(token);
     }
 
     /**
      * @dev Reverts if the requested slippage is above the max slippage configured for a token
      */
-    function _validateSlippage(address token, uint256 slippage) internal view virtual {
+    function _validateSlippage(address token, uint256 slippage) internal view {
         require(_isSlippageValid(token, slippage), 'ACTION_SLIPPAGE_TOO_HIGH');
     }
 
     /**
      * @dev Tells if the requested fee is valid based on the max fee percentage configured for a token
      */
-    function _isFeeValid(address token, uint256 amount, uint256 fee) internal view virtual returns (bool) {
+    function _isFeeValid(address token, uint256 amount, uint256 fee) internal view returns (bool) {
         return fee.divUp(amount) <= _getApplicableMaxFeePct(token);
     }
 
     /**
      * @dev Reverts if the requested fee is above the max fee percentage configured for a token
      */
-    function _validateFee(address token, uint256 amount, uint256 fee) internal view virtual {
+    function _validateFee(address token, uint256 amount, uint256 fee) internal view {
         require(_isFeeValid(token, amount, fee), 'ACTION_FEE_TOO_HIGH');
     }
 
     /**
      * @dev Sets the relayer address, only used when bridging from L1 to L2
      */
-    function _setRelayer(address relayer) internal virtual {
+    function _setRelayer(address relayer) internal {
         _relayer = relayer;
         emit RelayerSet(relayer);
     }
@@ -364,7 +364,7 @@ contract HopBridger is IHopBridger, BaseBridger {
     /**
      * @dev Sets the max deadline
      */
-    function _setMaxDeadline(uint256 maxDeadline) internal virtual {
+    function _setMaxDeadline(uint256 maxDeadline) internal {
         require(maxDeadline > 0, 'ACTION_MAX_DEADLINE_ZERO');
         _maxDeadline = maxDeadline;
         emit MaxDeadlineSet(maxDeadline);
@@ -374,7 +374,7 @@ contract HopBridger is IHopBridger, BaseBridger {
      * @dev Sets the default max slippage
      * @param maxSlippage Default max slippage to be set
      */
-    function _setDefaultMaxSlippage(uint256 maxSlippage) internal virtual {
+    function _setDefaultMaxSlippage(uint256 maxSlippage) internal {
         require(maxSlippage <= FixedPoint.ONE, 'ACTION_SLIPPAGE_ABOVE_ONE');
         _defaultMaxSlippage = maxSlippage;
         emit DefaultMaxSlippageSet(maxSlippage);
@@ -384,7 +384,7 @@ contract HopBridger is IHopBridger, BaseBridger {
      * @dev Sets the default max fee percentage
      * @param maxFeePct Default max fee percentage to be set
      */
-    function _setDefaultMaxFeePct(uint256 maxFeePct) internal virtual {
+    function _setDefaultMaxFeePct(uint256 maxFeePct) internal {
         _defaultMaxFeePct = maxFeePct;
         emit DefaultMaxFeePctSet(maxFeePct);
     }
@@ -394,7 +394,7 @@ contract HopBridger is IHopBridger, BaseBridger {
      * @param tokens List of token addresses to be set
      * @param entrypoints List of Hop entrypoint addresses to be set for each token
      */
-    function _setTokenHopEntrypoints(address[] memory tokens, address[] memory entrypoints) internal virtual {
+    function _setTokenHopEntrypoints(address[] memory tokens, address[] memory entrypoints) internal {
         require(tokens.length == entrypoints.length, 'ACTION_HOP_ENTRYPOINTS_BAD_INPUT');
         for (uint256 i = 0; i < tokens.length; i++) {
             _setTokenHopEntrypoint(tokens[i], entrypoints[i]);
@@ -406,7 +406,7 @@ contract HopBridger is IHopBridger, BaseBridger {
      * @param token Address of the token to set a Hop entrypoint for
      * @param entrypoint Hop entrypoint to be set
      */
-    function _setTokenHopEntrypoint(address token, address entrypoint) internal virtual {
+    function _setTokenHopEntrypoint(address token, address entrypoint) internal {
         require(token != address(0), 'ACTION_HOP_TOKEN_ZERO');
         bool isZero = entrypoint == address(0);
         isZero ? _tokenHopEntrypoints.remove(token) : _tokenHopEntrypoints.set(token, entrypoint);
@@ -418,7 +418,7 @@ contract HopBridger is IHopBridger, BaseBridger {
      * @param tokens List of addresses of the tokens to set a custom max slippage for
      * @param maxSlippages List of max slippages to be set for each token
      */
-    function _setCustomMaxSlippages(address[] memory tokens, uint256[] memory maxSlippages) internal virtual {
+    function _setCustomMaxSlippages(address[] memory tokens, uint256[] memory maxSlippages) internal {
         require(tokens.length == maxSlippages.length, 'ACTION_SLIPPAGES_BAD_INPUT_LEN');
         for (uint256 i = 0; i < tokens.length; i++) {
             _setCustomMaxSlippage(tokens[i], maxSlippages[i]);
@@ -430,7 +430,7 @@ contract HopBridger is IHopBridger, BaseBridger {
      * @param token Address of the token to set the custom max slippage for
      * @param maxSlippage Max slippage to be set for the given token
      */
-    function _setCustomMaxSlippage(address token, uint256 maxSlippage) internal virtual {
+    function _setCustomMaxSlippage(address token, uint256 maxSlippage) internal {
         require(maxSlippage <= FixedPoint.ONE, 'ACTION_SLIPPAGE_ABOVE_ONE');
         maxSlippage == 0 ? _customMaxSlippages.remove(token) : _customMaxSlippages.set(token, maxSlippage);
         emit CustomMaxSlippageSet(token, maxSlippage);
@@ -441,7 +441,7 @@ contract HopBridger is IHopBridger, BaseBridger {
      * @param tokens List of addresses of the tokens to set a max fee percentage for
      * @param maxFeePcts List of max fee percentages to be set per token
      */
-    function _setCustomMaxFeePcts(address[] memory tokens, uint256[] memory maxFeePcts) internal virtual {
+    function _setCustomMaxFeePcts(address[] memory tokens, uint256[] memory maxFeePcts) internal {
         require(tokens.length == maxFeePcts.length, 'ACTION_MAX_FEE_PCTS_BAD_INPUT');
         for (uint256 i = 0; i < tokens.length; i++) {
             _setCustomMaxFeePct(tokens[i], maxFeePcts[i]);
@@ -453,7 +453,7 @@ contract HopBridger is IHopBridger, BaseBridger {
      * @param token Address of the token to set a custom max fee percentage for
      * @param maxFeePct Max fee percentage to be set for the given token
      */
-    function _setCustomMaxFeePct(address token, uint256 maxFeePct) internal virtual {
+    function _setCustomMaxFeePct(address token, uint256 maxFeePct) internal {
         maxFeePct == 0 ? _customMaxFeePcts.remove(token) : _customMaxFeePcts.set(token, maxFeePct);
         emit CustomMaxFeePctSet(token, maxFeePct);
     }

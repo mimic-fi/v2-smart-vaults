@@ -91,7 +91,7 @@ abstract contract TokenIndexedAction is ITokenIndexedAction, BaseAction {
      * @dev Sets the tokens acceptance type of the action
      * @param acceptanceType New token acceptance type to be set
      */
-    function setTokensAcceptanceType(TokensAcceptanceType acceptanceType) external auth {
+    function setTokensAcceptanceType(TokensAcceptanceType acceptanceType) external override auth {
         _setTokensAcceptanceType(acceptanceType);
     }
 
