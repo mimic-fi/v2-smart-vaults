@@ -198,7 +198,6 @@ abstract contract SwapperAction is ISwapperAction, Action {
     function _beforeAction(address token, uint256 amount) internal virtual override {
         super._beforeAction(token, amount);
         require(token != address(0), 'ACTION_TOKEN_ZERO');
-        require(!Denominations.isNativeToken(token), 'ACTION_SWAP_NATIVE_TOKEN');
         require(amount > 0, 'ACTION_AMOUNT_ZERO');
         require(_getApplicableTokenOut(token) != address(0), 'ACTION_TOKEN_OUT_NOT_SET');
     }
