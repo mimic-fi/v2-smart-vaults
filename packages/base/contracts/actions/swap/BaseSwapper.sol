@@ -18,14 +18,14 @@ import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/EnumerableMap.sol';
 
-import './interfaces/ISwapperAction.sol';
+import './interfaces/IBaseSwapper.sol';
 import '../Action.sol';
 
 /**
- * @title Swapper action
+ * @title Base swapper action
  * @dev Action that offers the basic components for more detailed swap actions.
  */
-abstract contract SwapperAction is ISwapperAction, Action {
+abstract contract BaseSwapper is IBaseSwapper, Action {
     using FixedPoint for uint256;
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableMap for EnumerableMap.AddressToAddressMap;

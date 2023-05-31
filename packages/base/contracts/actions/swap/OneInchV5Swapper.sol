@@ -17,10 +17,10 @@ pragma solidity ^0.8.0;
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 
-import './SwapperAction.sol';
+import './BaseSwapper.sol';
 import './interfaces/IOneInchV5Swapper.sol';
 
-contract OneInchV5Swapper is IOnceInchV5Swapper, SwapperAction {
+contract OneInchV5Swapper is IOnceInchV5Swapper, BaseSwapper {
     using FixedPoint for uint256;
 
     // Base gas amount charged to cover gas payment
@@ -29,7 +29,7 @@ contract OneInchV5Swapper is IOnceInchV5Swapper, SwapperAction {
     /**
      * @dev Creates a 1inch v5 swapper action
      */
-    constructor(SwapperConfig memory swapperConfig) SwapperAction(swapperConfig) {
+    constructor(SwapperConfig memory swapperConfig) BaseSwapper(swapperConfig) {
         // solhint-disable-previous-line no-empty-blocks
     }
 

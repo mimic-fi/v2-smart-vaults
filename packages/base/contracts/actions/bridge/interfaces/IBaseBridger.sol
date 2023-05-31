@@ -17,9 +17,9 @@ pragma solidity >=0.8.0;
 import '../../IAction.sol';
 
 /**
- * @dev Bridger action interface
+ * @dev Base bridger action interface
  */
-interface IBridgerAction is IAction {
+interface IBaseBridger is IAction {
     /**
      * @dev Emitted every time the default destination chain is set
      */

@@ -14,12 +14,12 @@
 
 pragma solidity >=0.8.0;
 
-import './IBridgerAction.sol';
+import './IBaseBridger.sol';
 
 /**
  * @dev Hop bridger action interface
  */
-interface IHopBridger is IBridgerAction {
+interface IHopBridger is IBaseBridger {
     /**
      * @dev Emitted every time the relayer is set
      */

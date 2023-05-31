@@ -14,12 +14,12 @@
 
 pragma solidity >=0.8.0;
 
-import './ISwapperAction.sol';
+import './IBaseSwapper.sol';
 
 /**
  * @dev L2 Hop swapper action interface
  */
-interface IL2HopSwapper is ISwapperAction {
+interface IL2HopSwapper is IBaseSwapper {
     /**
      * @dev Emitted every time an AMM is set for a token
      */

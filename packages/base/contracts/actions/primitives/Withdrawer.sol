@@ -17,14 +17,14 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 import '../Action.sol';
-import './interfaces/IWithdrawerAction.sol';
+import './interfaces/IWithdrawer.sol';
 
 /**
  * @title Withdrawer action
  * @dev Action that offers a recipient address where funds can be withdrawn. This type of action at least require
  * having withdraw permissions from the Smart Vault tied to it.
  */
-contract WithdrawerAction is IWithdrawerAction, Action {
+contract Withdrawer is IWithdrawer, Action {
     // Base gas amount charged to cover gas payment
     uint256 public constant override BASE_GAS = 45e3;
 

@@ -24,7 +24,7 @@ import { BigNumber, Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
 import { buildEmptyActionConfig } from '../../../src/setup'
-import { itBehavesLikeSwapperAction } from './SwapperAction.behavior'
+import { itBehavesLikeSwapperAction } from './BaseSwapper.behavior'
 
 describe('ParaswapV5Swapper', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic

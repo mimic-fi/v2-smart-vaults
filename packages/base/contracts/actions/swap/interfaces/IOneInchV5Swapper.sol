@@ -14,12 +14,12 @@
 
 pragma solidity >=0.8.0;
 
-import './ISwapperAction.sol';
+import './IBaseSwapper.sol';
 
 /**
  * @dev 1inch v5 swapper action interface
  */
-interface IOnceInchV5Swapper is ISwapperAction {
+interface IOnceInchV5Swapper is IBaseSwapper {
     /**
      * @dev Execution function
      */

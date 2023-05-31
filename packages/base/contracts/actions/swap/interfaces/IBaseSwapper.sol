@@ -17,9 +17,9 @@ pragma solidity >=0.8.0;
 import '../../IAction.sol';
 
 /**
- * @dev Swapper action interface
+ * @dev Base swapper action interface
  */
-interface ISwapperAction is IAction {
+interface IBaseSwapper is IAction {
     /**
      * @dev Emitted every time the default token out is set
      */

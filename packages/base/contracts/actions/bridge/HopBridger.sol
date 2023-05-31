@@ -18,10 +18,10 @@ import '@mimic-fi/v2-bridge-connector/contracts/IBridgeConnector.sol';
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/EnumerableMap.sol';
 
-import './BridgerAction.sol';
+import './BaseBridger.sol';
 import './interfaces/IHopBridger.sol';
 
-contract HopBridger is IHopBridger, BridgerAction {
+contract HopBridger is IHopBridger, BaseBridger {
     using FixedPoint for uint256;
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableMap for EnumerableMap.AddressToAddressMap;
@@ -91,7 +91,7 @@ contract HopBridger is IHopBridger, BridgerAction {
     /**
      * @dev Creates a Hop bridger action
      */
-    constructor(HopBridgerConfig memory config) BridgerAction(config.bridgerConfig) {
+    constructor(HopBridgerConfig memory config) BaseBridger(config.bridgerConfig) {
         _setRelayer(config.relayer);
         _setMaxDeadline(config.maxDeadline);
         _setDefaultMaxFeePct(config.maxFeePct);

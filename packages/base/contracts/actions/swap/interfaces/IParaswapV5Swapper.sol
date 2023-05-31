@@ -14,12 +14,12 @@
 
 pragma solidity >=0.8.0;
 
-import './ISwapperAction.sol';
+import './IBaseSwapper.sol';
 
 /**
  * @dev Paraswap v5 swapper action interface
  */
-interface IParaswapV5Swapper is ISwapperAction {
+interface IParaswapV5Swapper is IBaseSwapper {
     /**
      * @dev Emitted every time a quote signer is set
      */

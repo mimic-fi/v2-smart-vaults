@@ -7,7 +7,7 @@ import { defaultAbiCoder } from 'ethers/lib/utils'
 
 import { assertRelayedBaseCost } from '../../../src/asserts'
 import { buildEmptyActionConfig } from '../../../src/setup'
-import { itBehavesLikeBridgerAction } from './BridgerAction.behavior'
+import { itBehavesLikeBridgerAction } from './BaseBridger.behavior'
 
 describe('HopBridger', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic

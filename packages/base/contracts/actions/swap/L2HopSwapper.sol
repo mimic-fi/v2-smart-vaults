@@ -18,10 +18,10 @@ import '@mimic-fi/v2-bridge-connector/contracts/interfaces/IHopL2AMM.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/EnumerableMap.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 
-import './SwapperAction.sol';
+import './BaseSwapper.sol';
 import './interfaces/IL2HopSwapper.sol';
 
-contract L2HopSwapper is IL2HopSwapper, SwapperAction {
+contract L2HopSwapper is IL2HopSwapper, BaseSwapper {
     using FixedPoint for uint256;
     using EnumerableMap for EnumerableMap.AddressToAddressMap;
 
@@ -47,7 +47,7 @@ contract L2HopSwapper is IL2HopSwapper, SwapperAction {
     /**
      * @dev Creates a L2 Hop swapper action
      */
-    constructor(L2HopSwapperConfig memory config) SwapperAction(config.swapperConfig) {
+    constructor(L2HopSwapperConfig memory config) BaseSwapper(config.swapperConfig) {
         for (uint256 i = 0; i < config.tokenAmms.length; i++) {
             _setTokenAmm(config.tokenAmms[i].token, config.tokenAmms[i].amm);
         }
