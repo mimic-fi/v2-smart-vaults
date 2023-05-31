@@ -1,12 +1,4 @@
-import {
-  assertEvent,
-  assertIndirectEvent,
-  deploy,
-  fp,
-  getSigners,
-  NATIVE_TOKEN_ADDRESS,
-  ZERO_ADDRESS,
-} from '@mimic-fi/v2-helpers'
+import { assertEvent, assertIndirectEvent, deploy, fp, getSigners, ZERO_ADDRESS } from '@mimic-fi/v2-helpers'
 import { createSmartVault, Mimic, setupMimic } from '@mimic-fi/v2-smart-vaults-base'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
@@ -76,201 +68,191 @@ describe('OneInchV5Swapper', () => {
 
       const itPerformsTheExpectedCall = (relayed: boolean) => {
         context('when the token in is not the zero address', () => {
-          context('when the token in is an ERC20', () => {
-            let tokenIn: Contract
+          let tokenIn: Contract
 
-            beforeEach('set token in', async () => {
-              tokenIn = await createTokenMock()
-            })
+          beforeEach('set token in', async () => {
+            tokenIn = await createTokenMock()
+          })
 
-            context('when the amount in is not zero', () => {
-              const tokenRate = 2 // 1 token in = 2 token out
-              const thresholdAmount = fp(0.1) // in token out
-              const thresholdAmountInTokenIn = thresholdAmount.div(tokenRate) // threshold expressed in token in
-              const amountIn = thresholdAmountInTokenIn
+          context('when the amount in is not zero', () => {
+            const tokenRate = 2 // 1 token in = 2 token out
+            const thresholdAmount = fp(0.1) // in token out
+            const thresholdAmountInTokenIn = thresholdAmount.div(tokenRate) // threshold expressed in token in
+            const amountIn = thresholdAmountInTokenIn
 
-              context('when the token in is allowed', () => {
-                context('when there is a token out set', () => {
-                  let tokenOut: Contract
+            context('when the token in is allowed', () => {
+              context('when there is a token out set', () => {
+                let tokenOut: Contract
 
-                  beforeEach('set default token out', async () => {
-                    tokenOut = await createTokenMock()
-                    const setDefaultTokenOutRole = action.interface.getSighash('setDefaultTokenOut')
-                    await action.connect(owner).authorize(owner.address, setDefaultTokenOutRole)
-                    await action.connect(owner).setDefaultTokenOut(tokenOut.address)
+                beforeEach('set default token out', async () => {
+                  tokenOut = await createTokenMock()
+                  const setDefaultTokenOutRole = action.interface.getSighash('setDefaultTokenOut')
+                  await action.connect(owner).authorize(owner.address, setDefaultTokenOutRole)
+                  await action.connect(owner).setDefaultTokenOut(tokenOut.address)
+                })
+
+                beforeEach('set price feed', async () => {
+                  const feed = await createPriceFeedMock(fp(tokenRate))
+                  const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+                  await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+                  await smartVault.connect(owner).setPriceFeed(tokenIn.address, tokenOut.address, feed.address)
+                })
+
+                beforeEach('set threshold', async () => {
+                  const setDefaultTokenThresholdRole = action.interface.getSighash('setDefaultTokenThreshold')
+                  await action.connect(owner).authorize(owner.address, setDefaultTokenThresholdRole)
+                  await action.connect(owner).setDefaultTokenThreshold({
+                    token: tokenOut.address,
+                    min: thresholdAmount,
+                    max: 0,
+                  })
+                })
+
+                context('when the smart vault balance passes the threshold', () => {
+                  beforeEach('fund smart vault', async () => {
+                    await tokenIn.mint(smartVault.address, amountIn)
                   })
 
-                  beforeEach('set price feed', async () => {
-                    const feed = await createPriceFeedMock(fp(tokenRate))
-                    const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
-                    await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
-                    await smartVault.connect(owner).setPriceFeed(tokenIn.address, tokenOut.address, feed.address)
-                  })
+                  context('when the slippage is below the limit', () => {
+                    const data = '0xaabb'
+                    const slippage = fp(0.01)
+                    const expectedAmountOut = amountIn.mul(tokenRate)
+                    const minAmountOut = expectedAmountOut.mul(fp(1).sub(slippage)).div(fp(1))
 
-                  beforeEach('set threshold', async () => {
-                    const setDefaultTokenThresholdRole = action.interface.getSighash('setDefaultTokenThreshold')
-                    await action.connect(owner).authorize(owner.address, setDefaultTokenThresholdRole)
-                    await action.connect(owner).setDefaultTokenThreshold({
-                      token: tokenOut.address,
-                      min: thresholdAmount,
-                      max: 0,
+                    beforeEach('set max slippage', async () => {
+                      const setDefaultMaxSlippageRole = action.interface.getSighash('setDefaultMaxSlippage')
+                      await action.connect(owner).authorize(owner.address, setDefaultMaxSlippageRole)
+                      await action.connect(owner).setDefaultMaxSlippage(slippage)
                     })
-                  })
 
-                  context('when the smart vault balance passes the threshold', () => {
-                    beforeEach('fund smart vault', async () => {
-                      await tokenIn.mint(smartVault.address, amountIn)
+                    beforeEach('fund swap connector', async () => {
+                      await mimic.swapConnector.mockRate(fp(tokenRate))
+                      await tokenOut.mint(await mimic.swapConnector.dex(), expectedAmountOut)
                     })
 
-                    context('when the slippage is below the limit', () => {
-                      const data = '0xaabb'
-                      const slippage = fp(0.01)
-                      const expectedAmountOut = amountIn.mul(tokenRate)
-                      const minAmountOut = expectedAmountOut.mul(fp(1).sub(slippage)).div(fp(1))
+                    it('calls the swap primitive', async () => {
+                      const tx = await action.call(tokenIn.address, amountIn, slippage, data)
 
-                      beforeEach('set max slippage', async () => {
-                        const setDefaultMaxSlippageRole = action.interface.getSighash('setDefaultMaxSlippage')
-                        await action.connect(owner).authorize(owner.address, setDefaultMaxSlippageRole)
-                        await action.connect(owner).setDefaultMaxSlippage(slippage)
+                      await assertIndirectEvent(tx, smartVault.interface, 'Swap', {
+                        source: SOURCE,
+                        tokenIn,
+                        tokenOut,
+                        amountIn,
+                        minAmountOut,
+                        data,
                       })
+                    })
 
-                      beforeEach('fund swap connector', async () => {
-                        await mimic.swapConnector.mockRate(fp(tokenRate))
-                        await tokenOut.mint(await mimic.swapConnector.dex(), expectedAmountOut)
-                      })
+                    it('transfers the amount in from the smart vault to the swap connector', async () => {
+                      const previousDexBalance = await tokenIn.balanceOf(await mimic.swapConnector.dex())
+                      const previousSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
 
-                      it('calls the swap primitive', async () => {
+                      await action.call(tokenIn.address, amountIn, slippage, data)
+
+                      const currentDexBalance = await tokenIn.balanceOf(await mimic.swapConnector.dex())
+                      expect(currentDexBalance).to.be.eq(previousDexBalance.add(amountIn))
+
+                      const currentSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
+                      expect(currentSmartVaultBalance).to.be.eq(previousSmartVaultBalance.sub(amountIn))
+                    })
+
+                    it('transfers the token out from the swap connector to the smart vault', async () => {
+                      const previousDexBalance = await tokenOut.balanceOf(await mimic.swapConnector.dex())
+                      const previousSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
+
+                      await action.call(tokenIn.address, amountIn, slippage, data)
+
+                      const currentSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
+                      const expectedSmartVaultBalance = previousSmartVaultBalance.add(expectedAmountOut)
+                      expect(currentSmartVaultBalance).to.be.eq(expectedSmartVaultBalance)
+
+                      const currentDexBalance = await tokenOut.balanceOf(await mimic.swapConnector.dex())
+                      expect(currentDexBalance).to.be.eq(previousDexBalance.sub(expectedAmountOut))
+                    })
+
+                    it('emits an Executed event', async () => {
+                      const tx = await action.call(tokenIn.address, amountIn, slippage, data)
+
+                      await assertEvent(tx, 'Executed')
+                    })
+
+                    if (relayed) {
+                      it('refunds gas', async () => {
+                        const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
                         const tx = await action.call(tokenIn.address, amountIn, slippage, data)
 
-                        await assertIndirectEvent(tx, smartVault.interface, 'Swap', {
-                          source: SOURCE,
-                          tokenIn,
-                          tokenOut,
-                          amountIn,
-                          minAmountOut,
-                          data,
-                        })
-                      })
+                        const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                        expect(currentBalance).to.be.gt(previousBalance)
 
-                      it('transfers the amount in from the smart vault to the swap connector', async () => {
-                        const previousDexBalance = await tokenIn.balanceOf(await mimic.swapConnector.dex())
-                        const previousSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
+                        const redeemedCost = currentBalance.sub(previousBalance)
+                        await assertRelayedBaseCost(tx, redeemedCost, 0.1)
+                      })
+                    } else {
+                      it('does not refund gas', async () => {
+                        const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
 
                         await action.call(tokenIn.address, amountIn, slippage, data)
 
-                        const currentDexBalance = await tokenIn.balanceOf(await mimic.swapConnector.dex())
-                        expect(currentDexBalance).to.be.eq(previousDexBalance.add(amountIn))
-
-                        const currentSmartVaultBalance = await tokenIn.balanceOf(smartVault.address)
-                        expect(currentSmartVaultBalance).to.be.eq(previousSmartVaultBalance.sub(amountIn))
+                        const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                        expect(currentBalance).to.be.equal(previousBalance)
                       })
-
-                      it('transfers the token out from the swap connector to the smart vault', async () => {
-                        const previousDexBalance = await tokenOut.balanceOf(await mimic.swapConnector.dex())
-                        const previousSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
-
-                        await action.call(tokenIn.address, amountIn, slippage, data)
-
-                        const currentSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
-                        const expectedSmartVaultBalance = previousSmartVaultBalance.add(expectedAmountOut)
-                        expect(currentSmartVaultBalance).to.be.eq(expectedSmartVaultBalance)
-
-                        const currentDexBalance = await tokenOut.balanceOf(await mimic.swapConnector.dex())
-                        expect(currentDexBalance).to.be.eq(previousDexBalance.sub(expectedAmountOut))
-                      })
-
-                      it('emits an Executed event', async () => {
-                        const tx = await action.call(tokenIn.address, amountIn, slippage, data)
-
-                        await assertEvent(tx, 'Executed')
-                      })
-
-                      if (relayed) {
-                        it('refunds gas', async () => {
-                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-
-                          const tx = await action.call(tokenIn.address, amountIn, slippage, data)
-
-                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-                          expect(currentBalance).to.be.gt(previousBalance)
-
-                          const redeemedCost = currentBalance.sub(previousBalance)
-                          await assertRelayedBaseCost(tx, redeemedCost, 0.1)
-                        })
-                      } else {
-                        it('does not refund gas', async () => {
-                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-
-                          await action.call(tokenIn.address, amountIn, slippage, data)
-
-                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-                          expect(currentBalance).to.be.equal(previousBalance)
-                        })
-                      }
-                    })
-
-                    context('when the slippage is above the limit', () => {
-                      const slippage = fp(0.01)
-
-                      it('reverts', async () => {
-                        await expect(action.call(tokenIn.address, amountIn, slippage, '0x')).to.be.revertedWith(
-                          'ACTION_SLIPPAGE_TOO_HIGH'
-                        )
-                      })
-                    })
+                    }
                   })
 
-                  context('when the smart vault balance does not pass the threshold', () => {
-                    const amountIn = thresholdAmountInTokenIn.div(2)
-
-                    beforeEach('fund smart vault', async () => {
-                      await tokenIn.mint(smartVault.address, amountIn)
-                    })
+                  context('when the slippage is above the limit', () => {
+                    const slippage = fp(0.01)
 
                     it('reverts', async () => {
-                      await expect(action.call(tokenIn.address, amountIn, 0, '0x')).to.be.revertedWith(
-                        'ACTION_TOKEN_THRESHOLD_NOT_MET'
+                      await expect(action.call(tokenIn.address, amountIn, slippage, '0x')).to.be.revertedWith(
+                        'ACTION_SLIPPAGE_TOO_HIGH'
                       )
                     })
                   })
                 })
 
-                context('when the token out is not set', () => {
+                context('when the smart vault balance does not pass the threshold', () => {
+                  const amountIn = thresholdAmountInTokenIn.div(2)
+
+                  beforeEach('fund smart vault', async () => {
+                    await tokenIn.mint(smartVault.address, amountIn)
+                  })
+
                   it('reverts', async () => {
                     await expect(action.call(tokenIn.address, amountIn, 0, '0x')).to.be.revertedWith(
-                      'ACTION_TOKEN_OUT_NOT_SET'
+                      'ACTION_TOKEN_THRESHOLD_NOT_MET'
                     )
                   })
                 })
               })
 
-              context('when the token in is denied', () => {
-                beforeEach('deny token in', async () => {
-                  const setTokensAcceptanceListRole = action.interface.getSighash('setTokensAcceptanceList')
-                  await action.connect(owner).authorize(owner.address, setTokensAcceptanceListRole)
-                  await action.connect(owner).setTokensAcceptanceList([tokenIn.address], [])
-                })
-
+              context('when the token out is not set', () => {
                 it('reverts', async () => {
-                  await expect(action.call(tokenIn.address, 0, 0, '0x')).to.be.revertedWith('ACTION_TOKEN_NOT_ALLOWED')
+                  await expect(action.call(tokenIn.address, amountIn, 0, '0x')).to.be.revertedWith(
+                    'ACTION_TOKEN_OUT_NOT_SET'
+                  )
                 })
               })
             })
 
-            context('when the amount in is zero', () => {
-              const amountIn = 0
+            context('when the token in is denied', () => {
+              beforeEach('deny token in', async () => {
+                const setTokensAcceptanceListRole = action.interface.getSighash('setTokensAcceptanceList')
+                await action.connect(owner).authorize(owner.address, setTokensAcceptanceListRole)
+                await action.connect(owner).setTokensAcceptanceList([tokenIn.address], [])
+              })
 
               it('reverts', async () => {
-                await expect(action.call(tokenIn.address, amountIn, 0, '0x')).to.be.revertedWith('ACTION_AMOUNT_ZERO')
+                await expect(action.call(tokenIn.address, 0, 0, '0x')).to.be.revertedWith('ACTION_TOKEN_NOT_ALLOWED')
               })
             })
           })
 
-          context('when the token to swap is the native token', () => {
-            const tokenIn = NATIVE_TOKEN_ADDRESS
+          context('when the amount in is zero', () => {
+            const amountIn = 0
 
             it('reverts', async () => {
-              await expect(action.call(tokenIn, 0, 0, '0x')).to.be.revertedWith('ACTION_SWAP_NATIVE_TOKEN')
+              await expect(action.call(tokenIn.address, amountIn, 0, '0x')).to.be.revertedWith('ACTION_AMOUNT_ZERO')
             })
           })
         })
