@@ -6,7 +6,7 @@ import { Contract } from 'ethers'
 
 import { assertRelayedBaseCost } from '../../../src/asserts'
 import { buildEmptyActionConfig, createPriceFeedMock, createTokenMock } from '../../../src/setup'
-import { itBehavesLikeSwapperAction } from './SwapperAction.behavior'
+import { itBehavesLikeSwapperAction } from './BaseSwapper.behavior'
 
 describe('OneInchV5Swapper', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic

@@ -13,7 +13,7 @@ import { Contract } from 'ethers'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 
 import { buildEmptyActionConfig, MOCKS } from '../../../src/setup'
-import { itBehavesLikeSwapperAction } from './SwapperAction.behavior'
+import { itBehavesLikeSwapperAction } from './BaseSwapper.behavior'
 
 describe('L2HopSwapper', () => {
   let action: Contract, smartVault: Contract, mimic: Mimic

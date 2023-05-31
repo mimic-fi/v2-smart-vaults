@@ -17,14 +17,14 @@ pragma solidity ^0.8.0;
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-swap-connector/contracts/ISwapConnector.sol';
 
-import './SwapperAction.sol';
+import './BaseSwapper.sol';
 import './interfaces/IParaswapV5Swapper.sol';
 
 /**
  * @title Paraswap V5 swapper action
  * @dev Action that extends the swapper action to use Paraswap v5
  */
-contract ParaswapV5Swapper is IParaswapV5Swapper, SwapperAction {
+contract ParaswapV5Swapper is IParaswapV5Swapper, BaseSwapper {
     using FixedPoint for uint256;
 
     // Base gas amount charged to cover gas payment
@@ -44,7 +44,7 @@ contract ParaswapV5Swapper is IParaswapV5Swapper, SwapperAction {
     /**
      * @dev Creates a paraswap v5 swapper action
      */
-    constructor(Paraswap5SwapperConfig memory config) SwapperAction(config.swapperConfig) {
+    constructor(Paraswap5SwapperConfig memory config) BaseSwapper(config.swapperConfig) {
         _setQuoteSigner(config.quoteSigner);
     }
 

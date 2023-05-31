@@ -18,14 +18,14 @@ import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-helpers/contracts/utils/EnumerableMap.sol';
 
-import './interfaces/IBridgerAction.sol';
+import './interfaces/IBaseBridger.sol';
 import '../Action.sol';
 
 /**
  * @title Bridger action
  * @dev Action that offers the basic components for more detailed bridge actions.
  */
-abstract contract BridgerAction is IBridgerAction, Action {
+abstract contract BaseBridger is IBaseBridger, Action {
     using FixedPoint for uint256;
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableMap for EnumerableMap.AddressToAddressMap;

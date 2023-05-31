@@ -26,7 +26,7 @@ describe('WithdrawerAction', () => {
 
   beforeEach('deploy action', async () => {
     smartVault = await createSmartVault(mimic, owner)
-    action = await deploy('WithdrawerAction', [
+    action = await deploy('Withdrawer', [
       {
         recipient: other.address,
         actionConfig: buildEmptyActionConfig(owner, smartVault),

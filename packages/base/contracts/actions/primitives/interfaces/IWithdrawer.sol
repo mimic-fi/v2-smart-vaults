@@ -19,7 +19,7 @@ import '../../IAction.sol';
 /**
  * @dev Withdrawer action interface
  */
-interface IWithdrawerAction is IAction {
+interface IWithdrawer is IAction {
     /**
      * @dev Emitted every time the recipient is set
      */
