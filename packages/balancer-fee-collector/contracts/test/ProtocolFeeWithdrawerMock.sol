@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import '@mimic-fi/v2-helpers/contracts/utils/ERC20Helpers.sol';
 
-import '../actions/claim/IProtocolFeeWithdrawer.sol';
+import '../interfaces/IProtocolFeeWithdrawer.sol';
 
 contract ProtocolFeeWithdrawerMock is IProtocolFeeWithdrawer {
     function withdrawCollectedFees(address[] calldata tokens, uint256[] calldata amounts, address recipient)
