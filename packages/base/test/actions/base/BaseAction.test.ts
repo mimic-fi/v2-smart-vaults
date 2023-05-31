@@ -21,8 +21,35 @@ describe('BaseAction', () => {
       {
         owner: owner.address,
         smartVault: smartVault.address,
+        groupId: 0,
       },
     ])
+  })
+
+  describe('setGroupId', () => {
+    const groupId = 1
+
+    context('when the sender is authorized', () => {
+      beforeEach('authorize sender', async () => {
+        const setGroupIdRole = action.interface.getSighash('setGroupId')
+        await action.connect(owner).authorize(owner.address, setGroupIdRole)
+        action = action.connect(owner)
+      })
+
+      it('can be set', async () => {
+        const tx = await action.setGroupId(groupId)
+
+        expect(await action.getGroupId()).to.be.equal(groupId)
+
+        await assertEvent(tx, 'GroupIdSet', { groupId })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      it('reverts', async () => {
+        await expect(action.setGroupId(groupId)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
   })
 
   describe('pause', () => {

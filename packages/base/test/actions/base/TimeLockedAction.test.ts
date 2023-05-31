@@ -31,6 +31,7 @@ describe('TimeLockedAction', () => {
         baseConfig: {
           owner: owner.address,
           smartVault: smartVault.address,
+          groupId: 0,
         },
         timeLockConfig: {
           delay: 0,
@@ -121,6 +122,7 @@ describe('TimeLockedAction', () => {
               baseConfig: {
                 owner: owner.address,
                 smartVault: smartVault.address,
+                groupId: 0,
               },
               timeLockConfig: {
                 delay,
@@ -183,6 +185,7 @@ describe('TimeLockedAction', () => {
               baseConfig: {
                 owner: owner.address,
                 smartVault: smartVault.address,
+                groupId: 0,
               },
               timeLockConfig: {
                 delay,
@@ -280,6 +283,7 @@ describe('TimeLockedAction', () => {
               baseConfig: {
                 owner: owner.address,
                 smartVault: smartVault.address,
+                groupId: 0,
               },
               timeLockConfig: {
                 delay,
@@ -341,6 +345,7 @@ describe('TimeLockedAction', () => {
               baseConfig: {
                 owner: owner.address,
                 smartVault: smartVault.address,
+                groupId: 0,
               },
               timeLockConfig: {
                 delay,

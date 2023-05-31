@@ -27,6 +27,7 @@ describe('TokenThresholdAction', () => {
         baseConfig: {
           owner: owner.address,
           smartVault: smartVault.address,
+          groupId: 0,
         },
         tokenThresholdConfig: {
           customThresholds: [],
