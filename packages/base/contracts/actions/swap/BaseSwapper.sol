@@ -102,14 +102,14 @@ abstract contract BaseSwapper is IBaseSwapper, Action {
     /**
      * @dev Tells the token out defined for a specific token
      */
-    function getCustomTokenOut(address token) public view virtual override returns (bool, address) {
+    function getCustomTokenOut(address token) public view override returns (bool, address) {
         return _customTokensOut.tryGet(token);
     }
 
     /**
      * @dev Tells the max slippage defined for a specific token
      */
-    function getCustomMaxSlippage(address token) public view virtual override returns (bool, uint256) {
+    function getCustomMaxSlippage(address token) public view override returns (bool, uint256) {
         return _customMaxSlippages.tryGet(token);
     }
 
@@ -165,7 +165,7 @@ abstract contract BaseSwapper is IBaseSwapper, Action {
     /**
      * @dev Tells the token out that should be used for a token
      */
-    function _getApplicableTokenOut(address token) internal view virtual returns (address) {
+    function _getApplicableTokenOut(address token) internal view returns (address) {
         (bool exists, address tokenOut) = getCustomTokenOut(token);
         return exists ? tokenOut : getDefaultTokenOut();
     }
@@ -173,7 +173,7 @@ abstract contract BaseSwapper is IBaseSwapper, Action {
     /**
      * @dev Tells the max slippage that should be used for a token
      */
-    function _getApplicableMaxSlippage(address token) internal view virtual returns (uint256) {
+    function _getApplicableMaxSlippage(address token) internal view returns (uint256) {
         (bool exists, uint256 maxSlippage) = getCustomMaxSlippage(token);
         return exists ? maxSlippage : getDefaultMaxSlippage();
     }
@@ -181,14 +181,14 @@ abstract contract BaseSwapper is IBaseSwapper, Action {
     /**
      * @dev Tells if a slippage is valid based on the max slippage configured for a token
      */
-    function _isSlippageValid(address token, uint256 slippage) internal view virtual returns (bool) {
+    function _isSlippageValid(address token, uint256 slippage) internal view returns (bool) {
         return slippage <= _getApplicableMaxSlippage(token);
     }
 
     /**
      * @dev Reverts if the requested slippage is above the max slippage configured for a token
      */
-    function _validateSlippage(address token, uint256 slippage) internal view virtual {
+    function _validateSlippage(address token, uint256 slippage) internal view {
         require(_isSlippageValid(token, slippage), 'ACTION_SLIPPAGE_TOO_HIGH');
     }
 

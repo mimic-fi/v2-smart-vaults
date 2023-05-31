@@ -78,7 +78,7 @@ abstract contract BaseBridger is IBaseBridger, Action {
     /**
      * @dev Tells the destination chain defined for a specific token
      */
-    function getCustomDestinationChain(address token) public view virtual override returns (bool, uint256) {
+    function getCustomDestinationChain(address token) public view override returns (bool, uint256) {
         return _customDestinationChains.tryGet(token);
     }
 
@@ -116,7 +116,7 @@ abstract contract BaseBridger is IBaseBridger, Action {
     /**
      * @dev Tells the destination chain that should be used for a token
      */
-    function _getApplicableDestinationChain(address token) internal view virtual returns (uint256) {
+    function _getApplicableDestinationChain(address token) internal view returns (uint256) {
         (bool exists, uint256 destinationChain) = getCustomDestinationChain(token);
         return exists ? destinationChain : getDefaultDestinationChain();
     }

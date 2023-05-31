@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.3;
+pragma solidity ^0.8.17;
 
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
@@ -134,7 +134,7 @@ abstract contract RelayedAction is IRelayedAction, BaseAction {
      * @param gasPriceLimit New relay gas price limit to be set
      * @param priorityFeeLimit New relay priority fee limit to be set
      */
-    function setRelayGasLimits(uint256 gasPriceLimit, uint256 priorityFeeLimit) external auth {
+    function setRelayGasLimits(uint256 gasPriceLimit, uint256 priorityFeeLimit) external override auth {
         _setRelayGasLimit(gasPriceLimit, priorityFeeLimit);
     }
 
@@ -142,7 +142,7 @@ abstract contract RelayedAction is IRelayedAction, BaseAction {
      * @dev Sets the relay transaction cost limit
      * @param txCostLimit New relay transaction cost limit to be set
      */
-    function setRelayTxCostLimit(uint256 txCostLimit) external auth {
+    function setRelayTxCostLimit(uint256 txCostLimit) external override auth {
         _setRelayTxCostLimit(txCostLimit);
     }
 
@@ -174,10 +174,9 @@ abstract contract RelayedAction is IRelayedAction, BaseAction {
     }
 
     /**
-     * @dev Reverts if the tx fee does not comply with the configured gas limits. This function can be overridden
-     * by action developers to customize how gas limit configs should be validated.
+     * @dev Reverts if the tx fee does not comply with the configured gas limits
      */
-    function _validateGasLimit() internal view virtual {
+    function _validateGasLimit() internal view {
         require(_areGasLimitsValid(), 'ACTION_GAS_LIMITS_EXCEEDED');
     }
 
@@ -205,10 +204,9 @@ abstract contract RelayedAction is IRelayedAction, BaseAction {
     }
 
     /**
-     * @dev Reverts if the tx cost does not comply with the configured limit. This function can be overridden
-     * by action developers to customize how gas limit configs should be validated.
+     * @dev Reverts if the tx cost does not comply with the configured limit
      */
-    function _validateTxCostLimit(uint256 totalCost) internal view virtual {
+    function _validateTxCostLimit(uint256 totalCost) internal view {
         require(_isTxCostValid(totalCost), 'ACTION_TX_COST_LIMIT_EXCEEDED');
     }
 
