@@ -26,7 +26,7 @@
   "dependencies": {
     "@mimic-fi/v2-deployer": "0.0.1",
     "@mimic-fi/v2-helpers": "0.1.3",
-    "@mimic-fi/v2-bridge-connector": "0.1.0",
+    "@mimic-fi/v2-bridge-connector": "0.1.1",
     "@mimic-fi/v2-permissions-manager": "0.0.1",
     "@mimic-fi/v2-price-oracle": "0.1.0",
     "@mimic-fi/v2-registry": "0.1.0",
