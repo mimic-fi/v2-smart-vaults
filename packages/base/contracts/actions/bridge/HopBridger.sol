@@ -75,7 +75,7 @@ contract HopBridger is IHopBridger, BaseBridger {
     }
 
     /**
-     * @dev Swapper action config
+     * @dev Hop bridger action config
      */
     struct HopBridgerConfig {
         address relayer;
