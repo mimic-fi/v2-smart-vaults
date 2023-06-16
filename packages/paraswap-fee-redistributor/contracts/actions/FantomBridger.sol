@@ -17,7 +17,6 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
-import '@mimic-fi/v2-bridge-connector/contracts/IBridgeConnector.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
