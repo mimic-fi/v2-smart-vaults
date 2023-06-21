@@ -106,15 +106,16 @@ contract WormholeBridger is BaseAction, TokenThresholdAction, RelayedAction {
 
         emit Executed();
         uint256 gasRefund = _payRelayedTx(token);
-        uint256 minAmount = amount - relayerFee - gasRefund;
+        uint256 amountToBridge = amount - gasRefund;
+        uint256 minAmountOut = amountToBridge - relayerFee;
 
         smartVault.bridge(
             WORMHOLE_BRIDGE_SOURCE,
             destinationChainId,
             token,
-            amount,
+            amountToBridge,
             ISmartVault.BridgeLimit.MinAmountOut,
-            minAmount,
+            minAmountOut,
             address(smartVault),
             new bytes(0)
         );

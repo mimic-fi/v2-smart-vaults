@@ -385,7 +385,7 @@ describe('ConnextBridger', () => {
                   source: SOURCE,
                   chainId: DESTINATION_CHAIN_ID,
                   token,
-                  amountIn: amount.sub(relayerFee),
+                  amountIn: amount,
                   minAmountOut: amount.sub(relayerFee),
                   data: defaultAbiCoder.encode(['uint256'], [relayerFee]),
                 })
