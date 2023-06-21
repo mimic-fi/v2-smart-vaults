@@ -25,7 +25,6 @@ interface IMetamaskFeeDistributor {
     /**
      * @dev Withdraws the specified tokens or ETH
      * @param tokens Array of tokens to withdraw
-     * @param tokens Array of amounts to withdraw for each token
      */
     function withdraw(address[] calldata tokens) external;
 }
