@@ -112,7 +112,7 @@ contract WormholeBridger is BaseAction, TokenThresholdAction, RelayedAction {
             WORMHOLE_BRIDGE_SOURCE,
             destinationChainId,
             token,
-            minAmount,
+            amount,
             ISmartVault.BridgeLimit.MinAmountOut,
             minAmount,
             address(smartVault),

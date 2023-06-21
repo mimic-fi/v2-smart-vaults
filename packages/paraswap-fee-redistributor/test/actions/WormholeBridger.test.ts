@@ -384,7 +384,7 @@ describe('WormholeBridger', () => {
                   source: SOURCE,
                   chainId: DESTINATION_CHAIN_ID,
                   token,
-                  amountIn: amount.sub(relayerFee),
+                  amountIn: amount,
                   minAmountOut: amount.sub(relayerFee),
                   data: '0x',
                 })
