@@ -14,7 +14,6 @@ import {
 } from '@mimic-fi/v2-helpers'
 import {
   assertRelayedBaseCost,
-  createAction,
   createPriceFeedMock,
   createSmartVault,
   createTokenMock,
@@ -26,8 +25,8 @@ import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
 import { ethers } from 'hardhat'
 
-describe('ERC20Claimer', () => {
-  let action: Contract, smartVault: Contract, mimic: Mimic, wrappedNativeToken: Contract
+describe('ERC20Claimer2', () => {
+  let action: Contract, smartVault: Contract, mimic: Mimic, tokenOut: Contract
   let owner: SignerWithAddress, other: SignerWithAddress, feeCollector: SignerWithAddress, swapSigner: SignerWithAddress
 
   before('set up signers', async () => {
@@ -38,8 +37,81 @@ describe('ERC20Claimer', () => {
   beforeEach('deploy action', async () => {
     mimic = await setupMimic(true)
     smartVault = await createSmartVault(mimic, owner)
-    action = await createAction('ERC20Claimer', mimic, owner, smartVault)
-    wrappedNativeToken = mimic.wrappedNativeToken
+    tokenOut = await createTokenMock()
+    action = await deploy('ERC20Claimer2', [
+      {
+        admin: owner.address,
+        registry: mimic.registry.address,
+        smartVault: smartVault.address,
+        feeClaimer: other.address,
+        tokenOut: tokenOut.address,
+        swapSigner: swapSigner.address,
+        maxSlippage: fp(0.01),
+        ignoreTokens: [tokenOut.address],
+        thresholdToken: mimic.wrappedNativeToken.address,
+        thresholdAmount: fp(1000),
+        relayer: owner.address,
+        gasPriceLimit: 100e9,
+      },
+    ])
+  })
+
+  describe('initialization', () => {
+    it('initializes the action as expected', async () => {
+      const authorizeRole = action.interface.getSighash('authorize')
+      expect(await action.isAuthorized(owner.address, authorizeRole)).to.be.true
+
+      const unauthorizeRole = action.interface.getSighash('unauthorize')
+      expect(await action.isAuthorized(owner.address, unauthorizeRole)).to.be.true
+
+      expect(await action.smartVault()).to.be.equal(smartVault.address)
+      expect(await action.feeClaimer()).to.be.equal(other.address)
+      expect(await action.tokenOut()).to.be.equal(tokenOut.address)
+      expect(await action.swapSigner()).to.be.equal(swapSigner.address)
+      expect(await action.maxSlippage()).to.be.equal(fp(0.01))
+
+      expect(await action.isRelayer(owner.address)).to.be.true
+      expect(await action.gasPriceLimit()).to.be.eq(100e9)
+      expect(await action.txCostLimit()).to.be.eq(0)
+
+      expect(await action.thresholdToken()).to.be.eq(mimic.wrappedNativeToken.address)
+      expect(await action.thresholdAmount()).to.be.eq(fp(1000))
+
+      expect(await action.isTokenSwapIgnored(tokenOut.address)).to.be.true
+      expect(await action.isTokenSwapIgnored(mimic.wrappedNativeToken.address)).to.be.false
+    })
+  })
+
+  describe('setTokenOut', () => {
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        const setTokenOutRole = action.interface.getSighash('setTokenOut')
+        await action.connect(owner).authorize(owner.address, setTokenOutRole)
+        action = action.connect(owner)
+      })
+
+      it('sets the token out', async () => {
+        await action.setTokenOut(other.address)
+
+        expect(await action.tokenOut()).to.be.equal(other.address)
+      })
+
+      it('emits an event', async () => {
+        const tx = await action.setTokenOut(other.address)
+
+        await assertEvent(tx, 'TokenOutSet', { tokenOut: other })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        action = action.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(action.setTokenOut(other.address)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
   })
 
   describe('setFeeClaimer', () => {
@@ -170,14 +242,15 @@ describe('ERC20Claimer', () => {
 
         expect(await action.isTokenSwapIgnored(token1.address)).to.be.true
         expect(await action.isTokenSwapIgnored(token2.address)).to.be.false
-        expect(await action.getIgnoredTokenSwaps()).to.have.lengthOf(1)
+        expect(await action.getIgnoredTokenSwaps()).to.have.lengthOf(2)
 
         await action.setIgnoreTokenSwaps([token2.address], [true])
 
         const tokens = await action.getIgnoredTokenSwaps()
-        expect(tokens).to.have.lengthOf(2)
-        expect(tokens[0]).to.be.equal(token1.address)
-        expect(tokens[1]).to.be.equal(token2.address)
+        expect(tokens).to.have.lengthOf(3)
+        expect(tokens[0]).to.be.equal(tokenOut.address)
+        expect(tokens[1]).to.be.equal(token1.address)
+        expect(tokens[2]).to.be.equal(token2.address)
       })
 
       it('emits an event', async () => {
@@ -255,28 +328,13 @@ describe('ERC20Claimer', () => {
               ethers.utils.arrayify(
                 ethers.utils.solidityKeccak256(
                   ['address', 'address', 'bool', 'uint256', 'uint256', 'uint256', 'uint256', 'bytes'],
-                  [
-                    token.address,
-                    wrappedNativeToken.address,
-                    false,
-                    amountIn,
-                    minAmountOut,
-                    expectedAmountOut,
-                    deadline,
-                    data,
-                  ]
+                  [token.address, tokenOut.address, false, amountIn, minAmountOut, expectedAmountOut, deadline, data]
                 )
               )
             )
           }
 
-          context('when the swap signer is set', () => {
-            beforeEach('set swap signer', async () => {
-              const setSwapSignerRole = action.interface.getSighash('setSwapSigner')
-              await action.connect(owner).authorize(owner.address, setSwapSignerRole)
-              await action.connect(owner).setSwapSigner(swapSigner.address)
-            })
-
+          context('when the swap signer is valid', () => {
             context('when the deadline is in the feature', () => {
               let deadline: BigNumber
 
@@ -294,21 +352,19 @@ describe('ERC20Claimer', () => {
                 })
 
                 context('when there is a threshold set', () => {
-                  const tokenRate = 2 // 1 token = 2 wrapped native tokens
-                  const thresholdAmount = fp(0.1) // in wrapped native tokens
+                  const tokenRate = 2 // 1 token = 2 token out
+                  const thresholdAmount = fp(0.1) // in token out
                   const thresholdAmountInToken = thresholdAmount.div(tokenRate) // threshold expressed in token
 
                   beforeEach('set threshold', async () => {
                     const setThresholdRole = action.interface.getSighash('setThreshold')
                     await action.connect(owner).authorize(owner.address, setThresholdRole)
-                    await action.connect(owner).setThreshold(wrappedNativeToken.address, thresholdAmount)
+                    await action.connect(owner).setThreshold(tokenOut.address, thresholdAmount)
 
                     const feed = await createPriceFeedMock(fp(tokenRate))
                     const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
                     await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
-                    await smartVault
-                      .connect(owner)
-                      .setPriceFeed(token.address, wrappedNativeToken.address, feed.address)
+                    await smartVault.connect(owner).setPriceFeed(token.address, tokenOut.address, feed.address)
                   })
 
                   context('when the claimable balance passes the threshold', () => {
@@ -417,7 +473,7 @@ describe('ERC20Claimer', () => {
 
                       if (relayed) {
                         it('refunds gas', async () => {
-                          const previousBalance = await token.balanceOf(feeCollector.address)
+                          const previousBalance = await tokenOut.balanceOf(feeCollector.address)
 
                           const tx = await action.call(
                             token.address,
@@ -429,15 +485,15 @@ describe('ERC20Claimer', () => {
                             signature
                           )
 
-                          const currentBalance = await token.balanceOf(feeCollector.address)
+                          const currentBalance = await tokenOut.balanceOf(feeCollector.address)
                           expect(currentBalance).to.be.gt(previousBalance)
 
-                          const redeemedCost = currentBalance.sub(previousBalance).mul(tokenRate)
+                          const redeemedCost = currentBalance.sub(previousBalance)
                           await assertRelayedBaseCost(tx, redeemedCost, 0.05)
                         })
                       } else {
                         it('does not refund gas', async () => {
-                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          const previousBalance = await tokenOut.balanceOf(feeCollector.address)
 
                           await action.call(
                             token.address,
@@ -449,7 +505,7 @@ describe('ERC20Claimer', () => {
                             signature
                           )
 
-                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          const currentBalance = await tokenOut.balanceOf(feeCollector.address)
                           expect(currentBalance).to.be.equal(previousBalance)
                         })
                       }
@@ -557,13 +613,11 @@ describe('ERC20Claimer', () => {
                     const feed = await createPriceFeedMock(fp(tokenRate))
                     const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
                     await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
-                    await smartVault
-                      .connect(owner)
-                      .setPriceFeed(token.address, wrappedNativeToken.address, feed.address)
+                    await smartVault.connect(owner).setPriceFeed(token.address, tokenOut.address, feed.address)
 
                     const setThresholdRole = action.interface.getSighash('setThreshold')
                     await action.connect(owner).authorize(owner.address, setThresholdRole)
-                    await action.connect(owner).setThreshold(wrappedNativeToken.address, thresholdAmount)
+                    await action.connect(owner).setThreshold(tokenOut.address, thresholdAmount)
                   })
 
                   const itClaimsAndSwapsSuccessfully = (feeClaimerBalance: BigNumber, smartVaultBalance: BigNumber) => {
@@ -591,8 +645,7 @@ describe('ERC20Claimer', () => {
 
                       beforeEach('fund swap connector', async () => {
                         await mimic.swapConnector.mockRate(fp(tokenRate))
-                        await wrappedNativeToken.connect(owner).deposit({ value: minAmountOut })
-                        await wrappedNativeToken.connect(owner).transfer(await mimic.swapConnector.dex(), minAmountOut)
+                        await tokenOut.mint(await mimic.swapConnector.dex(), minAmountOut)
                       })
 
                       it('can execute', async () => {
@@ -637,7 +690,7 @@ describe('ERC20Claimer', () => {
 
                         await assertIndirectEvent(tx, smartVault.interface, 'Swap', {
                           tokenIn: token,
-                          tokenOut: wrappedNativeToken,
+                          tokenOut,
                           amountIn,
                           minAmountOut,
                           data,
@@ -670,10 +723,10 @@ describe('ERC20Claimer', () => {
                       })
 
                       it('transfers the token out from the swap connector to the smart vault', async () => {
-                        const previousSmartVaultBalance = await wrappedNativeToken.balanceOf(smartVault.address)
-                        const previousFeeClaimerBalance = await wrappedNativeToken.balanceOf(feeClaimer.address)
-                        const previousFeeCollectorBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
-                        const previousDexBalance = await wrappedNativeToken.balanceOf(await mimic.swapConnector.dex())
+                        const previousSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
+                        const previousFeeClaimerBalance = await tokenOut.balanceOf(feeClaimer.address)
+                        const previousFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
+                        const previousDexBalance = await tokenOut.balanceOf(await mimic.swapConnector.dex())
 
                         await action.call(
                           token.address,
@@ -685,17 +738,17 @@ describe('ERC20Claimer', () => {
                           signature
                         )
 
-                        const currentFeeCollectorBalance = await wrappedNativeToken.balanceOf(feeCollector.address)
+                        const currentFeeCollectorBalance = await tokenOut.balanceOf(feeCollector.address)
                         const refund = currentFeeCollectorBalance.sub(previousFeeCollectorBalance)
 
-                        const currentSmartVaultBalance = await wrappedNativeToken.balanceOf(smartVault.address)
+                        const currentSmartVaultBalance = await tokenOut.balanceOf(smartVault.address)
                         const expectedSmartVaultBalance = previousSmartVaultBalance.add(minAmountOut).sub(refund)
                         expect(currentSmartVaultBalance).to.be.eq(expectedSmartVaultBalance)
 
-                        const currentFeeClaimerBalance = await wrappedNativeToken.balanceOf(feeClaimer.address)
+                        const currentFeeClaimerBalance = await tokenOut.balanceOf(feeClaimer.address)
                         expect(currentFeeClaimerBalance).to.be.eq(previousFeeClaimerBalance)
 
-                        const currentDexBalance = await wrappedNativeToken.balanceOf(await mimic.swapConnector.dex())
+                        const currentDexBalance = await tokenOut.balanceOf(await mimic.swapConnector.dex())
                         expect(currentDexBalance).to.be.eq(previousDexBalance.sub(minAmountOut))
                       })
 
@@ -715,7 +768,7 @@ describe('ERC20Claimer', () => {
 
                       if (relayed) {
                         it('refunds gas', async () => {
-                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          const previousBalance = await tokenOut.balanceOf(feeCollector.address)
 
                           const tx = await action.call(
                             token.address,
@@ -727,7 +780,7 @@ describe('ERC20Claimer', () => {
                             signature
                           )
 
-                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          const currentBalance = await tokenOut.balanceOf(feeCollector.address)
                           expect(currentBalance).to.be.gt(previousBalance)
 
                           const redeemedCost = currentBalance.sub(previousBalance)
@@ -735,7 +788,7 @@ describe('ERC20Claimer', () => {
                         })
                       } else {
                         it('does not refund gas', async () => {
-                          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          const previousBalance = await tokenOut.balanceOf(feeCollector.address)
 
                           await action.call(
                             token.address,
@@ -747,13 +800,19 @@ describe('ERC20Claimer', () => {
                             signature
                           )
 
-                          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+                          const currentBalance = await tokenOut.balanceOf(feeCollector.address)
                           expect(currentBalance).to.be.equal(previousBalance)
                         })
                       }
                     })
 
                     context('when the slippage is above the limit', () => {
+                      beforeEach('set max slippage', async () => {
+                        const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
+                        await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
+                        await action.connect(owner).setMaxSlippage(fp(slippage - 0.0001))
+                      })
+
                       it('reverts', async () => {
                         const signature = await sign(
                           swapSigner,
@@ -877,27 +936,19 @@ describe('ERC20Claimer', () => {
             })
           })
 
-          context('when the swap signer is not set', () => {
+          context('when the swap signer is not valid', () => {
+            beforeEach('set another swap signer', async () => {
+              const setSwapSignerRole = action.interface.getSighash('setSwapSigner')
+              await action.connect(owner).authorize(owner.address, setSwapSignerRole)
+              await action.connect(owner).setSwapSigner(other.address)
+            })
+
             it('reverts', async () => {
               const signature = await sign(swapSigner, 0, 0, 0, 0, data)
               await expect(action.call(token.address, 0, 0, 0, 0, data, signature)).to.be.revertedWith(
                 'INVALID_SWAP_SIGNATURE'
               )
             })
-          })
-        })
-
-        context('when the token to collect is the wrapped native token', () => {
-          let token: Contract
-
-          beforeEach('set token', async () => {
-            token = wrappedNativeToken
-          })
-
-          it('reverts', async () => {
-            await expect(action.call(token.address, 0, 0, 0, 0, data, '0x')).to.be.revertedWith(
-              'ERC20_CLAIMER_INVALID_TOKEN'
-            )
           })
         })
 
@@ -915,6 +966,17 @@ describe('ERC20Claimer', () => {
           const setRelayerRole = action.interface.getSighash('setRelayer')
           await action.connect(owner).authorize(owner.address, setRelayerRole)
           await action.connect(owner).setRelayer(owner.address, true)
+        })
+
+        beforeEach('set token out price feed', async () => {
+          const feed = await createPriceFeedMock(fp(1))
+          const setPriceFeedRole = smartVault.interface.getSighash('setPriceFeed')
+          await smartVault.connect(owner).authorize(owner.address, setPriceFeedRole)
+          await smartVault.connect(owner).setPriceFeed(mimic.wrappedNativeToken.address, tokenOut.address, feed.address)
+        })
+
+        beforeEach('fund smart vault with token out to pay gas', async () => {
+          await tokenOut.mint(smartVault.address, fp(1000))
         })
 
         itPerformsTheExpectedCall(true)
