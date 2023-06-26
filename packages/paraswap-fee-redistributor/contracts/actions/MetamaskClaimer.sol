@@ -199,7 +199,6 @@ contract MetamaskClaimer is BaseAction, TokenThresholdAction, RelayedAction {
      * @param newSafe Address of the new safe to be set
      */
     function _setSafe(address newSafe) private {
-        require(newSafe != address(0), 'SAFE_ADDRESS_ZERO');
         safe = newSafe;
         emit SafeSet(newSafe);
     }
@@ -209,7 +208,6 @@ contract MetamaskClaimer is BaseAction, TokenThresholdAction, RelayedAction {
      * @param newMetamaskFeeDistributor Address of the new metamask fee distributor to be set
      */
     function _setMetamaskFeeDistributor(address newMetamaskFeeDistributor) private {
-        require(newMetamaskFeeDistributor != address(0), 'METAMASK_DISTRIBUTOR_ZERO');
         metamaskFeeDistributor = newMetamaskFeeDistributor;
         emit MetamaskFeeDistributorSet(newMetamaskFeeDistributor);
     }
