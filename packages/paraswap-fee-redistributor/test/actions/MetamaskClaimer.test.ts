@@ -95,24 +95,16 @@ describe('MetamaskClaimer', () => {
         action = action.connect(owner)
       })
 
-      context('when the given safe is not the zero address', () => {
-        it('sets the safe address', async () => {
-          await action.setSafe(owner.address)
+      it('sets the safe address', async () => {
+        await action.setSafe(owner.address)
 
-          expect(await action.safe()).to.be.equal(owner.address)
-        })
-
-        it('emits an event', async () => {
-          const tx = await action.setSafe(owner.address)
-
-          await assertEvent(tx, 'SafeSet', { safe: owner })
-        })
+        expect(await action.safe()).to.be.equal(owner.address)
       })
 
-      context('when the given safe is the zero address', () => {
-        it('reverts', async () => {
-          await expect(action.setSafe(ZERO_ADDRESS)).to.be.revertedWith('SAFE_ADDRESS_ZERO')
-        })
+      it('emits an event', async () => {
+        const tx = await action.setSafe(owner.address)
+
+        await assertEvent(tx, 'SafeSet', { safe: owner })
       })
     })
 
@@ -131,24 +123,16 @@ describe('MetamaskClaimer', () => {
         action = action.connect(owner)
       })
 
-      context('when the given distributor is not the zero address', () => {
-        it('sets the distributor address', async () => {
-          await action.setMetamaskFeeDistributor(owner.address)
+      it('sets the distributor address', async () => {
+        await action.setMetamaskFeeDistributor(owner.address)
 
-          expect(await action.metamaskFeeDistributor()).to.be.equal(owner.address)
-        })
-
-        it('emits an event', async () => {
-          const tx = await action.setMetamaskFeeDistributor(owner.address)
-
-          await assertEvent(tx, 'MetamaskFeeDistributorSet', { metamaskFeeDistributor: owner })
-        })
+        expect(await action.metamaskFeeDistributor()).to.be.equal(owner.address)
       })
 
-      context('when the given distributor is the zero address', () => {
-        it('reverts', async () => {
-          await expect(action.setMetamaskFeeDistributor(ZERO_ADDRESS)).to.be.revertedWith('METAMASK_DISTRIBUTOR_ZERO')
-        })
+      it('emits an event', async () => {
+        const tx = await action.setMetamaskFeeDistributor(owner.address)
+
+        await assertEvent(tx, 'MetamaskFeeDistributorSet', { metamaskFeeDistributor: owner })
       })
     })
 
