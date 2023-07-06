@@ -18,7 +18,6 @@ import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
-import '@mimic-fi/v2-smart-vaults-base/contracts/actions/TokenThresholdAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
 import '../interfaces/IGnosisSafe.sol';
@@ -26,7 +25,7 @@ import '../interfaces/IMetamaskFeeDistributor.sol';
 
 import 'hardhat/console.sol';
 
-contract MetamaskClaimer is BaseAction, TokenThresholdAction, RelayedAction {
+contract MetamaskClaimer is BaseAction, RelayedAction {
     using ECDSA for bytes32;
     using FixedPoint for uint256;
 
@@ -66,8 +65,6 @@ contract MetamaskClaimer is BaseAction, TokenThresholdAction, RelayedAction {
         address smartVault;
         address safe;
         address metamaskFeeDistributor;
-        address thresholdToken;
-        uint256 thresholdAmount;
         address relayer;
         address gasToken;
         uint256 gasPriceLimit;
@@ -83,10 +80,6 @@ contract MetamaskClaimer is BaseAction, TokenThresholdAction, RelayedAction {
 
         _setSafe(config.safe);
         _setMetamaskFeeDistributor(config.metamaskFeeDistributor);
-
-        thresholdToken = config.thresholdToken;
-        thresholdAmount = config.thresholdAmount;
-        emit ThresholdSet(config.thresholdToken, config.thresholdAmount);
 
         isRelayer[config.relayer] = true;
         emit RelayerSet(config.relayer, true);
@@ -128,7 +121,6 @@ contract MetamaskClaimer is BaseAction, TokenThresholdAction, RelayedAction {
         require(IGnosisSafe(safe).isOwner(address(smartVault)), 'SMART_VAULT_NOT_SAFE_OWNER');
 
         uint256 balance = IMetamaskFeeDistributor(metamaskFeeDistributor).available(token, safe);
-        _validateThreshold(token, balance);
 
         bytes memory contractSignature = abi.encodePacked(
             uint256(uint160(address(smartVault))),
