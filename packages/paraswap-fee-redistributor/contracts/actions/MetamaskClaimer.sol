@@ -31,7 +31,7 @@ contract MetamaskClaimer is BaseAction, TokenThresholdAction, RelayedAction {
     using FixedPoint for uint256;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 60e3;
+    uint256 public constant override BASE_GAS = 55e3;
 
     // Address of the gnosis safe owning th metamask fee shares
     address public safe;
@@ -127,7 +127,7 @@ contract MetamaskClaimer is BaseAction, TokenThresholdAction, RelayedAction {
     function call(address token) external auth nonReentrant redeemGas(gasToken) {
         require(IGnosisSafe(safe).isOwner(address(smartVault)), 'SMART_VAULT_NOT_SAFE_OWNER');
 
-        uint256 balance = IMetamaskFeeDistributor(metamaskFeeDistributor).available(token, address(smartVault));
+        uint256 balance = IMetamaskFeeDistributor(metamaskFeeDistributor).available(token, safe);
         _validateThreshold(token, balance);
 
         bytes memory contractSignature = abi.encodePacked(

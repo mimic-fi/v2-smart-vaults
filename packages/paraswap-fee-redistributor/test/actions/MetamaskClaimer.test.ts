@@ -185,7 +185,9 @@ describe('MetamaskClaimer', () => {
 
     beforeEach('deploy token and fund fee distributor', async () => {
       token = await createTokenMock()
-      await token.mint(metamaskFeeDistributor.address, amount)
+      await token.mint(owner.address, amount)
+      await token.connect(owner).approve(metamaskFeeDistributor.address, amount)
+      await metamaskFeeDistributor.connect(owner).assign(token.address, amount, safe.address)
     })
 
     beforeEach('authorize action', async () => {
