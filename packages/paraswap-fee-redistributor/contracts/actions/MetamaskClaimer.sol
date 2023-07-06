@@ -121,6 +121,7 @@ contract MetamaskClaimer is BaseAction, RelayedAction {
         require(IGnosisSafe(safe).isOwner(address(smartVault)), 'SMART_VAULT_NOT_SAFE_OWNER');
 
         uint256 balance = IMetamaskFeeDistributor(metamaskFeeDistributor).available(token, safe);
+        require(balance > 0, 'METAMASK_CLAIMER_AMOUNT_ZERO');
 
         bytes memory contractSignature = abi.encodePacked(
             uint256(uint160(address(smartVault))),
