@@ -6,6 +6,7 @@ import {
   getSigner,
   getSigners,
   instanceAt,
+  NATIVE_TOKEN_ADDRESS,
   ZERO_ADDRESS,
 } from '@mimic-fi/v2-helpers'
 import {
@@ -19,6 +20,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { defaultAbiCoder, getContractAddress } from 'ethers/lib/utils'
+import { ethers } from 'hardhat'
 
 describe('MetamaskClaimer', () => {
   let action: Contract, smartVault: Contract, safe: Contract, metamaskFeeDistributor: Contract, mimic: Mimic
@@ -175,16 +177,6 @@ describe('MetamaskClaimer', () => {
   })
 
   describe('call', () => {
-    let token: Contract
-    const amount = fp(10)
-
-    beforeEach('deploy token and fund fee distributor', async () => {
-      token = await createTokenMock()
-      await token.mint(owner.address, amount)
-      await token.connect(owner).approve(metamaskFeeDistributor.address, amount)
-      await metamaskFeeDistributor.connect(owner).assign(token.address, amount, safe.address)
-    })
-
     beforeEach('authorize action', async () => {
       const callRole = smartVault.interface.getSighash('call')
       await smartVault.connect(owner).authorize(action.address, callRole)
@@ -206,79 +198,174 @@ describe('MetamaskClaimer', () => {
       })
 
       const itPerformsTheExpectedCall = (refunds: boolean) => {
-        it('calls the call primitive to claim metamask', async () => {
-          const tx = await action.call(token.address)
+        context('when the token is an ERC20', () => {
+          let token: Contract
+          const amount = fp(10)
 
-          const metamaskClaimData = metamaskFeeDistributor.interface.encodeFunctionData('withdraw', [[token.address]])
-          const contractSignature = `${defaultAbiCoder.encode(['uint256', 'uint256'], [smartVault.address, 0])}01`
-          const callData = safe.interface.encodeFunctionData('execTransaction', [
-            metamaskFeeDistributor.address,
-            0,
-            metamaskClaimData,
-            0,
-            0,
-            0,
-            0,
-            ZERO_ADDRESS,
-            ZERO_ADDRESS,
-            contractSignature,
-          ])
+          beforeEach('deploy token and fund fee distributor', async () => {
+            token = await createTokenMock()
+            await token.mint(owner.address, amount)
+            await token.connect(owner).approve(metamaskFeeDistributor.address, amount)
+            await metamaskFeeDistributor.connect(owner).assign(token.address, amount, safe.address)
+          })
 
-          await assertIndirectEvent(tx, smartVault.interface, 'Call', {
-            target: safe.address,
-            callData,
-            value: 0,
-            data: '0x',
+          it('calls the call primitive to claim metamask', async () => {
+            const tx = await action.call(token.address)
+
+            const metamaskClaimData = metamaskFeeDistributor.interface.encodeFunctionData('withdraw', [[token.address]])
+            const contractSignature = `${defaultAbiCoder.encode(['uint256', 'uint256'], [smartVault.address, 0])}01`
+            const callData = safe.interface.encodeFunctionData('execTransaction', [
+              metamaskFeeDistributor.address,
+              0,
+              metamaskClaimData,
+              0,
+              0,
+              0,
+              0,
+              ZERO_ADDRESS,
+              ZERO_ADDRESS,
+              contractSignature,
+            ])
+
+            await assertIndirectEvent(tx, smartVault.interface, 'Call', {
+              target: safe.address,
+              callData,
+              value: 0,
+              data: '0x',
+            })
+          })
+
+          it('calls the call primitive to transfer tokens', async () => {
+            const tx = await action.call(token.address)
+
+            const transferData = token.interface.encodeFunctionData('transfer', [smartVault.address, amount])
+            const contractSignature = `${defaultAbiCoder.encode(['uint256', 'uint256'], [smartVault.address, 0])}01`
+            const callData = safe.interface.encodeFunctionData('execTransaction', [
+              token.address,
+              0,
+              transferData,
+              0,
+              0,
+              0,
+              0,
+              ZERO_ADDRESS,
+              ZERO_ADDRESS,
+              contractSignature,
+            ])
+
+            await assertIndirectEvent(tx, smartVault.interface, 'Call', {
+              target: safe.address,
+              callData,
+              value: 0,
+              data: '0x',
+            })
+          })
+
+          it('transfers the claimed balance to the smart vault', async () => {
+            const previousBalance = await token.balanceOf(smartVault.address)
+
+            await action.call(token.address)
+
+            const currentBalance = await token.balanceOf(smartVault.address)
+            expect(currentBalance).to.be.equal(previousBalance.add(amount))
+          })
+
+          it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
+            const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
+            const tx = await action.call(token.address)
+
+            const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+            expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+
+            if (refunds) {
+              const redeemedCost = currentBalance.sub(previousBalance)
+              await assertRelayedBaseCost(tx, redeemedCost, 0.12)
+            }
           })
         })
 
-        it('calls the call primitive to transfer tokens', async () => {
-          const tx = await action.call(token.address)
+        context('when the token is the native token', () => {
+          const token = NATIVE_TOKEN_ADDRESS
+          const amount = fp(0.1)
 
-          const transferData = token.interface.encodeFunctionData('transfer', [smartVault.address, amount])
-          const contractSignature = `${defaultAbiCoder.encode(['uint256', 'uint256'], [smartVault.address, 0])}01`
-          const callData = safe.interface.encodeFunctionData('execTransaction', [
-            token.address,
-            0,
-            transferData,
-            0,
-            0,
-            0,
-            0,
-            ZERO_ADDRESS,
-            ZERO_ADDRESS,
-            contractSignature,
-          ])
-
-          await assertIndirectEvent(tx, smartVault.interface, 'Call', {
-            target: safe.address,
-            callData,
-            value: 0,
-            data: '0x',
+          beforeEach('deploy token and fund fee distributor', async () => {
+            await metamaskFeeDistributor.connect(owner).assign(ZERO_ADDRESS, amount, safe.address, { value: amount })
           })
-        })
 
-        it('transfers the claimed balance to the smart vault', async () => {
-          const previousBalance = await token.balanceOf(smartVault.address)
+          it('calls the call primitive to claim metamask', async () => {
+            const tx = await action.call(token)
 
-          await action.call(token.address)
+            const metamaskClaimData = metamaskFeeDistributor.interface.encodeFunctionData('withdraw', [[ZERO_ADDRESS]])
+            const contractSignature = `${defaultAbiCoder.encode(['uint256', 'uint256'], [smartVault.address, 0])}01`
+            const callData = safe.interface.encodeFunctionData('execTransaction', [
+              metamaskFeeDistributor.address,
+              0,
+              metamaskClaimData,
+              0,
+              0,
+              0,
+              0,
+              ZERO_ADDRESS,
+              ZERO_ADDRESS,
+              contractSignature,
+            ])
 
-          const currentBalance = await token.balanceOf(smartVault.address)
-          expect(currentBalance).to.be.equal(previousBalance.add(amount))
-        })
+            await assertIndirectEvent(tx, smartVault.interface, 'Call', {
+              target: safe.address,
+              callData,
+              value: 0,
+              data: '0x',
+            })
+          })
 
-        it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
-          const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+          it('calls the call primitive to send value', async () => {
+            const tx = await action.call(token)
 
-          const tx = await action.call(token.address)
+            const contractSignature = `${defaultAbiCoder.encode(['uint256', 'uint256'], [smartVault.address, 0])}01`
+            const callData = safe.interface.encodeFunctionData('execTransaction', [
+              smartVault.address,
+              amount,
+              '0x',
+              0,
+              0,
+              0,
+              0,
+              ZERO_ADDRESS,
+              ZERO_ADDRESS,
+              contractSignature,
+            ])
 
-          const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
-          expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+            await assertIndirectEvent(tx, smartVault.interface, 'Call', {
+              target: safe.address,
+              callData,
+              value: 0,
+              data: '0x',
+            })
+          })
 
-          if (refunds) {
-            const redeemedCost = currentBalance.sub(previousBalance)
-            await assertRelayedBaseCost(tx, redeemedCost, 0.1)
-          }
+          it('transfers the claimed balance to the smart vault', async () => {
+            const previousBalance = await ethers.provider.getBalance(smartVault.address)
+
+            await action.call(token)
+
+            const currentBalance = await ethers.provider.getBalance(smartVault.address)
+            expect(currentBalance).to.be.equal(previousBalance.add(amount))
+          })
+
+          it(`${refunds ? 'refunds' : 'does not refund'} gas`, async () => {
+            const previousBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+
+            const tx = await action.call(token)
+
+            const currentBalance = await mimic.wrappedNativeToken.balanceOf(feeCollector.address)
+            expect(currentBalance).to.be[refunds ? 'gt' : 'equal'](previousBalance)
+
+            if (refunds) {
+              const redeemedCost = currentBalance.sub(previousBalance)
+              await assertRelayedBaseCost(tx, redeemedCost, 0.1)
+            }
+          })
         })
       }
 
