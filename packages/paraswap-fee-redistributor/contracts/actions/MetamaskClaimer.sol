@@ -17,20 +17,19 @@ pragma solidity ^0.8.0;
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 
 import '@mimic-fi/v2-helpers/contracts/math/FixedPoint.sol';
+import '@mimic-fi/v2-helpers/contracts/utils/Denominations.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/BaseAction.sol';
 import '@mimic-fi/v2-smart-vaults-base/contracts/actions/RelayedAction.sol';
 
 import '../interfaces/IGnosisSafe.sol';
 import '../interfaces/IMetamaskFeeDistributor.sol';
 
-import 'hardhat/console.sol';
-
 contract MetamaskClaimer is BaseAction, RelayedAction {
     using ECDSA for bytes32;
     using FixedPoint for uint256;
 
     // Base gas amount charged to cover gas payment
-    uint256 public constant override BASE_GAS = 55e3;
+    uint256 public constant override BASE_GAS = 58e3;
 
     // Address of the gnosis safe owning th metamask fee shares
     address public safe;
@@ -120,7 +119,9 @@ contract MetamaskClaimer is BaseAction, RelayedAction {
     function call(address token) external auth nonReentrant redeemGas(gasToken) {
         require(IGnosisSafe(safe).isOwner(address(smartVault)), 'SMART_VAULT_NOT_SAFE_OWNER');
 
-        uint256 balance = IMetamaskFeeDistributor(metamaskFeeDistributor).available(token, safe);
+        // Metamask works with the zero address for native tokens instead of the standard denomination
+        address parsedToken = Denominations.isNativeToken(token) ? address(0) : token;
+        uint256 balance = IMetamaskFeeDistributor(metamaskFeeDistributor).available(parsedToken, safe);
         require(balance > 0, 'METAMASK_CLAIMER_AMOUNT_ZERO');
 
         bytes memory contractSignature = abi.encodePacked(
@@ -129,8 +130,11 @@ contract MetamaskClaimer is BaseAction, RelayedAction {
             bytes1(0x01)
         );
 
-        _claimTokens(token, contractSignature);
-        _transferTokens(token, balance, contractSignature);
+        _claimTokens(parsedToken, contractSignature);
+        Denominations.isNativeToken(token)
+            ? _sendValue(balance, contractSignature)
+            : _transferTokens(token, balance, contractSignature);
+
         emit Executed();
     }
 
@@ -159,6 +163,30 @@ contract MetamaskClaimer is BaseAction, RelayedAction {
 
         // solhint-disable-next-line avoid-low-level-calls
         smartVault.call(safe, safeClaimData, 0, new bytes(0));
+    }
+
+    /**
+     * @dev Executes a transaction on the safe to send value to the smart vault
+     * @param value Amount of native tokens to be sent
+     * @param contractSignature Signature for the safe
+     */
+    function _sendValue(uint256 value, bytes memory contractSignature) internal {
+        bytes memory safeTransferData = abi.encodeWithSelector(
+            IGnosisSafe.execTransaction.selector,
+            address(smartVault),
+            value,
+            new bytes(0),
+            IGnosisSafe.Operation.Call,
+            0,
+            0,
+            0,
+            address(0),
+            address(0),
+            contractSignature
+        );
+
+        // solhint-disable-next-line avoid-low-level-calls
+        smartVault.call(safe, safeTransferData, 0, new bytes(0));
     }
 
     /**
