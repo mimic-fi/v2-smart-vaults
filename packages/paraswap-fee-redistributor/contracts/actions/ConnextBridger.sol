@@ -31,11 +31,13 @@ contract ConnextBridger is BaseAction, TokenThresholdAction, RelayedAction {
     // Connext bridge connector source ID
     uint8 public constant CONNEXT_BRIDGE_SOURCE = 2;
 
+    uint256 public maxSlippage;
     uint256 public maxRelayerFeePct;
     uint256 public destinationChainId;
     EnumerableSet.AddressSet private allowedTokens;
 
     event AllowedTokenSet(address indexed token, bool allowed);
+    event MaxSlippageSet(uint256 maxSlippage);
     event MaxRelayerFeePctSet(uint256 maxFeePct);
     event DestinationChainIdSet(uint256 indexed chainId);
 
@@ -44,6 +46,7 @@ contract ConnextBridger is BaseAction, TokenThresholdAction, RelayedAction {
         address registry;
         address smartVault;
         address[] allowedTokens;
+        uint256 maxSlippage;
         uint256 maxRelayerFeePct;
         uint256 destinationChainId;
         address thresholdToken;
@@ -57,6 +60,7 @@ contract ConnextBridger is BaseAction, TokenThresholdAction, RelayedAction {
         smartVault = ISmartVault(config.smartVault);
         emit SmartVaultSet(config.smartVault);
 
+        _setMaxSlippage(config.maxSlippage);
         _setMaxRelayerFeePct(config.maxRelayerFeePct);
         _setDestinationChainId(config.destinationChainId);
         for (uint256 i = 0; i < config.allowedTokens.length; i++) _setAllowedToken(config.allowedTokens[i], true);
@@ -84,6 +88,10 @@ contract ConnextBridger is BaseAction, TokenThresholdAction, RelayedAction {
         return allowedTokens.contains(token);
     }
 
+    function setMaxSlippage(uint256 newMaxSlippage) external auth {
+        _setMaxSlippage(newMaxSlippage);
+    }
+
     function setMaxRelayerFeePct(uint256 newMaxRelayerFeePct) external auth {
         _setMaxRelayerFeePct(newMaxRelayerFeePct);
     }
@@ -96,18 +104,19 @@ contract ConnextBridger is BaseAction, TokenThresholdAction, RelayedAction {
         _setDestinationChainId(chainId);
     }
 
-    function call(address token, uint256 amount, uint256 relayerFee) external auth nonReentrant {
+    function call(address token, uint256 amount, uint256 slippage, uint256 relayerFee) external auth nonReentrant {
         _initRelayedTx();
         require(amount > 0, 'BRIDGER_AMOUNT_ZERO');
         require(isTokenAllowed(token), 'BRIDGER_TOKEN_NOT_ALLOWED');
         require(destinationChainId != 0, 'BRIDGER_DEST_CHAIN_NOT_SET');
+        require(slippage <= maxSlippage, 'BRIDGER_SLIPPAGE_ABOVE_MAX');
         require(relayerFee.divUp(amount) <= maxRelayerFeePct, 'BRIDGER_RELAYER_FEE_ABOVE_MAX');
         _validateThreshold(token, amount);
 
         emit Executed();
         uint256 gasRefund = _payRelayedTx(token);
         uint256 amountToBridge = amount - gasRefund;
-        uint256 minAmountOut = amountToBridge - relayerFee;
+        uint256 minAmountOut = amountToBridge.mulUp(FixedPoint.ONE - slippage);
 
         smartVault.bridge(
             CONNEXT_BRIDGE_SOURCE,
@@ -126,6 +135,12 @@ contract ConnextBridger is BaseAction, TokenThresholdAction, RelayedAction {
         if (allowed ? allowedTokens.add(token) : allowedTokens.remove(token)) {
             emit AllowedTokenSet(token, allowed);
         }
+    }
+
+    function _setMaxSlippage(uint256 newMaxSlippage) private {
+        require(newMaxSlippage <= FixedPoint.ONE, 'BRIDGER_MAX_SLIPPAGE_GT_ONE');
+        maxSlippage = newMaxSlippage;
+        emit MaxSlippageSet(newMaxSlippage);
     }
 
     function _setMaxRelayerFeePct(uint256 newMaxRelayerFeePct) private {
