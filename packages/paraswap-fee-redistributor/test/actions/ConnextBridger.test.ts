@@ -32,6 +32,7 @@ describe('ConnextBridger', () => {
         registry: mimic.registry.address,
         smartVault: smartVault.address,
         allowedTokens: [mimic.wrappedNativeToken.address],
+        maxSlippage: fp(0.2),
         maxRelayerFeePct: fp(0.1),
         destinationChainId: 1,
         thresholdToken: mimic.wrappedNativeToken.address,
@@ -53,6 +54,7 @@ describe('ConnextBridger', () => {
       expect(await action.registry()).to.be.equal(mimic.registry.address)
       expect(await action.smartVault()).to.be.equal(smartVault.address)
       expect(await action.destinationChainId()).to.be.equal(1)
+      expect(await action.maxSlippage()).to.be.equal(fp(0.2))
       expect(await action.maxRelayerFeePct()).to.be.equal(fp(0.1))
       expect(await action.isTokenAllowed(mimic.wrappedNativeToken.address)).to.be.true
 
@@ -265,6 +267,50 @@ describe('ConnextBridger', () => {
     })
   })
 
+  describe('setMaxSlippage', () => {
+    context('when the sender is authorized', () => {
+      beforeEach('set sender', async () => {
+        const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
+        await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
+        action = action.connect(owner)
+      })
+
+      context('when the pct is not above one', () => {
+        const maxSlippage = fp(0.1)
+
+        it('sets the relayer fee pct', async () => {
+          await action.setMaxSlippage(maxSlippage)
+
+          expect(await action.maxSlippage()).to.be.equal(maxSlippage)
+        })
+
+        it('emits an event', async () => {
+          const tx = await action.setMaxSlippage(maxSlippage)
+
+          await assertEvent(tx, 'MaxSlippageSet', { maxSlippage })
+        })
+      })
+
+      context('when the pct is above one', () => {
+        const pct = fp(1).add(1)
+
+        it('reverts', async () => {
+          await expect(action.setMaxSlippage(pct)).to.be.revertedWith('BRIDGER_MAX_SLIPPAGE_GT_ONE')
+        })
+      })
+    })
+
+    context('when the sender is not authorized', () => {
+      beforeEach('set sender', () => {
+        action = action.connect(other)
+      })
+
+      it('reverts', async () => {
+        await expect(action.setMaxSlippage(1)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+      })
+    })
+  })
+
   describe('setMaxRelayerFeePct', () => {
     context('when the sender is authorized', () => {
       beforeEach('set sender', async () => {
@@ -313,6 +359,7 @@ describe('ConnextBridger', () => {
     let token: Contract
 
     const SOURCE = 2
+    const MAX_SLIPPAGE = fp(0.05)
     const MAX_RELAYER_FEE_PCT = fp(0.1)
     const DESTINATION_CHAIN_ID = 5
 
@@ -325,6 +372,12 @@ describe('ConnextBridger', () => {
       await smartVault.connect(owner).authorize(action.address, wrapRole)
       const bridgeRole = smartVault.interface.getSighash('bridge')
       await smartVault.connect(owner).authorize(action.address, bridgeRole)
+    })
+
+    beforeEach('set max slippage', async () => {
+      const setMaxSlippageRole = action.interface.getSighash('setMaxSlippage')
+      await action.connect(owner).authorize(owner.address, setMaxSlippageRole)
+      await action.connect(owner).setMaxSlippage(MAX_SLIPPAGE)
     })
 
     beforeEach('set max relayer fee', async () => {
@@ -360,65 +413,81 @@ describe('ConnextBridger', () => {
             await token.mint(smartVault.address, amount)
           })
 
-          context('when the relayer fee is below the limit', () => {
-            const relayerFee = amount.mul(MAX_RELAYER_FEE_PCT).div(fp(1))
+          context('when the slippage is below the limit', () => {
+            const slippage = MAX_SLIPPAGE
 
-            context('when the current balance passes the threshold', () => {
-              const threshold = amount
+            context('when the relayer fee is below the limit', () => {
+              const relayerFee = amount.mul(MAX_RELAYER_FEE_PCT).div(fp(1))
 
-              beforeEach('set threshold', async () => {
-                const setThresholdRole = action.interface.getSighash('setThreshold')
-                await action.connect(owner).authorize(owner.address, setThresholdRole)
-                await action.connect(owner).setThreshold(token.address, threshold)
-              })
+              context('when the current balance passes the threshold', () => {
+                const threshold = amount
 
-              it('does not call the wrap primitive', async () => {
-                const tx = await action.call(token.address, amount, relayerFee)
+                beforeEach('set threshold', async () => {
+                  const setThresholdRole = action.interface.getSighash('setThreshold')
+                  await action.connect(owner).authorize(owner.address, setThresholdRole)
+                  await action.connect(owner).setThreshold(token.address, threshold)
+                })
 
-                await assertNoIndirectEvent(tx, smartVault.interface, 'Wrap')
-              })
+                it('does not call the wrap primitive', async () => {
+                  const tx = await action.call(token.address, amount, slippage, relayerFee)
 
-              it('calls the bridge primitive', async () => {
-                const tx = await action.call(token.address, amount, relayerFee)
+                  await assertNoIndirectEvent(tx, smartVault.interface, 'Wrap')
+                })
 
-                await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
-                  source: SOURCE,
-                  chainId: DESTINATION_CHAIN_ID,
-                  token,
-                  amountIn: amount,
-                  minAmountOut: amount.sub(relayerFee),
-                  data: defaultAbiCoder.encode(['uint256'], [relayerFee]),
+                it('calls the bridge primitive', async () => {
+                  const tx = await action.call(token.address, amount, slippage, relayerFee)
+
+                  await assertIndirectEvent(tx, smartVault.interface, 'Bridge', {
+                    source: SOURCE,
+                    chainId: DESTINATION_CHAIN_ID,
+                    token,
+                    amountIn: amount,
+                    minAmountOut: amount.mul(fp(1).sub(slippage)).div(fp(1)),
+                    data: defaultAbiCoder.encode(['uint256'], [relayerFee]),
+                  })
+                })
+
+                it('emits an Executed event', async () => {
+                  const tx = await action.call(token.address, amount, slippage, relayerFee)
+
+                  await assertEvent(tx, 'Executed')
                 })
               })
 
-              it('emits an Executed event', async () => {
-                const tx = await action.call(token.address, amount, relayerFee)
+              context('when the current balance does not pass the threshold', () => {
+                const threshold = amount.mul(2)
 
-                await assertEvent(tx, 'Executed')
+                beforeEach('set threshold', async () => {
+                  const setThresholdRole = action.interface.getSighash('setThreshold')
+                  await action.connect(owner).authorize(owner.address, setThresholdRole)
+                  await action.connect(owner).setThreshold(token.address, threshold)
+                })
+
+                it('reverts', async () => {
+                  await expect(action.call(token.address, amount, slippage, relayerFee)).to.be.revertedWith(
+                    'MIN_THRESHOLD_NOT_MET'
+                  )
+                })
               })
             })
 
-            context('when the current balance does not pass the threshold', () => {
-              const threshold = amount.mul(2)
-
-              beforeEach('set threshold', async () => {
-                const setThresholdRole = action.interface.getSighash('setThreshold')
-                await action.connect(owner).authorize(owner.address, setThresholdRole)
-                await action.connect(owner).setThreshold(token.address, threshold)
-              })
+            context('when the relayer fee is above the limit', () => {
+              const relayerFee = amount.mul(MAX_RELAYER_FEE_PCT).div(fp(1)).add(1)
 
               it('reverts', async () => {
-                await expect(action.call(token.address, amount, relayerFee)).to.be.revertedWith('MIN_THRESHOLD_NOT_MET')
+                await expect(action.call(token.address, amount, slippage, relayerFee)).to.be.revertedWith(
+                  'BRIDGER_RELAYER_FEE_ABOVE_MAX'
+                )
               })
             })
           })
 
-          context('when the relayer fee is above the limit', () => {
-            const relayerFee = amount.mul(MAX_RELAYER_FEE_PCT).div(fp(1)).add(1)
+          context('when the slippage is above the limit', () => {
+            const slippage = MAX_SLIPPAGE.add(1)
 
             it('reverts', async () => {
-              await expect(action.call(token.address, amount, relayerFee)).to.be.revertedWith(
-                'BRIDGER_RELAYER_FEE_ABOVE_MAX'
+              await expect(action.call(token.address, amount, slippage, 0)).to.be.revertedWith(
+                'BRIDGER_SLIPPAGE_ABOVE_MAX'
               )
             })
           })
@@ -426,7 +495,7 @@ describe('ConnextBridger', () => {
 
         context('when the given token is not allowed', () => {
           it('reverts', async () => {
-            await expect(action.call(token.address, amount, 0)).to.be.revertedWith('BRIDGER_TOKEN_NOT_ALLOWED')
+            await expect(action.call(token.address, amount, 0, 0)).to.be.revertedWith('BRIDGER_TOKEN_NOT_ALLOWED')
           })
         })
       })
@@ -435,14 +504,14 @@ describe('ConnextBridger', () => {
         const amount = 0
 
         it('reverts', async () => {
-          await expect(action.call(token.address, amount, 0)).to.be.revertedWith('BRIDGER_AMOUNT_ZERO')
+          await expect(action.call(token.address, amount, 0, 0)).to.be.revertedWith('BRIDGER_AMOUNT_ZERO')
         })
       })
     })
 
     context('when the sender is not authorized', () => {
       it('reverts', async () => {
-        await expect(action.call(ZERO_ADDRESS, 0, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
+        await expect(action.call(ZERO_ADDRESS, 0, 0, 0)).to.be.revertedWith('AUTH_SENDER_NOT_ALLOWED')
       })
     })
   })
