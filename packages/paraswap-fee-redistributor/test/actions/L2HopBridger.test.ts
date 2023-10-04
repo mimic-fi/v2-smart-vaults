@@ -114,7 +114,7 @@ describe('L2HopBridger', () => {
             itUnsetsTheTokenAmm()
           })
 
-          context('when the token was not set', () => {
+          context('when the token amm was not set', () => {
             beforeEach('unset token amm', async () => {
               await action.setTokenAmm(token.address, ZERO_ADDRESS)
             })
